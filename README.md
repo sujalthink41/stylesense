@@ -2,7 +2,7 @@
 
 **An AI fashion stylist for India.** Tell it what you need ("summer t-shirt around ₹500"), answer a few quick taps, and swipe through the best picks across Amazon, Flipkart and Myntra, with price comparison, virtual try-on and outfit suggestions.
 
-> Status: **in active development**: backend Phase 1, checkpoint **CP1 complete**. See [progress](docs/06-checkpoints.md).
+> Status: **in active development**: backend Phase 1, checkpoint **CP2 complete**. See [progress](docs/06-checkpoints.md).
 
 ---
 
@@ -39,6 +39,7 @@ Details: [How the system works](docs/07-system-architecture.md) · [Technical sp
 | Mobile *(Phase 2)* | React Native (Expo), TypeScript, Zustand, TanStack Query |
 | Admin *(Phase 2)* | Next.js, shadcn/ui |
 | Tooling | uv, ruff, mypy (strict), import-linter, pytest + testcontainers, pre-commit |
+| Observability | structlog (PII-redacted JSON), Prometheus, OpenTelemetry → Tempo, Grafana, GlitchTip, Uptime Kuma |
 | Ops | Docker (multi-stage, non-root), Docker Compose, GitHub Actions, self-hosted |
 
 ## Getting started
@@ -54,6 +55,12 @@ make up      # start postgres, redis, migrations and the API (hot reload)
 
 - API docs: http://localhost:8000/docs
 - Liveness: http://localhost:8000/healthz · Readiness: http://localhost:8000/readyz
+
+Optional observability stack:
+
+```bash
+make obs-up   # + Grafana :3001, Prometheus :9090, GlitchTip :8001, Uptime Kuma :3002, Tempo
+```
 
 Run `make help` to see every command.
 
@@ -74,8 +81,9 @@ make migration m="add users"   # new Alembic migration
 
 ```
 backend/        FastAPI service (src/stylesense, tests, alembic, Dockerfile)
-infra/compose/  Docker Compose stack (base + dev override)
-docs/           Product, business, spec, DB design, checkpoints, ADRs
+infra/compose/  Docker Compose stack (base, dev and observability overlays)
+infra/observability/  Collector, Tempo, Prometheus and Grafana config
+docs/           Product, business, spec, DB design, checkpoints, ADRs, runbooks
 .github/        CI workflows, Dependabot, PR template
 Makefile        Developer commands
 ```

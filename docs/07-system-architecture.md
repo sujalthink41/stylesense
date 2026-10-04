@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP1 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. No product features yet. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP2 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. No product features yet. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -65,6 +65,29 @@ Raise a subclass of `AppError` (`NotFoundError`, `ConflictError`, …). One hand
 - `Base` uses a naming convention so constraint names, and therefore Alembic diffs, are deterministic.
 - Migrations run as a one-shot `migrate` container before `api` starts. Migrations get no statement timeout but a 10 s lock timeout.
 
+## 2e. Observability *(built)*
+
+```
+request ──▶ RequestContextMiddleware ──▶ OTel server span ──▶ handler ──▶ DB / Redis spans
+              │ request id (X-Request-ID)
+              │ access log (route template, status, duration)
+              │ RED metrics (http_requests_total, http_request_duration_seconds)
+              └ last-resort 500 → GlitchTip
+```
+
+| Signal | How it's produced | Where to see it |
+|---|---|---|
+| **Request id** | Every request gets one (a safe inbound `X-Request-ID` is reused). It's bound to every log line and returned in the response header and in problem+json bodies. | Response header; logs; GlitchTip tag |
+| **Logs** | structlog JSON → stdout. Each line has `request_id`, `trace_id`, `span_id`. A **redaction processor** masks emails, Indian mobile numbers, bearer tokens, JWTs and sensitive keys before anything is written. | `make logs s=api` |
+| **Metrics** | `GET /metrics` (internal only; the proxy must never expose it). HTTP RED by **route template**, unknown methods collapsed to `OTHER`, DB pool gauges read at scrape time, process/GC stats. Per-app registry, so no global state. | Prometheus → Grafana "StyleSense API" dashboard |
+| **Traces** | OpenTelemetry server spans named `GET /route/{param}`, plus SQLAlchemy and Redis client spans. Exported over OTLP/HTTP to the collector, batched off the request path. Probes and `/metrics` are not traced. Off unless `APP_OTEL_ENABLED=true`. | Grafana → Explore → Tempo |
+| **Errors** | Unexpected exceptions are captured once with the request id, after scrubbing (only user-data fields are scrubbed, so `release` stays intact). Expected `AppError`s are not reported. Off unless `APP_SENTRY_DSN` is set. | GlitchTip |
+| **Uptime** | Uptime Kuma monitors `/healthz` and `/readyz` from outside the app (monitors are added in its UI). | Uptime Kuma |
+
+**Middleware is pure ASGI** (not `BaseHTTPMiddleware`) so SSE streaming in CP7 works. If an error happens *after* a stream has started, it re-raises instead of writing a second response.
+
+**SQLAlchemy is pinned to `<2.1`**: the OpenTelemetry SQLAlchemy instrumentation silently does nothing on 2.1. `tests/integration/test_tracing_clients.py` fails if DB spans ever disappear.
+
 ## 3. Request lifecycle: a stylist turn *(planned)*
 
 1. The user taps **"Party"** on the home screen → `POST /v1/stylist/sessions {entry: "occasion_tile", value: "party"}` → the backend creates `stylist_sessions` row and LangGraph thread.
@@ -107,6 +130,8 @@ make check     # lint, format, mypy --strict, import layers, tests + coverage ga
 make help      # every command
 ```
 
+Observability: `make obs-up` adds Grafana (http://localhost:3001), Prometheus (:9090), GlitchTip (:8001), Uptime Kuma (:3002), Tempo and the OTel Collector. First run: create a GlitchTip account and project, then put its DSN in `APP_SENTRY_DSN`.
+
 Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid clashing with a native Postgres or other projects).
 
 ## 8. Where to look for…
@@ -115,6 +140,9 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 |---|---|
 | Add a config value | `platform/config.py` (`APP_*` env var, validated) + `.env.example` |
 | Add an error type | Subclass `AppError` in `platform/errors.py` or the module's `exceptions.py` |
+| Add a metric | Define it next to its owner with the app's registry; label by bounded values only (route template, status), never ids |
+| Log something | `structlog.get_logger(__name__).info("event_name", key=value)`; never log raw request bodies |
+| Investigate a user report | Ask for the `X-Request-ID` → search logs → open the trace by `trace_id` in Tempo |
 | Add a dependency probe | Implement `HealthCheck` in `infra/health.py`, register it in `bootstrap/container.py` |
 | Add a new UI component | `backend/src/stylesense/ai/genui/` (schema) → regenerate types → `mobile/src/genui/components/` + register |
 | Change which model a task uses | Admin → AI → Task configs (or `llm_task_configs`) |
@@ -131,3 +159,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP0 | 2026-10-04 | Initial docs: product, business, spec, slices, DB design, checkpoints, this doc, key concepts. |
 | CP0 | 2026-10-04 | Added engineering standards (doc 09), root `CLAUDE.md`; checkpoints reordered backend-first. |
 | CP1 | 2026-10-04 | Backend foundation: layered package (`platform`/`infra`/`bootstrap`/`api`), typed config, JSON logging, problem+json errors, DB engine + Unit of Work, Redis, `/healthz` + `/readyz`, Alembic baseline (vector, citext), multi-stage non-root Docker image, Compose stack, Makefile, pre-commit, CI. |
+| CP2 | 2026-10-04 | Observability: request ids, PII-redacted JSON logs with trace correlation, RED + pool metrics on `/metrics`, OpenTelemetry tracing (API, SQLAlchemy, Redis) via collector → Tempo, GlitchTip error reporting, provisioned Grafana dashboard, Uptime Kuma, runbooks. SQLAlchemy pinned <2.1. |

@@ -12,4 +12,4 @@
 | 08 | [Key Concepts](08-key-concepts.md) | Concepts you can learn from this project |
 | 09 | [Engineering Standards](09-engineering-standards.md) | Mandatory coding, testing, idempotency, observability rules |
 
-Decisions: [Architecture Decision Records](adr/README.md)
+Decisions: [Architecture Decision Records](adr/README.md) · Operations: [Runbooks](runbooks/README.md)

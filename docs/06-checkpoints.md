@@ -15,7 +15,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP0 | Product, technical & engineering docs | — | ✅ |
 | **Phase 1: Backend** | | | |
 | CP1 | Backend foundation & project structure | S0 | ✅ |
-| CP2 | Observability foundation | S0 | ⬜ |
+| CP2 | Observability foundation | S0 | ✅ |
 | CP3 | Cross-cutting guards: idempotency, rate limiting, locks, outbox | S0 | ⬜ |
 | CP4 | Auth & accounts | S1 | ⬜ |
 | CP5 | Catalog & mock data | S2 | ⬜ |
@@ -54,7 +54,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 **Exit:** `docker compose up` → healthy; `/readyz` reflects DB/Redis outages (tested); CI green on a clean clone.
 
 ## CP2 — Observability foundation
-**Deliverables:** structlog JSON with request context + PII redaction, request-id/trace-id middleware, OpenTelemetry tracing (API, DB, Redis, HTTP), Prometheus metrics (RED + pools), GlitchTip SDK, Compose services for Prometheus, Grafana (base dashboard), GlitchTip, Langfuse, Uptime Kuma; `docs/runbooks/` template.
+**Deliverables:** structlog JSON with request context + PII redaction, request-id/trace-id middleware, OpenTelemetry tracing (API, DB, Redis), Prometheus metrics (RED + pools), GlitchTip SDK, Compose overlay for OTel Collector, Tempo, Prometheus, Grafana (provisioned dashboard), GlitchTip, Uptime Kuma; `docs/runbooks/` template. Langfuse moves to CP6 (ADR 0004).
 **Exit:** one request is traceable across logs/metrics/traces by id; PII redaction tested; a forced error appears in GlitchTip.
 
 ## CP3 — Cross-cutting guards
