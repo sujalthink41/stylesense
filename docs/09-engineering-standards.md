@@ -63,10 +63,10 @@ backend/
 │   │   └── exceptions.py
 │   ├── ai/                        # gateway/, genui/, prompts/ (CP6–CP7)
 │   ├── integrations/              # adapters implementing module ports (sources, try-on, push, storage)
-│   ├── guards/                    # idempotency, rate limits, breaker, locks, single-flight, outbox (CP3)
+│   ├── guards/                    # idempotency, rate limits, locks, single-flight, bulkheads, outbox
 │   ├── infra/                     # clients for external infra: database, redis, health probes
 │   ├── platform/                  # pure foundations: config, logging, errors, clock, health runner
-│   └── workers/                   # ARQ settings, tasks, cron (CP3)
+│   └── workers/                   # worker process: outbox relay, periodic tasks
 └── tests/
     ├── unit/                      # mirrors src/, no I/O
     ├── integration/               # real Postgres/Redis (testcontainers)
@@ -161,7 +161,7 @@ main → api → bootstrap → modules → guards → infra → platform
 | Poll vote | Natural key `UNIQUE(poll_id, voter_fingerprint)` |
 | Try-on job | Key + dedupe on `(user, selfie, product)` within 10 min, so a double tap doesn't make two paid calls |
 | Token refresh | Rotation + a **short grace window** (≈ 30 s) where a just-rotated token returns the same new pair, so parallel app requests aren't flagged as theft |
-| Background jobs (ARQ is at-least-once) | Deterministic `job_id`; handlers check state before acting |
+| Background jobs (outbox delivery is at-least-once) | Handlers dedupe on `envelope.id` / check state before acting |
 | Push notifications | Dedupe key per event (e.g. `price_drop:{alert_id}:{snapshot_id}`) stored before send |
 | Cron jobs | Distributed lock (Redis) so only one instance runs each schedule |
 | Embedding generation | Skip when the content hash is unchanged |

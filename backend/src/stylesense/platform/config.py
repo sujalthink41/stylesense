@@ -50,6 +50,18 @@ class Settings(BaseSettings):
     otel_sample_ratio: float = Field(default=1.0, ge=0, le=1)
     sentry_dsn: str | None = None  # GlitchTip speaks the Sentry protocol
 
+    max_in_flight: int = Field(default=256, ge=1, le=10_000)  # per instance; excess is shed
+    max_queued: int = Field(default=64, ge=0, le=10_000)
+    rate_limit_fail_open: bool = True
+    idempotency_lock_ttl_s: float = Field(default=60, gt=0, le=600)
+    idempotency_ttl_s: float = Field(default=86_400, gt=0, le=7 * 86_400)
+
+    outbox_batch_size: int = Field(default=50, ge=1, le=1_000)
+    outbox_max_attempts: int = Field(default=10, ge=1, le=100)
+    outbox_poll_interval_s: float = Field(default=1.0, gt=0, le=60)
+    worker_heartbeat_file: str = "/tmp/stylesense-worker.heartbeat"  # noqa: S108  # container-local
+    worker_metrics_port: int = Field(default=9100, ge=1, le=65_535)
+
     @field_validator("database_url")
     @classmethod
     def _require_async_driver(cls, url: PostgresDsn) -> PostgresDsn:

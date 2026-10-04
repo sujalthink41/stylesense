@@ -1,6 +1,9 @@
 from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 from testcontainers.community.postgres import PostgresContainer
@@ -11,6 +14,7 @@ from stylesense.infra.redis import create_redis
 from stylesense.platform.config import Settings
 from tests.factories import make_settings
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 POSTGRES_IMAGE = "pgvector/pgvector:pg18"
 REDIS_IMAGE = "redis:8-alpine"
 
@@ -50,3 +54,13 @@ async def redis(settings: Settings) -> AsyncIterator[Redis]:
     client = create_redis(settings)
     yield client
     await client.aclose()
+
+
+@pytest.fixture(scope="session")
+def migrated(settings: Settings) -> None:
+    """Apply all migrations once per test session."""
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", str(settings.database_url).replace("%", "%%"))
+    cfg.attributes["configure_logger"] = False
+    command.upgrade(cfg, "head")

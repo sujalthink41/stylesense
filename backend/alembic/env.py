@@ -6,7 +6,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from stylesense.infra.database import Base
+from stylesense.bootstrap.models import Base
 from stylesense.platform.config import get_settings
 
 config = context.config

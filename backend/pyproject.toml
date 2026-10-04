@@ -107,7 +107,7 @@ root_package = "stylesense"
 name = "Layered architecture"
 type = "layers"
 layers = [
-  "stylesense.main",
+  "stylesense.main | stylesense.workers",
   "stylesense.api",
   "stylesense.bootstrap",
   "(stylesense.modules)",

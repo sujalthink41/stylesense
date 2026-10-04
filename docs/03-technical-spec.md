@@ -27,7 +27,7 @@ See the feature list in `01-product-overview.md` §6 (F1–F14).
 │ Mobile app (Expo)  │ ──────────────────────────────────▶ │ Caddy (reverse proxy)                    │
 │ GenUI renderer     │ ◀── SSE stream of UI envelopes ──── │                                          │
 └────────────────────┘                                     │  ├─ api       FastAPI (stateless, N pods)│
-┌────────────────────┐                                     │  ├─ worker    ARQ background workers     │
+┌────────────────────┐                                     │  ├─ worker    outbox relay + periodic jobs│
 │ Admin (Next.js)    │ ──────────────────────────────────▶ │  ├─ admin     Next.js admin + public web │
 └────────────────────┘                                     │  ├─ postgres  PG 18 + pgvector           │
 ┌────────────────────┐                                     │  ├─ redis     cache/limits/queue         │
@@ -67,7 +67,7 @@ See the feature list in `01-product-overview.md` §6 (F1–F14).
 | DB access | SQLAlchemy 2.0 (async) + asyncpg; Alembic migrations |
 | AI orchestration | LangGraph (Postgres checkpointer) |
 | LLM abstraction | Own `LLMGateway` over LangChain `init_chat_model` (provider-agnostic) |
-| Background jobs | ARQ (async-native, Redis-backed) + scheduled cron jobs |
+| Background jobs | Postgres transactional outbox (`FOR UPDATE SKIP LOCKED`) + worker process with periodic tasks; Redis locks for cron-style jobs (ADR 0005) |
 | Rate limiting | Redis sliding-window/token-bucket (own middleware; `limits` library) |
 | Resilience | `pybreaker`-style circuit breaker (Redis-shared state) + `tenacity` retries |
 | Auth | Google ID-token verification (`google-auth`) + own JWT (PyJWT) |
@@ -105,7 +105,7 @@ StyleSense/
 │   │   │   └── genui/    # component schemas (Pydantic) = the contract
 │   │   ├── sources/      # product source adapters (mock, amazon, flipkart, network)
 │   │   ├── tryon/        # try-on provider adapters
-│   │   └── workers/      # ARQ tasks & cron
+│   │   └── workers/      # outbox relay & periodic tasks
 │   └── tests/
 ├── admin/                # Next.js admin + public pages
 ├── packages/
@@ -340,7 +340,7 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 - **Swipe learning:** each product has an embedding. The user's `taste_vector` is an exponential moving average: `taste = normalize(taste + α·liked − β·skipped)`. Tag counters also update. No LLM is involved.
 - **Style DNA:** a tap-only onboarding writing to `style_profiles`. It seeds the taste vector from chosen style images.
 - **Shop from photo:** upload → MinIO (private) → moderation → `photo.understand` (vision → attributes JSON) → embedding → retrieve + rank → UI.
-- **Virtual try-on:** `POST /v1/tryon` → job row → ARQ worker → `TryOnProvider` adapter → result to MinIO → push + SSE patch. Selfies and results are deleted after 24 h (cron). Signed URLs expire in 15 min.
+- **Virtual try-on:** `POST /v1/tryon` → job row + outbox message → worker → `TryOnProvider` adapter → result to MinIO → push + SSE patch. Selfies and results are deleted after 24 h (cron). Signed URLs expire in 15 min.
 - **Polls:** create from 2–4 items → public URL `https://<domain>/p/{slug}` → web vote page (Next.js, no login; device cookie + rate limit). The owner sees live results in the app.
 - **Share a look:** rendered on device with view-shot. Deep link `https://<domain>/l/{slug}` (Android App Links; falls back to the web page + Play Store link).
 - **Trending feed:** a nightly cron builds curated collections (rules + an optional LLM title). The admin can pin or curate.

@@ -7,3 +7,4 @@ Copy [`_template.md`](_template.md) to `<alert-name>.md`.
 | Runbook | Fires when |
 |---|---|
 | [api-not-ready](api-not-ready.md) | `/readyz` returns 503 |
+| [outbox-backlog](outbox-backlog.md) | Outbox backlog grows or dead letters appear |

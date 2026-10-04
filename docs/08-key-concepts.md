@@ -86,8 +86,8 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 **What:** store ₹499.00 as `49900` paise.
 **Why:** floating-point numbers can't represent money exactly (0.1 + 0.2 ≠ 0.3).
 
-## 19. Background jobs & queues (ARQ + Redis)
-**What:** slow work (try-on, embeddings, alerts) is put on a queue and processed by workers; the API returns immediately.
+## 19. Background jobs & queues (outbox + worker)
+**What:** slow work (try-on, embeddings, alerts) is recorded as an outbox message and processed by the worker process; the API returns immediately.
 **Why:** fast responses, retries for failed jobs, and protection of the API from slow third parties.
 
 ## 20. Bulkheads
@@ -203,3 +203,32 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 ## 48. Property-based testing in practice
 **What happened:** Hypothesis generated the email `'@A.Ao` and found it slipped past our redaction regex, and a test showed `stylesense@1.2.3` (a release name) being redacted as an email. Neither case was in the hand-written examples.
 **Lesson:** for parsers, validators and scrubbers, generate inputs instead of guessing them.
+
+## 49. Fail open vs fail closed
+**What:** when a safety mechanism's dependency (Redis) is down, either let requests through (*open*) or reject them (*closed*).
+**How we choose:** rate limiting fails **open** (better to serve without limits for a minute than be down). Idempotency fails **closed** (running a payment or a paid try-on twice is worse than a 503).
+
+## 50. Sliding-window log vs token bucket
+**Sliding-window log:** remember the timestamp of each allowed request; allow a new one only if fewer than `limit` happened in the last `window`. Exact, a little more memory.
+**Token bucket:** a bucket holds up to `limit` tokens, refilled at a steady rate; each request spends one. Allows short bursts, then smooths to the average rate.
+**Why Lua:** the check-and-update must be **atomic**; a Lua script runs in Redis as one indivisible step, so two API instances can't both take the last slot.
+
+## 51. `SELECT … FOR UPDATE SKIP LOCKED`
+**What:** lock the rows you select; rows already locked by someone else are skipped instead of waited on.
+**Why:** turns a plain table into a safe multi-consumer queue. Four workers can drain the outbox in parallel and no message is handled twice.
+
+## 52. Load shedding
+**What:** when an instance is at capacity, reject new work immediately (503 + `Retry-After`) instead of queueing it.
+**Why:** queued requests time out anyway and drag every other request down with them. Fast rejection keeps the instance healthy and lets clients retry later.
+
+## 53. Heartbeats for liveness
+**What:** a process proves it's alive by doing real work and touching a timestamp; a checker fails it when the timestamp gets old.
+**Why:** a "health endpoint" served by a separate thread can stay green while the main loop is frozen. A heartbeat from the loop itself can't lie.
+
+## 54. Lock ownership tokens
+**What:** each lock holder stores a random token; release and extend only succeed if the token still matches.
+**Why:** if a holder pauses past the TTL and someone else takes the lock, the slow holder must not delete the new owner's lock. The same idea protects idempotency results.
+
+## 55. Never log stack-frame locals
+**What happened:** exception logs included every frame's local variables by default, which can include tokens, request bodies and PII. A test now asserts a secret local never appears.
+**Lesson:** redaction is a safety net, not a strategy; don't collect sensitive data in the first place.

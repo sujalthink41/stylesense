@@ -3,6 +3,10 @@ from dataclasses import dataclass, field
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from stylesense.guards.idempotency import IdempotencyGuard
+from stylesense.guards.locks import LockManager
+from stylesense.guards.outbox import OutboxWriter
+from stylesense.guards.rate_limit import RateLimiter
 from stylesense.infra.database import create_engine, create_session_factory
 from stylesense.infra.health import PostgresHealthCheck, RedisHealthCheck
 from stylesense.infra.redis import create_redis
@@ -21,6 +25,10 @@ class Container:
     session_factory: async_sessionmaker[AsyncSession]
     redis: Redis
     health_checks: tuple[HealthCheck, ...]
+    rate_limiter: RateLimiter
+    idempotency: IdempotencyGuard
+    locks: LockManager
+    outbox: OutboxWriter
     closed: bool = field(default=False, init=False)
 
     async def aclose(self) -> None:
@@ -37,11 +45,20 @@ def build_container(settings: Settings) -> Container:
     # Clients are lazy: nothing connects until first use.
     engine = create_engine(settings)
     redis = create_redis(settings)
+    clock = SystemClock()
     return Container(
         settings=settings,
-        clock=SystemClock(),
+        clock=clock,
         engine=engine,
         session_factory=create_session_factory(engine),
         redis=redis,
         health_checks=(PostgresHealthCheck(engine), RedisHealthCheck(redis)),
+        rate_limiter=RateLimiter(redis, clock, fail_open=settings.rate_limit_fail_open),
+        idempotency=IdempotencyGuard(
+            redis,
+            lock_ttl_s=settings.idempotency_lock_ttl_s,
+            result_ttl_s=settings.idempotency_ttl_s,
+        ),
+        locks=LockManager(redis),
+        outbox=OutboxWriter(clock),
     )

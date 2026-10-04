@@ -426,6 +426,72 @@
           "legendFormat": "{{instance}}"
         }
       ]
+    },
+    {
+      "id": 11,
+      "title": "Outbox backlog (pending messages)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "outbox_pending{job=\"stylesense-worker\"}",
+          "legendFormat": "pending"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Worker task runs by outcome",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (task, outcome) (rate(worker_task_runs_total{job=\"stylesense-worker\"}[5m]))",
+          "legendFormat": "{{task}} {{outcome}}"
+        }
+      ]
     }
   ]
 }

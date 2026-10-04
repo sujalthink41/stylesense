@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP2 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. No product features yet. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP3 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. No product features yet. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -30,7 +30,8 @@ StyleSense is a mobile app where an AI stylist helps users find clothes within b
 | `backend/src/stylesense/ai/gateway` *(planned)* | LangChain models + own code | Provider-agnostic LLM calls with guardrails |
 | `backend/src/stylesense/ai/genui` *(planned)* | Pydantic | The UI component contract |
 | `backend/src/stylesense/integrations/sources` *(planned)* | Python adapters | Product data sources |
-| `backend/src/stylesense/workers` *(planned)* | ARQ | Try-on, embeddings, alerts, feed, purges |
+| `backend/src/stylesense/workers` *(built: runtime + outbox relay)* | asyncio | Outbox delivery, periodic jobs; later try-on, embeddings, alerts, feed, purges |
+| `backend/src/stylesense/guards` *(built)* | Redis, Postgres | Idempotency, rate limits, locks, single-flight, bulkheads, outbox |
 | `admin/` *(planned)* | Next.js | Admin dashboard + public web pages |
 | Postgres 18 + pgvector *(built)* | | All data + vector search + LangGraph checkpoints |
 | Redis 8 *(built)* | | Cache, rate limits, breaker state, job queue, idempotency (`noeviction`) |
@@ -88,6 +89,37 @@ request ──▶ RequestContextMiddleware ──▶ OTel server span ──▶ 
 
 **SQLAlchemy is pinned to `<2.1`**: the OpenTelemetry SQLAlchemy instrumentation silently does nothing on 2.1. `tests/integration/test_tracing_clients.py` fails if DB spans ever disappear.
 
+## 2f. Reliability guards *(built)*
+
+| Guard | Problem it prevents | How | Failure mode |
+|---|---|---|---|
+| **Idempotency** (`guards/idempotency.py`, `api/idempotency.py`) | A retry or double tap creating two orders/try-ons | `Idempotency-Key` header → Redis record: claim (`SET NX`) → run once → store result (24 h). Same key + same request → replay with `Idempotent-Replayed: true`; same key + different request → 422; still running → 409 + `Retry-After` | **Fails closed** (503): we never run a side effect we can't deduplicate |
+| **Rate limiting** (`guards/rate_limit.py`, `api/rate_limit.py`) | Abuse, bots, runaway clients | Atomic Lua in Redis: exact **sliding-window log** or **token bucket**. Every `/v1` route inherits `api.per_ip` (60/min). 429 problem + `Retry-After`, `X-RateLimit-*` headers | **Fails open**: a Redis outage shouldn't take the API down |
+| **Load shedding** (`api/middleware.py`) | Overload turning into timeouts for everyone | Bulkhead caps in-flight requests per instance (`APP_MAX_IN_FLIGHT`, small queue); excess gets 503 + `Retry-After` immediately. Probes exempt | — |
+| **Distributed locks** (`guards/locks.py`) | Two workers running the same cron job | Redis `SET NX PX` + owner token; release/extend only by the owner (Lua) | Lock expires if the holder dies |
+| **Single-flight** (`guards/singleflight.py`) | Paying twice for identical concurrent LLM/embedding calls | Concurrent callers with the same key share one in-flight task (per process) | Errors reach every waiter; nothing is cached |
+| **Bulkheads** (`guards/bulkhead.py`) | One slow dependency starving everything | Bounded concurrency + bounded queue with wait timeout | 503 + `Retry-After` |
+
+### Outbox and worker *(built)*
+
+```
+use case ─┬─ business change ─┐
+          └─ OutboxWriter.add ┴─ one DB transaction ─► outbox_messages (pending)
+                                                            │
+worker: OutboxRelay ── FOR UPDATE SKIP LOCKED, one per tx ◄─┘
+          ├─ handler OK      → done
+          ├─ handler fails   → attempts+1, retry at now + backoff (exp + jitter)
+          └─ max attempts / no handler → dead (see runbook outbox-backlog)
+```
+
+- Run it: `python -m stylesense.workers` (the `worker` Compose service). Handlers are registered by topic in `workers/__main__.py`.
+- Periodic tasks: `PeriodicTask(name, interval_s, run, exclusive=False)`. `run` returns True when more work is waiting. `exclusive=True` takes a Redis lock so one worker runs it at a time.
+- Health: the worker touches a heartbeat file after each healthy iteration; `python -m stylesense.workers.healthcheck` fails if it's older than 90 s.
+- Metrics on `:9100`: `worker_task_runs_total{task,outcome}`, `worker_task_duration_seconds`, `outbox_pending`.
+- Graceful shutdown: SIGTERM lets in-flight iterations finish (20 s grace), then cancels stragglers.
+
+**Models registry:** every ORM model is imported in `bootstrap/models.py`. Alembic uses it, and `test_models_and_migrations_do_not_drift` fails if a model and the migrations disagree.
+
 ## 3. Request lifecycle: a stylist turn *(planned)*
 
 1. The user taps **"Party"** on the home screen → `POST /v1/stylist/sessions {entry: "occasion_tile", value: "party"}` → the backend creates `stylist_sessions` row and LangGraph thread.
@@ -143,6 +175,10 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Add a metric | Define it next to its owner with the app's registry; label by bounded values only (route template, status), never ids |
 | Log something | `structlog.get_logger(__name__).info("event_name", key=value)`; never log raw request bodies |
 | Investigate a user report | Ask for the `X-Request-ID` → search logs → open the trace by `trace_id` in Tempo |
+| Make a write endpoint safe to retry | Take `IdempotencyKey` as a dependency and wrap the use case in `run_idempotent(...)` |
+| Trigger a side effect after a write | `container.outbox.add(uow.session, topic, payload)` in the same Unit of Work; register a handler for `topic` |
+| Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
+| Rate-limit a route differently | `Depends(rate_limited("policy.name"))`; add the policy to `DEFAULT_POLICIES` |
 | Add a dependency probe | Implement `HealthCheck` in `infra/health.py`, register it in `bootstrap/container.py` |
 | Add a new UI component | `backend/src/stylesense/ai/genui/` (schema) → regenerate types → `mobile/src/genui/components/` + register |
 | Change which model a task uses | Admin → AI → Task configs (or `llm_task_configs`) |
@@ -160,3 +196,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP0 | 2026-10-04 | Added engineering standards (doc 09), root `CLAUDE.md`; checkpoints reordered backend-first. |
 | CP1 | 2026-10-04 | Backend foundation: layered package (`platform`/`infra`/`bootstrap`/`api`), typed config, JSON logging, problem+json errors, DB engine + Unit of Work, Redis, `/healthz` + `/readyz`, Alembic baseline (vector, citext), multi-stage non-root Docker image, Compose stack, Makefile, pre-commit, CI. |
 | CP2 | 2026-10-04 | Observability: request ids, PII-redacted JSON logs with trace correlation, RED + pool metrics on `/metrics`, OpenTelemetry tracing (API, SQLAlchemy, Redis) via collector → Tempo, GlitchTip error reporting, provisioned Grafana dashboard, Uptime Kuma, runbooks. SQLAlchemy pinned <2.1. |
+| CP3 | 2026-10-04 | Reliability guards: Redis idempotency (fail-closed), exact sliding-window + token-bucket rate limits on `/v1` (fail-open), load shedding, distributed locks, single-flight, bulkheads; transactional outbox (`SKIP LOCKED`) + worker process with heartbeat, metrics and graceful shutdown; model registry + migration drift test; exception logs no longer include stack-frame locals. |
