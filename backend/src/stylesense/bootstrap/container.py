@@ -10,10 +10,12 @@ from stylesense.guards.rate_limit import RateLimiter
 from stylesense.infra.database import UnitOfWork, create_engine, create_session_factory
 from stylesense.infra.health import PostgresHealthCheck, RedisHealthCheck
 from stylesense.infra.redis import create_redis
+from stylesense.integrations.embeddings.hashing import HashingEmbedder
 from stylesense.integrations.google_identity import GoogleIdTokenVerifier, google_signing_keys
 from stylesense.modules.auth.ports import IdentityVerifier
 from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
+from stylesense.modules.catalog.service import CatalogService
 from stylesense.modules.users.service import UsersService
 from stylesense.platform.clock import Clock, SystemClock
 from stylesense.platform.config import Settings
@@ -37,6 +39,7 @@ class Container:
     token_codec: AccessTokenCodec
     users: UsersService
     auth: AuthService
+    catalog: CatalogService
     closed: bool = field(default=False, init=False)
 
     async def aclose(self) -> None:
@@ -103,4 +106,6 @@ def build_container(settings: Settings, *, verifier: IdentityVerifier | None = N
         token_codec=token_codec,
         users=users,
         auth=auth,
+        # Offline embedder until the LLM gateway lands (CP6, ADR 0007).
+        catalog=CatalogService(uow, clock=clock, embedder=HashingEmbedder()),
     )

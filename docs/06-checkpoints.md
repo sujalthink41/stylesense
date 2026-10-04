@@ -18,7 +18,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP2 | Observability foundation | S0 | ✅ |
 | CP3 | Cross-cutting guards: idempotency, rate limiting, locks, outbox | S0 | ✅ |
 | CP4 | Auth & accounts | S1 | ✅ |
-| CP5 | Catalog & mock data | S2 | ⬜ |
+| CP5 | Catalog & mock data | S2 | ✅ |
 | CP6 | LLM gateway & AI guardrails | S3 | ⬜ |
 | CP7 | GenUI protocol (backend) | S4 | ⬜ |
 | CP8 | AI Stylist graph v1 | S5 | ⬜ |

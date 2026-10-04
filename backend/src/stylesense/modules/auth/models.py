@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, ForeignKey, Index, LargeBinary, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from stylesense.infra.database import Base
+from stylesense.platform.ids import new_id
 
 
 class RefreshToken(Base):
@@ -22,7 +23,9 @@ class RefreshToken(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=new_id, server_default=text("uuidv7()")
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     family_id: Mapped[uuid.UUID]
     token_hash: Mapped[bytes] = mapped_column(LargeBinary, unique=True)

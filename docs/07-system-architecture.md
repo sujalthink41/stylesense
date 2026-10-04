@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP4 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. No shopping features yet. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP5 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. The AI stylist comes next. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -147,6 +147,26 @@ Module dependency direction: **auth → users**. Users declares the identity sha
 
 Setup: `docs/guides/google-sign-in-setup.md`.
 
+## 2h. Catalog *(built)*
+
+```
+ProductSource (mock now) ─► CatalogService.ingest ─► products + offers + images + price_snapshots
+                                 │ rejects unknown stores, non-allow-listed URLs, bad prices
+                                 └─ idempotent: unchanged data writes nothing
+worker "catalog.embed" (every 60 s) ─► Embedder port (hashing now, model in CP6) ─► products.embedding
+```
+
+| Endpoint | Behaviour |
+|---|---|
+| `GET /v1/products` | Filters: category, gender (also returns unisex), min/max price; keyset cursor pagination; constant number of queries regardless of page size |
+| `GET /v1/products/{id}` | Detail with every offer, cheapest in-stock flagged `is_best`, discount %; weak **ETag** + `If-None-Match` → 304 |
+| `GET /v1/products/{id}/similar` | Nearest neighbours by cosine distance (HNSW, iterative scan), same gender or unisex |
+| `GET /v1/out/{offer_id}?src=…` | Logs the click (user attached when a valid token is sent), then 302 to the store. URL re-checked against the store allow-list; `no-store`, `no-referrer` |
+
+- **Raw store URLs are never sent to clients**; offers carry `buy_path = /v1/out/{id}`, so every purchase is tracked and affiliate tagging can be added in one place (CP21).
+- **Seed:** `make seed` (refuses `APP_ENV=production`). The mock catalog is deterministic: fictional brands, placeholder images, real store *search* links.
+- **Performance:** client-side UUIDv7 ids + no eager defaults (ADR 0008) batch inserts: a full ingest is ~37 statements.
+
 ## 3. Request lifecycle: a stylist turn *(planned)*
 
 1. The user taps **"Party"** on the home screen → `POST /v1/stylist/sessions {entry: "occasion_tile", value: "party"}` → the backend creates `stylist_sessions` row and LangGraph thread.
@@ -204,6 +224,9 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Investigate a user report | Ask for the `X-Request-ID` → search logs → open the trace by `trace_id` in Tempo |
 | Protect a route | Take `claims: Claims` (from `api/auth.py`); add `Depends(require_role(Role.ADMIN))` for admin-only |
 | Add a new identity provider | Implement `IdentityVerifier` in `integrations/`, wire it in `bootstrap/container.py` |
+| Add a product source | Implement `ProductSource` (`modules/catalog/ports.py`) in `integrations/sources/`; ingest it with `CatalogService.ingest` |
+| Swap the embedder | Implement `Embedder`; wire it in `bootstrap/container.py`; the worker re-embeds automatically |
+| Return cacheable reads | `api/http_cache.etag_response(request, model, max_age_s=…)` |
 | Make a write endpoint safe to retry | Take `IdempotencyKey` as a dependency and wrap the use case in `run_idempotent(...)` |
 | Trigger a side effect after a write | `container.outbox.add(uow.session, topic, payload)` in the same Unit of Work; register a handler for `topic` |
 | Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
@@ -227,3 +250,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP2 | 2026-10-04 | Observability: request ids, PII-redacted JSON logs with trace correlation, RED + pool metrics on `/metrics`, OpenTelemetry tracing (API, SQLAlchemy, Redis) via collector → Tempo, GlitchTip error reporting, provisioned Grafana dashboard, Uptime Kuma, runbooks. SQLAlchemy pinned <2.1. |
 | CP3 | 2026-10-04 | Reliability guards: Redis idempotency (fail-closed), exact sliding-window + token-bucket rate limits on `/v1` (fail-open), load shedding, distributed locks, single-flight, bulkheads; transactional outbox (`SKIP LOCKED`) + worker process with heartbeat, metrics and graceful shutdown; model registry + migration drift test; exception logs no longer include stack-frame locals. |
 | CP4 | 2026-10-05 | Auth & accounts: Google ID-token verification, own HS256 access JWT + rotating hashed refresh tokens with reuse detection and grace window, one session per install, roles + admin allow-list, `/v1/auth/*`, `/v1/me` (profile, devices, consents, deletion with 30-day outbox purge), `/v1/app/config`, per-user and auth rate limits, token pruning task; migration 0003. |
+| CP5 | 2026-10-05 | Catalog: stores (with redirect allow-lists), canonical products + offers, price snapshots, outbound clicks; deterministic 300-product mock source; idempotent ingest; Embedder port + hashing embedder and pgvector HNSW similarity; `/v1/products`, `/v1/products/{id}` (ETag), `/similar`, `/v1/out/{offer_id}`; `make seed` CLI; worker embedding task; client-side UUIDv7 ids + batched inserts; migration 0004. |

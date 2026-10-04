@@ -10,3 +10,5 @@ One file per significant decision: `NNNN-title.md` with **Context**, **Decision*
 | [0004](0004-defer-langfuse.md) | Defer Langfuse until the LLM gateway (CP6) | Accepted |
 | [0005](0005-postgres-outbox-as-job-queue.md) | Postgres outbox as the job queue; no ARQ | Accepted |
 | [0006](0006-authentication-design.md) | Google ID tokens in; own JWT + rotating refresh tokens out | Accepted |
+| [0007](0007-embedder-port-with-hashing-baseline.md) | Embedder port with an offline hashing baseline until CP6 | Accepted |
+| [0008](0008-client-side-ids-and-batched-inserts.md) | Client-generated UUIDv7 keys and no eager server defaults | Accepted |

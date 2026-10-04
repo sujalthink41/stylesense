@@ -11,6 +11,7 @@ from stylesense.modules.auth.exceptions import (
     AuthenticationRequiredError,
     InsufficientRoleError,
     InvalidTokenError,
+    TokenExpiredError,
 )
 from stylesense.modules.auth.tokens import AccessClaims
 from stylesense.modules.users.schemas import Role
@@ -29,6 +30,19 @@ def authenticate(request: Request, container: ContainerDep) -> AccessClaims:
 
 
 Claims = Annotated[AccessClaims, Depends(authenticate)]
+
+
+def authenticate_optional(request: Request, container: ContainerDep) -> AccessClaims | None:
+    """For public routes that personalise when they can (e.g. click attribution)."""
+    if not request.headers.get("Authorization"):
+        return None
+    try:
+        return authenticate(request, container)
+    except (InvalidTokenError, TokenExpiredError):
+        return None
+
+
+OptionalClaims = Annotated[AccessClaims | None, Depends(authenticate_optional)]
 
 
 def require_role(*roles: Role) -> Callable[[AccessClaims], Awaitable[AccessClaims]]:

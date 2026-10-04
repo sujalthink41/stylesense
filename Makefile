@@ -62,6 +62,11 @@ migration: ## New migration: make migration m="add users"
 downgrade: ## Roll back one migration
 	$(UV) run --env-file ../.env alembic downgrade -1
 
+##@ Data
+.PHONY: seed
+seed: ## Load the mock catalog + embeddings into the dev stack (refuses production)
+	$(DEV) exec api python -m stylesense.cli seed-catalog
+
 ##@ Run
 .PHONY: up down logs ps build run shell-db
 up: ## Start dev stack (postgres, redis, api with reload)

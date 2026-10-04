@@ -26,6 +26,9 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+    # Don't RETURNING server defaults after INSERT: it forces row-by-row inserts. Code that
+    # needs a server default right after insert must `refresh()` explicitly.
+    __mapper_args__ = {"eager_defaults": False}  # noqa: RUF012  # read by SQLAlchemy, never mutated
 
 
 def create_engine(settings: Settings) -> AsyncEngine:

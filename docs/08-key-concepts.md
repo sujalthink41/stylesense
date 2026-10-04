@@ -263,3 +263,31 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 ## 63. Soft delete with a grace period
 **What:** deleting an account first marks it `deleting` and blocks access; the real purge runs 30 days later (via the outbox). The deletion record outlives the user row as proof it was honoured.
 **Why:** gives time to recover from mistakes or abuse, while meeting Play Store and DPDP deletion requirements.
+
+## 64. Approximate nearest neighbour search (HNSW)
+**What:** finding the closest vectors exactly means comparing against every row. **HNSW** (Hierarchical Navigable Small World) builds a layered graph you can "walk" towards the nearest points in roughly logarithmic time, trading a tiny bit of accuracy for huge speed.
+**Our setup:** pgvector HNSW index with cosine distance; `hnsw.iterative_scan` keeps searching when filters (gender, active) discard results.
+
+## 65. Feature hashing
+**What:** turn text into a fixed-size vector by hashing each word into a bucket (with a random ±1 sign) instead of keeping a vocabulary. Items that share words share buckets, so they end up close.
+**Trade-off:** no training, no API, deterministic; but it matches *words*, not meaning. Our CP5 baseline until a real embedding model arrives (ADR 0007).
+
+## 66. Keyset (cursor) pagination
+**What:** "give me 20 items after id X" (`WHERE id > X ORDER BY id LIMIT 21`) instead of `OFFSET 400`.
+**Why:** OFFSET gets slower the deeper you go and skips or repeats rows when data changes; keyset stays fast and stable. The extra 21st row tells us whether there's a next page.
+
+## 67. Conditional requests (ETag / 304)
+**What:** the server labels a response with a fingerprint (ETag). Next time the app sends `If-None-Match: <etag>`; if nothing changed the server answers **304 Not Modified** with no body.
+**Why:** saves mobile data and battery, and keeps the app fast on slow networks.
+
+## 68. Open redirects
+**What:** an endpoint like `/out?url=…` that redirects anywhere lets phishers send links that *look* like ours but land on their site.
+**Our defence:** `/v1/out/{offer_id}` takes an id, never a URL; the target must be HTTPS on that store's allow-listed domains, checked at ingest **and** at redirect time. Tests cover lookalike hosts, `amazon.in.evil.com`, `amazon.in@evil.com`, `javascript:` and scheme-relative URLs.
+
+## 69. N+1 queries
+**What:** loading a list, then running one extra query *per item* (e.g. its offers): 1 + N queries. Invisible with 5 rows, crippling with 500.
+**Our defence:** `selectinload` fetches all related rows in one extra query, relationships are `lazy="raise"` so accidental lazy loads fail loudly, and a test asserts listing 5 or 50 products costs the same number of queries.
+
+## 70. Batched inserts and where ids come from
+**What happened:** with database-generated ids, the ORM had to insert rows one at a time to learn each id (1,945 statements for one ingest). Generating time-ordered UUIDv7 ids in Python let it batch: 37 statements (ADR 0008).
+**Lesson:** measure before optimising: the embedder looked suspicious, but profiling showed the database round trips were the real cost.
