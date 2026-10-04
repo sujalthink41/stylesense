@@ -1,0 +1,81 @@
+# Base stack, production-shaped: nothing is published to the host except via the proxy (CP19).
+# Dev overrides: compose.dev.yml. Run through the root Makefile.
+name: stylesense
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-app-env: &app-env
+  APP_ENV: ${APP_ENV:-local}
+  APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+  APP_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  APP_REDIS_URL: redis://redis:6379/0
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources: { limits: { memory: 1g } }
+    logging: *logging
+    networks: [backend]
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # noeviction: idempotency keys and rate-limit counters must never be silently dropped.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources: { limits: { memory: 320m } }
+    logging: *logging
+    networks: [backend]
+
+  migrate:
+    build: { context: ../../backend, target: runtime }
+    image: stylesense-api:${APP_VERSION:-dev}
+    command: ["alembic", "upgrade", "head"]
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+    logging: *logging
+    networks: [backend]
+
+  api:
+    image: stylesense-api:${APP_VERSION:-dev}
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    deploy:
+      resources: { limits: { memory: 512m, cpus: "1.0" } }
+    logging: *logging
+    networks: [backend]
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  backend:

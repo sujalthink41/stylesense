@@ -1,0 +1,79 @@
+name: backend-ci
+
+on:
+  pull_request:
+    paths: ["backend/**", "infra/**", ".github/workflows/backend-ci.yml", ".pre-commit-config.yaml"]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true }
+      - run: uv sync --frozen
+      - name: pre-commit (lint, format, types, layers, secrets, lockfile)
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: no-commit-to-branch
+      - name: Dependency vulnerability audit
+        run: uv export --frozen --no-dev --no-hashes --no-emit-project > /tmp/req.txt && uvx pip-audit -r /tmp/req.txt --strict
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true }
+      - run: uv sync --frozen
+      - name: Tests (unit + integration via testcontainers) with coverage gate
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: coverage, path: backend/coverage.xml }
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [quality, test]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: runtime
+          load: true
+          tags: stylesense-api:ci
+          build-args: VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test (starts as non-root, liveness OK)
+        working-directory: .
+        run: |
+          docker run -d --name api \
+            -e APP_ENV=production \
+            -e APP_DATABASE_URL=postgresql+asyncpg://u:p@127.0.0.1:1/x \
+            -e APP_REDIS_URL=redis://127.0.0.1:1/0 \
+            -p 8000:8000 stylesense-api:ci
+          for i in $(seq 1 20); do curl -fsS localhost:8000/healthz && break; sleep 1; done
+          curl -fsS localhost:8000/healthz
+          test "$(docker exec api id -u)" = "10001"
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/docs)" = "404"
