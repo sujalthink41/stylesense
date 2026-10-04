@@ -8,6 +8,7 @@ BACKEND := backend
 UV      := uv --directory $(BACKEND)
 COMPOSE := docker compose --env-file .env -f infra/compose/compose.yml
 DEV     := $(COMPOSE) -f infra/compose/compose.dev.yml
+OBS     := $(DEV) -f infra/compose/compose.observability.yml
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 ##@ Setup
@@ -84,6 +85,18 @@ run: ## Run API on the host against the dev stack's DB/Redis
 shell-db: ## psql into the dev database
 	$(DEV) exec postgres sh -c 'psql -U $$POSTGRES_USER -d $$POSTGRES_DB'
 
+##@ Observability
+.PHONY: obs-up obs-down obs-ps
+obs-up: ## Dev stack + Grafana/Prometheus/Tempo/GlitchTip/Uptime Kuma
+	APP_VERSION=$(VERSION) $(OBS) up -d --build
+	@echo "Grafana http://localhost:3001  Prometheus http://localhost:9090  GlitchTip http://localhost:8001  Uptime Kuma http://localhost:3002"
+
+obs-down: ## Stop everything including observability (keeps data)
+	$(OBS) down
+
+obs-ps: ## Status of all services
+	$(OBS) ps
+
 ##@ Housekeeping
 .PHONY: clean nuke help
 clean: ## Remove caches and build artifacts
@@ -91,8 +104,8 @@ clean: ## Remove caches and build artifacts
 	rm -f $(BACKEND)/.coverage $(BACKEND)/coverage.xml
 
 nuke: ## Stop stack AND delete volumes (destroys local data)
-	@read -p "Delete all local DB/Redis data? [y/N] " ans && [ "$$ans" = y ]
-	$(DEV) down -v
+	@read -p "Delete all local data (DB, Redis, metrics, traces, errors)? [y/N] " ans && [ "$$ans" = y ]
+	$(OBS) down -v
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make \033[36m<target>\033[0m\n"} \

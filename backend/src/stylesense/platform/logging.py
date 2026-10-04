@@ -1,27 +1,35 @@
 import logging
 import sys
+from typing import TextIO
 
 import structlog
 from structlog.typing import Processor
 
+from stylesense.platform.observability.redaction import redact_processor
+from stylesense.platform.observability.tracing import add_trace_context
 
-def configure_logging(*, level: str, json_logs: bool) -> None:
+
+def configure_logging(*, level: str, json_logs: bool, stream: TextIO | None = None) -> None:
     """Route structlog and stdlib logging through one pipeline (JSON in deployed envs)."""
+    out = stream or sys.stdout
     shared: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
+        add_trace_context,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
     ]
     renderer: Processor = (
         structlog.processors.JSONRenderer()
         if json_logs
-        else structlog.dev.ConsoleRenderer(colors=sys.stdout.isatty())
+        else structlog.dev.ConsoleRenderer(colors=out.isatty())
     )
     final: list[Processor] = [structlog.stdlib.ProcessorFormatter.remove_processors_meta]
     if json_logs:
         final.append(structlog.processors.dict_tracebacks)
+    # Last step before rendering, so tracebacks and bound context are scrubbed too.
+    final.append(redact_processor)
     final.append(renderer)
 
     structlog.configure(
@@ -31,7 +39,7 @@ def configure_logging(*, level: str, json_logs: bool) -> None:
         cache_logger_on_first_use=False,
     )
 
-    handler = logging.StreamHandler(sys.stdout)
+    handler = logging.StreamHandler(out)
     handler.setFormatter(
         structlog.stdlib.ProcessorFormatter(foreign_pre_chain=shared, processors=final)
     )

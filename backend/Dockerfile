@@ -52,8 +52,9 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"]
 
 # One process per container; scale with replicas, not in-container workers.
+# Access logs come from RequestContextMiddleware (structured, PII-safe), so Uvicorn's are off.
 # Trusting forwarded headers is safe only because the port is never published; Caddy is the sole client.
 CMD ["uvicorn", "stylesense.main:create_app", "--factory", \
      "--host", "0.0.0.0", "--port", "8000", \
      "--proxy-headers", "--forwarded-allow-ips", "*", \
-     "--no-server-header", "--timeout-graceful-shutdown", "20"]
+     "--no-server-header", "--no-access-log", "--timeout-graceful-shutdown", "20"]

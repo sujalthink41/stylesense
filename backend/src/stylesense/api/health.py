@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from stylesense.api.dependencies import HealthChecksDep, SettingsDep
 from stylesense.platform.health import run_checks
+from stylesense.platform.observability.tracing import untraced
 
 router = APIRouter(tags=["ops"])
 
@@ -42,7 +43,8 @@ async def healthz(response: Response) -> LivenessOut:
 async def readyz(
     response: Response, checks: HealthChecksDep, settings: SettingsDep
 ) -> ReadinessOut:
-    report = await run_checks(checks, timeout_s=settings.readiness_timeout_s)
+    with untraced():  # probes run every few seconds; their DB/Redis spans are pure noise
+        report = await run_checks(checks, timeout_s=settings.readiness_timeout_s)
     response.headers.update(NO_STORE)
     if not report.ok:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

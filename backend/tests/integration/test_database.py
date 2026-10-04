@@ -3,7 +3,12 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from stylesense.infra.database import UnitOfWork, create_engine, create_session_factory
+from stylesense.infra.database import (
+    UnitOfWork,
+    create_engine,
+    create_session_factory,
+    pool_stats,
+)
 from stylesense.infra.health import PostgresHealthCheck
 from stylesense.platform.config import Settings
 from tests.factories import UNREACHABLE_DB, make_settings
@@ -74,3 +79,11 @@ async def test_postgres_health_check_raises_when_down() -> None:
             await PostgresHealthCheck(eng).check()
     finally:
         await eng.dispose()
+
+
+async def test_pool_stats_reflect_checked_out_connections(engine: AsyncEngine) -> None:
+    async with engine.connect():
+        stats = pool_stats(engine)
+
+    assert stats.size == 10
+    assert stats.checked_out == 1

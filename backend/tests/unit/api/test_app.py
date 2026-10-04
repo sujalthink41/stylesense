@@ -2,11 +2,13 @@ from collections.abc import Iterator, Sequence
 
 import pytest
 from fastapi.testclient import TestClient
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from stylesense.api.dependencies import get_health_checks
 from stylesense.bootstrap.container import build_container
 from stylesense.main import create_app
 from stylesense.platform.health import HealthCheck
+from stylesense.platform.observability.tracing import build_tracer_provider
 from tests.factories import make_settings
 from tests.fakes.health import StubHealthCheck
 
@@ -119,3 +121,43 @@ def test_cors_allows_only_configured_origins() -> None:
 
     assert allowed.headers["access-control-allow-origin"] == "https://admin.stylesense.app"
     assert "access-control-allow-origin" not in denied.headers
+
+
+def test_responses_carry_request_id(healthy: TestClient) -> None:
+    assert len(healthy.get("/healthz").headers["x-request-id"]) == 32
+
+
+def test_metrics_exposed_with_http_and_pool_series(healthy: TestClient) -> None:
+    healthy.get("/healthz")
+
+    body = healthy.get("/metrics").text
+
+    assert 'http_requests_total{method="GET",route="/healthz",status="200"}' in body
+    assert "db_pool_size" in body
+    assert "process_cpu_seconds_total" in body or "python_info" in body
+
+
+def test_metrics_can_be_disabled() -> None:
+    with _client([], metrics_enabled=False) as client:
+        assert client.get("/metrics").status_code == 404
+
+
+def test_probes_and_metrics_are_kept_out_of_access_logs(healthy: TestClient) -> None:
+    # Smoke check: requests succeed with quiet paths configured (log content covered elsewhere).
+    for path in ("/healthz", "/readyz", "/metrics"):
+        assert healthy.get(path).status_code == 200
+
+
+def test_tracing_disabled_by_default(healthy: TestClient) -> None:
+    assert healthy.app.state.tracer_provider is None  # type: ignore[attr-defined]
+
+
+def test_injected_tracer_provider_traces_requests() -> None:
+    exporter = InMemorySpanExporter()
+    provider = build_tracer_provider(make_settings(otel_enabled=True), exporter=exporter)
+    app = create_app(make_settings(), tracer_provider=provider)
+
+    with TestClient(app) as client:
+        client.get("/v1/unknown")
+
+    assert any(s.name.startswith("GET") for s in exporter.get_finished_spans())

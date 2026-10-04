@@ -13,4 +13,4 @@ services:
       PYTHONPATH: /app/src  # mounted source shadows the installed package
     volumes:
       - ../../backend/src:/app/src:ro
-    command: ["uvicorn", "stylesense.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src"]
+    command: ["uvicorn", "stylesense.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src", "--no-access-log"]

@@ -10,6 +10,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from stylesense.platform.observability.context import current_request_id
+
 PROBLEM_JSON = "application/problem+json"
 
 logger = logging.getLogger(__name__)
@@ -70,7 +72,7 @@ class ServiceUnavailableError(AppError):
 
 
 def problem_response(
-    request: Request,
+    instance: str,
     *,
     status: int,
     code: str,
@@ -86,10 +88,16 @@ def problem_response(
     }
     if detail:
         body["detail"] = detail
-    body["instance"] = request.url.path
+    body["instance"] = instance
     body["code"] = code
+    if request_id := current_request_id():
+        body["request_id"] = request_id
     body.update(extra or {})
     return JSONResponse(body, status_code=status, media_type=PROBLEM_JSON, headers=headers)
+
+
+def unexpected_error_response(instance: str) -> JSONResponse:
+    return problem_response(instance, status=500, code=AppError.code, title=AppError.title)
 
 
 def _code_for(status: int) -> str:
@@ -99,7 +107,7 @@ def _code_for(status: int) -> str:
 async def _handle_app_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)  # noqa: S101  # narrowed by registration
     return problem_response(
-        request,
+        request.url.path,
         status=exc.status_code,
         code=exc.code,
         title=exc.title,
@@ -113,7 +121,7 @@ async def _handle_http_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)  # noqa: S101
     phrase = HTTPStatus(exc.status_code).phrase
     return problem_response(
-        request,
+        request.url.path,
         status=exc.status_code,
         code=_code_for(exc.status_code),
         title=phrase,
@@ -126,7 +134,7 @@ async def _handle_validation_error(request: Request, exc: Exception) -> JSONResp
     # Drop `input`/`ctx`: echoing user input back can leak PII into logs and clients.
     errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
     return problem_response(
-        request,
+        request.url.path,
         status=422,
         code="validation_error",
         title="Request validation failed",
@@ -136,7 +144,7 @@ async def _handle_validation_error(request: Request, exc: Exception) -> JSONResp
 
 async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("unhandled_error", extra={"path": request.url.path}, exc_info=exc)
-    return problem_response(request, status=500, code=AppError.code, title=AppError.title)
+    return unexpected_error_response(request.url.path)
 
 
 def register_error_handlers(app: FastAPI) -> None:

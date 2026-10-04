@@ -1,0 +1,9 @@
+# Runbooks
+
+Every alert links to a runbook here. Write it for someone woken at 3 a.m. who has never seen the system: short, concrete, copy-pasteable.
+
+Copy [`_template.md`](_template.md) to `<alert-name>.md`.
+
+| Runbook | Fires when |
+|---|---|
+| [api-not-ready](api-not-ready.md) | `/readyz` returns 503 |

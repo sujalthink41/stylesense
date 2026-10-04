@@ -171,3 +171,35 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 ## 40. Statement timeouts & lock timeouts
 **What:** Postgres cancels any query running longer than `statement_timeout`; `lock_timeout` stops a migration from waiting forever behind a lock.
 **Why:** one slow query can't hold a connection forever and starve the pool, and a stuck migration can't freeze production.
+
+## 41. Correlation ids (request id + trace id)
+**What:** a unique id attached to a request and carried into every log line, error report and response header. The trace id links the same request across services and spans.
+**Why:** a user says "it failed"; you ask for the request id and find every log line, the trace and the error report in seconds.
+
+## 42. RED metrics & label cardinality
+**What:** **R**ate, **E**rrors, **D**uration per endpoint: the three numbers that tell you whether users are happy. Each unique label combination is a separate time series stored forever.
+**Why it matters:** labelling by raw path (`/items/123`) or user id creates millions of series and kills Prometheus. Always label by **bounded** values: route templates, status codes, a fixed method list.
+
+## 43. Histograms & percentiles (p95)
+**What:** a histogram counts requests into latency buckets; Prometheus estimates percentiles from them. p95 = 95% of requests were faster than this.
+**Why:** averages hide pain. A 50 ms average can hide 5% of users waiting 3 s.
+
+## 44. Distributed tracing (OpenTelemetry)
+**What:** a trace is a tree of timed **spans** (HTTP request → DB query → Redis call). OpenTelemetry is the vendor-neutral standard; spans go to a **collector**, which forwards them to a backend (Tempo).
+**Why:** shows exactly where time went in one slow request. The collector lets us change backends without touching the app.
+
+## 45. Sampling
+**What:** recording only a fraction of traces (`APP_OTEL_SAMPLE_RATIO`). *Parent-based* sampling follows the caller's decision so traces are never half-recorded.
+**Why:** full tracing at high traffic costs storage and CPU; at 1,000 DAU we can afford 100%.
+
+## 46. PII redaction at the edge
+**What:** scrubbing personal data (emails, phone numbers, tokens) in the last processing step before logs or error reports leave the process.
+**Why:** logs get copied to many places and kept for a long time; once PII is in them, it's very hard to remove (and it's a DPDP Act risk).
+
+## 47. Pure ASGI middleware
+**What:** middleware written directly against the ASGI interface (`scope`, `receive`, `send`) instead of Starlette's `BaseHTTPMiddleware`.
+**Why:** it doesn't buffer responses, so streaming (SSE) keeps working; it's also faster and has fewer context-variable pitfalls.
+
+## 48. Property-based testing in practice
+**What happened:** Hypothesis generated the email `'@A.Ao` and found it slipped past our redaction regex, and a test showed `stylesense@1.2.3` (a release name) being redacted as an email. Neither case was in the hand-written examples.
+**Lesson:** for parsers, validators and scrubbers, generate inputs instead of guessing them.

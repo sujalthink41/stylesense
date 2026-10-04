@@ -2,7 +2,7 @@ from enum import StrEnum
 from functools import lru_cache
 from typing import Literal, Self
 
-from pydantic import Field, PostgresDsn, RedisDsn, field_validator, model_validator
+from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,6 +43,12 @@ class Settings(BaseSettings):
 
     readiness_timeout_s: float = Field(default=2.0, gt=0, le=10)
     cors_origins: list[str] = Field(default_factory=list)
+
+    metrics_enabled: bool = True
+    otel_enabled: bool = False
+    otel_endpoint: AnyHttpUrl | None = None  # OTLP/HTTP collector base URL
+    otel_sample_ratio: float = Field(default=1.0, ge=0, le=1)
+    sentry_dsn: str | None = None  # GlitchTip speaks the Sentry protocol
 
     @field_validator("database_url")
     @classmethod

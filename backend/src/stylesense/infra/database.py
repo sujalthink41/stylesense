@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import QueuePool
 
 from stylesense.platform.config import Settings
+from stylesense.platform.observability.metrics import PoolStats
 
 # Deterministic constraint names keep Alembic autogenerate diffs stable.
 NAMING_CONVENTION = {
@@ -42,6 +44,15 @@ def create_engine(settings: Settings) -> AsyncEngine:
                 "timezone": "UTC",
             },
         },
+    )
+
+
+def pool_stats(engine: AsyncEngine) -> PoolStats:
+    pool = engine.pool
+    if not isinstance(pool, QueuePool):  # e.g. NullPool in tools: nothing to report
+        return PoolStats(size=0, checked_out=0, overflow=0)
+    return PoolStats(
+        size=pool.size(), checked_out=pool.checkedout(), overflow=max(pool.overflow(), 0)
     )
 
 
