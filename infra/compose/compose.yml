@@ -11,6 +11,9 @@ x-app-env: &app-env
   APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
   APP_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   APP_REDIS_URL: redis://redis:6379/0
+  APP_JWT_SECRET: ${APP_JWT_SECRET:?set in .env}
+  APP_GOOGLE_CLIENT_IDS: ${APP_GOOGLE_CLIENT_IDS:-[]}
+  APP_ADMIN_EMAILS: ${APP_ADMIN_EMAILS:-[]}
 
 services:
   postgres:

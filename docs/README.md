@@ -12,6 +12,6 @@
 | 08 | [Key Concepts](08-key-concepts.md) | Concepts you can learn from this project |
 | 09 | [Engineering Standards](09-engineering-standards.md) | Mandatory coding, testing, idempotency, observability rules |
 
-Guides: [Observability: learn the tools](guides/observability-guide.md)
+Guides: [Observability: learn the tools](guides/observability-guide.md) · [Google Sign-In setup](guides/google-sign-in-setup.md)
 
 Decisions: [Architecture Decision Records](adr/README.md) · Operations: [Runbooks](runbooks/README.md)

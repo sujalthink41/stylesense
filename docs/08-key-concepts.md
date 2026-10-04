@@ -232,3 +232,34 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 ## 55. Never log stack-frame locals
 **What happened:** exception logs included every frame's local variables by default, which can include tokens, request bodies and PII. A test now asserts a secret local never appears.
 **Lesson:** redaction is a safety net, not a strategy; don't collect sensitive data in the first place.
+
+## 56. OpenID Connect ID tokens
+**What:** after "Sign in with Google", the app receives an **ID token**: a JWT signed by Google that says who the user is (`sub`, `email`) and which app it was issued for (`aud`).
+**How we trust it:** check Google's signature with their published public keys, check `aud` is *our* client id (so a token for another app can't be replayed to us), check `iss` and expiry, and require a verified email.
+
+## 57. JWT anatomy
+**What:** `header.payload.signature`, each base64url-encoded. The payload is **readable by anyone**; the signature only proves it wasn't changed. Never put secrets in a JWT.
+**Our claims:** `sub` (user id), `sid` (session), `role`, `iss`, `aud`, `iat`, `exp`, `jti` (unique id).
+
+## 58. Algorithm confusion & `alg: none`
+**Attack 1:** send a token with `"alg": "none"` and no signature. **Attack 2:** take a server that verifies RS256 with a *public* key and send an HS256 token "signed" with that public key as the HMAC secret.
+**Defence:** pin the expected algorithm when verifying (`algorithms=["RS256"]` for Google, `["HS256"]` for ours). Both attacks are covered by tests.
+
+## 59. Refresh token rotation & reuse detection
+**What:** every refresh token works once. Using it returns a new one. If an *already used* token shows up again, someone copied it, so the whole session family is revoked.
+**Grace window:** phones fire parallel requests; a spent token is honoured for 30 seconds so honest clients aren't mistaken for thieves.
+
+## 60. Hashing high-entropy tokens
+**What:** store `sha256(refresh_token)`, never the token. Passwords need slow, salted hashes (bcrypt/argon2) because people pick guessable ones; a 256-bit random token can't be guessed, so a fast hash is enough.
+**Why:** a database leak doesn't hand out working sessions.
+
+## 61. Ports & adapters in practice
+**What:** the auth module defines a **port** (`IdentityVerifier`: "give me a token, I'll tell you who it is"). Google's implementation is an **adapter** in `integrations/`. Tests plug in a fake; adding Apple sign-in later is a new adapter, not a change to auth.
+
+## 62. Structural typing (`Protocol`)
+**What:** a `Protocol` describes a shape ("has `provider`, `subject`, `email`…"). Any object with that shape fits, without importing or inheriting from anything.
+**Why we used it:** the users module needs identity data but must not import the auth module (auth already depends on users). A `Protocol` breaks that cycle.
+
+## 63. Soft delete with a grace period
+**What:** deleting an account first marks it `deleting` and blocks access; the real purge runs 30 days later (via the outbox). The deletion record outlives the user row as proof it was honoured.
+**Why:** gives time to recover from mistakes or abuse, while meeting Play Store and DPDP deletion requirements.

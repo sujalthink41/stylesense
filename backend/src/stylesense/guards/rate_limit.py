@@ -66,6 +66,8 @@ DEFAULT_POLICIES: dict[str, RateLimitPolicy] = {
         RateLimitPolicy("api.per_ip", limit=60, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
         RateLimitPolicy("api.per_user", limit=120, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
         RateLimitPolicy("ai.per_user", limit=30, window_s=3600, algorithm=Algorithm.TOKEN_BUCKET),
+        # Sign-in/refresh: tighter, against credential stuffing; roomy enough for shared NATs.
+        RateLimitPolicy("auth.per_ip", limit=20, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
     )
 }
 

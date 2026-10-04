@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP3 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. No product features yet. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP4 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. No shopping features yet. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -120,6 +120,33 @@ worker: OutboxRelay ── FOR UPDATE SKIP LOCKED, one per tx ◄─┘
 
 **Models registry:** every ORM model is imported in `bootstrap/models.py`. Alembic uses it, and `test_models_and_migrations_do_not_drift` fails if a model and the migrations disagree.
 
+## 2g. Authentication & accounts *(built)*
+
+```
+app ── Google ID token ──► POST /v1/auth/google
+                             │ GoogleIdTokenVerifier (RS256, aud = our client ids, verified email)
+                             │ UsersService.sign_in: find by (google, sub) or create; admin allow-list → role
+                             └► AuthService: new session family → access JWT (15 min) + refresh token (30 d, hashed)
+
+app ── Bearer access JWT ──► any /v1 route: authenticate() checks signature + expiry (no DB) → AccessClaims
+app ── refresh token ─────► POST /v1/auth/refresh: lock row → spend → issue child in same family
+                             reused after 30 s grace ⇒ revoke whole family (committed before the 401)
+```
+
+| Concern | Where | Notes |
+|---|---|---|
+| Google verification | `integrations/google_identity.py` | Implements the `IdentityVerifier` port from `modules/auth/ports.py`; keys cached 1 h; Google unreachable → 503, bad token → 401 |
+| Tokens | `modules/auth/tokens.py` | HS256 pinned; `iss`/`aud`/`exp`/`sid` required; previous secrets still verify (rotation) |
+| Sessions | `modules/auth/service.py`, `refresh_tokens` | One family per sign-in per install; logout revokes the family; prune task deletes long-expired rows |
+| Accounts | `modules/users/service.py` | Keyed by Google `sub`; concurrent first sign-ins produce one user; same email + different Google account → 409 |
+| Roles | `api/auth.py` `require_role(...)` | `user`, `curator`, `admin`; admins from `APP_ADMIN_EMAILS` |
+| Deletion | `DELETE /v1/me` | Status `deleting` + all sessions revoked + outbox `users.purge` after 30 days; handler retries if fired early and never purges a restored account |
+| Force update | `GET /v1/app/config` | `min_supported_version` / `latest_version` |
+
+Module dependency direction: **auth → users**. Users declares the identity shape it needs as a `Protocol` (`modules/users/ports.py`), so it never imports auth.
+
+Setup: `docs/guides/google-sign-in-setup.md`.
+
 ## 3. Request lifecycle: a stylist turn *(planned)*
 
 1. The user taps **"Party"** on the home screen → `POST /v1/stylist/sessions {entry: "occasion_tile", value: "party"}` → the backend creates `stylist_sessions` row and LangGraph thread.
@@ -175,6 +202,8 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Add a metric | Define it next to its owner with the app's registry; label by bounded values only (route template, status), never ids |
 | Log something | `structlog.get_logger(__name__).info("event_name", key=value)`; never log raw request bodies |
 | Investigate a user report | Ask for the `X-Request-ID` → search logs → open the trace by `trace_id` in Tempo |
+| Protect a route | Take `claims: Claims` (from `api/auth.py`); add `Depends(require_role(Role.ADMIN))` for admin-only |
+| Add a new identity provider | Implement `IdentityVerifier` in `integrations/`, wire it in `bootstrap/container.py` |
 | Make a write endpoint safe to retry | Take `IdempotencyKey` as a dependency and wrap the use case in `run_idempotent(...)` |
 | Trigger a side effect after a write | `container.outbox.add(uow.session, topic, payload)` in the same Unit of Work; register a handler for `topic` |
 | Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
@@ -197,3 +226,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP1 | 2026-10-04 | Backend foundation: layered package (`platform`/`infra`/`bootstrap`/`api`), typed config, JSON logging, problem+json errors, DB engine + Unit of Work, Redis, `/healthz` + `/readyz`, Alembic baseline (vector, citext), multi-stage non-root Docker image, Compose stack, Makefile, pre-commit, CI. |
 | CP2 | 2026-10-04 | Observability: request ids, PII-redacted JSON logs with trace correlation, RED + pool metrics on `/metrics`, OpenTelemetry tracing (API, SQLAlchemy, Redis) via collector → Tempo, GlitchTip error reporting, provisioned Grafana dashboard, Uptime Kuma, runbooks. SQLAlchemy pinned <2.1. |
 | CP3 | 2026-10-04 | Reliability guards: Redis idempotency (fail-closed), exact sliding-window + token-bucket rate limits on `/v1` (fail-open), load shedding, distributed locks, single-flight, bulkheads; transactional outbox (`SKIP LOCKED`) + worker process with heartbeat, metrics and graceful shutdown; model registry + migration drift test; exception logs no longer include stack-frame locals. |
+| CP4 | 2026-10-05 | Auth & accounts: Google ID-token verification, own HS256 access JWT + rotating hashed refresh tokens with reuse detection and grace window, one session per install, roles + admin allow-list, `/v1/auth/*`, `/v1/me` (profile, devices, consents, deletion with 30-day outbox purge), `/v1/app/config`, per-user and auth rate limits, token pruning task; migration 0003. |
