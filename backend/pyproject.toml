@@ -15,6 +15,7 @@ dependencies = [
     "opentelemetry-sdk>=1.45.0",
     "prometheus-client>=0.26.0",
     "pydantic-settings>=2.15.0",
+    "pyjwt[crypto]>=2.15.1",
     "redis>=8.1.0",
     "sentry-sdk>=2.71.0",
     # <2.1 until opentelemetry-instrumentation-sqlalchemy supports 2.1 (guarded by test_tracing_clients).
@@ -58,7 +59,7 @@ select = [
 ignore = ["TRY003", "PLR0913"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "PLR2004", "S105", "S106"]
+"tests/**" = ["S101", "PLR2004", "S105", "S106", "S107"]
 "alembic/**" = ["ERA001"]
 
 [tool.ruff.lint.flake8-tidy-imports]
@@ -110,6 +111,7 @@ layers = [
   "stylesense.main | stylesense.workers",
   "stylesense.api",
   "stylesense.bootstrap",
+  "(stylesense.integrations)",
   "(stylesense.modules)",
   "(stylesense.guards)",
   "stylesense.infra",

@@ -58,17 +58,17 @@ feature_flags ; audit_logs ; content_reports ; account_deletions
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
-| user_id | uuid FK | |
-| family_id | uuid | rotation family; reuse → revoke the whole family |
-| token_hash | bytea UNIQUE | SHA-256 of the opaque token |
-| expires_at | timestamptz | |
+| user_id | uuid FK → users (cascade) | |
+| family_id | uuid | one sign-in session; reuse → revoke the whole family |
+| token_hash | bytea UNIQUE | SHA-256 of the opaque token (raw token never stored) |
+| installation_id | uuid NULL | app install that owns the session (one session per install) |
+| expires_at | timestamptz | 30 days from issue |
+| used_at | timestamptz NULL | set when rotated; reuse after the grace window = theft |
 | revoked_at | timestamptz NULL | |
-| replaced_by | uuid NULL | next token in the chain |
-| device_id | uuid NULL FK user_devices | |
-Index: `(user_id) WHERE revoked_at IS NULL`.
+Indexes: `(family_id)`, `(user_id) WHERE revoked_at IS NULL`. Rows expired > 7 days are pruned by the worker.
 
 ### user_devices
-`id`, `user_id`, `platform` (`android`/`ios`), `push_token` UNIQUE, `app_version`, `last_active_at`, `push_enabled bool`.
+`id`, `user_id`, `installation_id` (client-generated per install), `platform` (`android`/`ios`/`web`), `app_version`, `push_token` (unique when present; moved, not duplicated, when a phone switches accounts), `push_enabled`, `last_active_at`. `UNIQUE(user_id, installation_id)`, so registration is an idempotent upsert.
 
 ### consents
 `id`, `user_id`, `kind` (`terms`, `privacy`, `photo_processing`, `marketing_push`), `version`, `granted bool`, `granted_at`. Append-only history.

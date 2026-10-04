@@ -10,7 +10,7 @@ from stylesense.bootstrap.container import Container, build_container
 from stylesense.guards.locks import LockManager
 from stylesense.infra.database import UnitOfWork
 from stylesense.platform.config import Settings
-from stylesense.workers.app import build_worker
+from stylesense.workers.app import build_worker, default_handlers
 from stylesense.workers.runtime import PeriodicTask, Worker
 
 
@@ -79,3 +79,9 @@ async def test_worker_drains_outbox_through_registered_handlers(container: Conta
 
     assert sorted(d["n"] for d in delivered) == [0, 1, 2]  # type: ignore[type-var]
     assert await asyncio.to_thread(Path(container.settings.worker_heartbeat_file).exists)
+
+
+async def test_worker_registers_the_account_purge_handler(container: Container) -> None:
+    handlers = default_handlers(container)
+
+    assert "users.purge" in handlers

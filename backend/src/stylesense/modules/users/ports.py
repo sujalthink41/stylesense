@@ -1,0 +1,16 @@
+from typing import Protocol
+
+
+class ExternalIdentity(Protocol):
+    """What the users module needs from any identity provider (auth supplies it)."""
+
+    @property
+    def provider(self) -> str: ...
+    @property
+    def subject(self) -> str: ...
+    @property
+    def email(self) -> str: ...
+    @property
+    def name(self) -> str | None: ...
+    @property
+    def picture_url(self) -> str | None: ...

@@ -25,6 +25,7 @@ def worker_env(
         "APP_ENV": "test",
         "APP_DATABASE_URL": str(settings.database_url),
         "APP_REDIS_URL": str(settings.redis_url),
+        "APP_JWT_SECRET": settings.jwt_secret.get_secret_value(),
         "APP_WORKER_HEARTBEAT_FILE": str(heartbeat),
         "APP_WORKER_METRICS_PORT": str(_free_port()),
         "APP_OUTBOX_POLL_INTERVAL_S": "0.05",

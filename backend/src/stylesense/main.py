@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 import structlog
@@ -36,7 +36,10 @@ QUIET_PATHS = frozenset({"/healthz", "/readyz", "/metrics"})
 
 
 def create_app(
-    settings: Settings | None = None, *, tracer_provider: TracerProvider | None = None
+    settings: Settings | None = None,
+    *,
+    tracer_provider: TracerProvider | None = None,
+    container_factory: Callable[[Settings], Container] = build_container,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(level=settings.log_level, json_logs=settings.env is not Environment.LOCAL)
@@ -46,7 +49,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        container = build_container(settings)
+        container = container_factory(settings)
         app.state.container = container
         pool_collector = _attach_client_telemetry(container, registry, provider)
         logger.info("startup", env=settings.env, version=settings.version)

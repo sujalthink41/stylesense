@@ -72,8 +72,11 @@ jobs:
             -e APP_ENV=production \
             -e APP_DATABASE_URL=postgresql+asyncpg://u:p@127.0.0.1:1/x \
             -e APP_REDIS_URL=redis://127.0.0.1:1/0 \
+            -e APP_JWT_SECRET=ci-only-secret-for-the-smoke-test-0123456789 \
+            -e 'APP_GOOGLE_CLIENT_IDS=["ci.apps.googleusercontent.com"]' \
             -p 8000:8000 stylesense-api:ci
           for i in $(seq 1 20); do curl -fsS localhost:8000/healthz && break; sleep 1; done
           curl -fsS localhost:8000/healthz
           test "$(docker exec api id -u)" = "10001"
           test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/docs)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/v1/me)" = "401"

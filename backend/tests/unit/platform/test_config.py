@@ -19,6 +19,8 @@ def test_reads_values_from_prefixed_environment(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("APP_DATABASE_URL", "postgresql+asyncpg://u:p@db:5432/x")
     monkeypatch.setenv("APP_REDIS_URL", "redis://cache:6379/0")
     monkeypatch.setenv("APP_DB_POOL_SIZE", "25")
+    monkeypatch.setenv("APP_JWT_SECRET", "x" * 32)
+    monkeypatch.setenv("APP_GOOGLE_CLIENT_IDS", '["a.apps.googleusercontent.com"]')
 
     settings = Settings(_env_file=None)
 
@@ -27,13 +29,17 @@ def test_reads_values_from_prefixed_environment(monkeypatch: pytest.MonkeyPatch)
     assert settings.redis_url.host == "cache"
 
 
-@pytest.mark.parametrize("missing", ["database_url", "redis_url"])
+@pytest.mark.parametrize("missing", ["database_url", "redis_url", "jwt_secret"])
 def test_fails_fast_when_required_value_missing(
     missing: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("APP_DATABASE_URL", raising=False)
     monkeypatch.delenv("APP_REDIS_URL", raising=False)
-    values = {"database_url": "postgresql+asyncpg://u:p@h/db", "redis_url": "redis://h:6379/0"}
+    values = {
+        "database_url": "postgresql+asyncpg://u:p@h/db",
+        "redis_url": "redis://h:6379/0",
+        "jwt_secret": "x" * 32,
+    }
     del values[missing]
 
     with pytest.raises(ValidationError, match=missing):
@@ -95,7 +101,39 @@ def test_settings_are_immutable() -> None:
 def test_get_settings_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_DATABASE_URL", "postgresql+asyncpg://u:p@h/db")
     monkeypatch.setenv("APP_REDIS_URL", "redis://h:6379/0")
+    monkeypatch.setenv("APP_JWT_SECRET", "x" * 32)
     get_settings.cache_clear()
 
     assert get_settings() is get_settings()
     get_settings.cache_clear()
+
+
+def test_reads_list_values_from_json_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_DATABASE_URL", "postgresql+asyncpg://u:p@h/db")
+    monkeypatch.setenv("APP_REDIS_URL", "redis://h:6379/0")
+    monkeypatch.setenv("APP_JWT_SECRET", "x" * 32)
+    monkeypatch.setenv("APP_ADMIN_EMAILS", '[" Founder@StyleSense.app "]')
+
+    assert Settings(_env_file=None).admin_emails == ["founder@stylesense.app"]
+
+
+def test_rejects_short_jwt_secret() -> None:
+    with pytest.raises(ValidationError, match="jwt_secret"):
+        make_settings(jwt_secret="too-short")
+
+
+def test_jwt_secret_is_never_printed() -> None:
+    settings = make_settings()
+
+    assert settings.jwt_secret.get_secret_value() not in repr(settings)
+
+
+def test_production_requires_google_client_ids() -> None:
+    with pytest.raises(ValidationError, match="google_client_ids"):
+        make_settings(env="production", google_client_ids=[])
+
+
+@pytest.mark.parametrize("version", ["1.2", "v1.2.3", "1.2.3-beta"])
+def test_rejects_malformed_app_versions(version: str) -> None:
+    with pytest.raises(ValidationError, match="min_supported_app_version"):
+        make_settings(min_supported_app_version=version)

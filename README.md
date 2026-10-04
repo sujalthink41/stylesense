@@ -2,7 +2,7 @@
 
 **An AI fashion stylist for India.** Tell it what you need ("summer t-shirt around ₹500"), answer a few quick taps, and swipe through the best picks across Amazon, Flipkart and Myntra, with price comparison, virtual try-on and outfit suggestions.
 
-> Status: **in active development**: backend Phase 1, checkpoint **CP3 complete**. See [progress](docs/06-checkpoints.md).
+> Status: **in active development**: backend Phase 1, checkpoint **CP4 complete**. See [progress](docs/06-checkpoints.md).
 
 ---
 
@@ -102,6 +102,7 @@ Makefile        Developer commands
 | [Key concepts](docs/08-key-concepts.md) | Concepts to learn from this codebase |
 | [Engineering standards](docs/09-engineering-standards.md) | Mandatory coding rules |
 | [Observability guide](docs/guides/observability-guide.md) | Learn Grafana, Prometheus, Tempo, GlitchTip, Uptime Kuma |
+| [Google Sign-In setup](docs/guides/google-sign-in-setup.md) | Create the OAuth client IDs the backend needs |
 
 ## License
 

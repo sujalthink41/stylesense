@@ -7,16 +7,12 @@ import structlog
 from prometheus_client import CollectorRegistry, ProcessCollector, start_http_server
 
 from stylesense.bootstrap.container import build_container
-from stylesense.guards.outbox import Handler
 from stylesense.platform.config import Environment, get_settings
 from stylesense.platform.logging import configure_logging
 from stylesense.platform.observability.error_reporting import configure_error_reporting
-from stylesense.workers.app import build_worker
+from stylesense.workers.app import build_worker, default_handlers
 
 logger = structlog.get_logger("stylesense.worker")
-
-# Topic → handler. Feature checkpoints register theirs here (e.g. push.send in CP13).
-HANDLERS: dict[str, Handler] = {}
 
 
 async def main(stop: asyncio.Event | None = None) -> None:
@@ -29,7 +25,7 @@ async def main(stop: asyncio.Event | None = None) -> None:
     metrics_server, _ = start_http_server(settings.worker_metrics_port, registry=registry)
 
     container = build_container(settings)
-    worker = build_worker(container, handlers=HANDLERS, registry=registry)
+    worker = build_worker(container, handlers=default_handlers(container), registry=registry)
     if stop is None:
         stop = asyncio.Event()
         _install_signal_handlers(stop)
