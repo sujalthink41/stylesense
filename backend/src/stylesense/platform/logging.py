@@ -1,9 +1,10 @@
+import importlib.util
 import logging
 import sys
 from typing import TextIO
 
 import structlog
-from structlog.typing import Processor
+from structlog.typing import ExceptionRenderer, Processor
 
 from stylesense.platform.observability.redaction import redact_processor
 from stylesense.platform.observability.tracing import add_trace_context
@@ -20,14 +21,22 @@ def configure_logging(*, level: str, json_logs: bool, stream: TextIO | None = No
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
     ]
+    # Never render stack-frame locals: they routinely hold tokens, bodies and PII.
     renderer: Processor = (
         structlog.processors.JSONRenderer()
         if json_logs
-        else structlog.dev.ConsoleRenderer(colors=out.isatty())
+        else structlog.dev.ConsoleRenderer(
+            colors=out.isatty(),
+            exception_formatter=_console_exception_formatter(),
+        )
     )
     final: list[Processor] = [structlog.stdlib.ProcessorFormatter.remove_processors_meta]
     if json_logs:
-        final.append(structlog.processors.dict_tracebacks)
+        final.append(
+            structlog.processors.ExceptionRenderer(
+                structlog.tracebacks.ExceptionDictTransformer(show_locals=False)
+            )
+        )
     # Last step before rendering, so tracebacks and bound context are scrubbed too.
     final.append(redact_processor)
     final.append(renderer)
@@ -52,3 +61,10 @@ def configure_logging(*, level: str, json_logs: bool, stream: TextIO | None = No
         uv_logger = logging.getLogger(name)
         uv_logger.handlers = []
         uv_logger.propagate = True
+
+
+def _console_exception_formatter() -> ExceptionRenderer:
+    # rich is a dev-only nicety; production images don't ship it.
+    if importlib.util.find_spec("rich") is None:
+        return structlog.dev.plain_traceback
+    return structlog.dev.RichTracebackFormatter(show_locals=False)

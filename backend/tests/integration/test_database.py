@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -15,11 +17,13 @@ from tests.factories import UNREACHABLE_DB, make_settings
 
 
 @pytest.fixture
-async def table(engine: AsyncEngine) -> str:
+async def table(engine: AsyncEngine) -> AsyncIterator[str]:
     async with engine.begin() as conn:
         await conn.execute(text("DROP TABLE IF EXISTS uow_probe"))
         await conn.execute(text("CREATE TABLE uow_probe (id int PRIMARY KEY)"))
-    return "uow_probe"
+    yield "uow_probe"
+    async with engine.begin() as conn:
+        await conn.execute(text("DROP TABLE uow_probe"))
 
 
 async def _count(engine: AsyncEngine, table: str) -> int:

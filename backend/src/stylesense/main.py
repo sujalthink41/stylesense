@@ -8,7 +8,10 @@ from opentelemetry.sdk.trace import TracerProvider
 from prometheus_client import CollectorRegistry, GCCollector, PlatformCollector, ProcessCollector
 
 from stylesense.api.health import router as health_router
+from stylesense.api.middleware import LoadSheddingMiddleware
+from stylesense.api.v1 import router as v1_router
 from stylesense.bootstrap.container import Container, build_container
+from stylesense.guards.bulkhead import Bulkhead
 from stylesense.infra.database import pool_stats
 from stylesense.platform.config import Environment, Settings, get_settings
 from stylesense.platform.errors import register_error_handlers
@@ -76,11 +79,20 @@ def create_app(
             allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
             expose_headers=["X-Request-ID", "Retry-After"],
         )
+    # Probes stay exempt: a busy instance is still alive and must not be restarted.
+    app.add_middleware(
+        LoadSheddingMiddleware,
+        bulkhead=Bulkhead(
+            "http", max_concurrent=settings.max_in_flight, max_waiting=settings.max_queued
+        ),
+        exempt_paths=QUIET_PATHS,
+    )
     # Added last so it wraps everything: every response gets an id, every request is measured.
     app.add_middleware(
         RequestContextMiddleware, metrics=HttpMetrics(registry), quiet_paths=QUIET_PATHS
     )
     app.include_router(health_router)
+    app.include_router(v1_router)
     if settings.metrics_enabled:
         app.include_router(metrics_router(registry))
     if provider is not None:

@@ -3,10 +3,13 @@ from pathlib import Path
 
 import pytest
 from alembic import command
+from alembic.autogenerate import compare_metadata
 from alembic.config import Config
+from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import text
 
+from stylesense.bootstrap.models import Base
 from stylesense.infra.database import create_engine
 from stylesense.platform.config import Settings
 
@@ -46,3 +49,19 @@ def test_upgrade_and_downgrade_round_trip(alembic_config: Config, settings: Sett
 
 def test_single_head(alembic_config: Config) -> None:
     assert len(ScriptDirectory.from_config(alembic_config).get_heads()) == 1
+
+
+def test_models_and_migrations_do_not_drift(alembic_config: Config, settings: Settings) -> None:
+    command.upgrade(alembic_config, "head")
+
+    async def diff() -> list[object]:
+        engine = create_engine(settings)
+        try:
+            async with engine.connect() as conn:
+                return await conn.run_sync(
+                    lambda sync: compare_metadata(MigrationContext.configure(sync), Base.metadata)
+                )
+        finally:
+            await engine.dispose()
+
+    assert asyncio.run(diff()) == []

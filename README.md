@@ -2,7 +2,7 @@
 
 **An AI fashion stylist for India.** Tell it what you need ("summer t-shirt around ₹500"), answer a few quick taps, and swipe through the best picks across Amazon, Flipkart and Myntra, with price comparison, virtual try-on and outfit suggestions.
 
-> Status: **in active development**: backend Phase 1, checkpoint **CP2 complete**. See [progress](docs/06-checkpoints.md).
+> Status: **in active development**: backend Phase 1, checkpoint **CP3 complete**. See [progress](docs/06-checkpoints.md).
 
 ---
 
@@ -80,7 +80,7 @@ make migration m="add users"   # new Alembic migration
 ## Repository layout
 
 ```
-backend/        FastAPI service (src/stylesense, tests, alembic, Dockerfile)
+backend/        FastAPI service + worker (src/stylesense, tests, alembic, Dockerfile)
 infra/compose/  Docker Compose stack (base, dev and observability overlays)
 infra/observability/  Collector, Tempo, Prometheus and Grafana config
 docs/           Product, business, spec, DB design, checkpoints, ADRs, runbooks

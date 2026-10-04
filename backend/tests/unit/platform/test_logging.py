@@ -4,7 +4,7 @@ import logging
 import pytest
 import structlog
 
-from stylesense.platform.logging import configure_logging
+from stylesense.platform.logging import _console_exception_formatter, configure_logging
 
 
 def _last_json_line(text: str) -> dict[str, object]:
@@ -56,3 +56,30 @@ def test_exceptions_are_rendered_as_structured_field(capsys: pytest.CaptureFixtu
 
     record = _last_json_line(capsys.readouterr().out)
     assert "ValueError" in str(record["exception"])
+
+
+def test_exception_logs_never_include_local_variables(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    configure_logging(level="INFO", json_logs=True)
+
+    def fail() -> None:
+        api_token = "tok-super-secret-value"  # noqa: F841  # a local that must never be logged
+        raise ValueError("bad")
+
+    try:
+        fail()
+    except ValueError:
+        structlog.get_logger("test").exception("failed")
+
+    out = capsys.readouterr().out
+    assert "tok-super-secret-value" not in out
+    assert '"locals"' not in out
+
+
+def test_console_falls_back_to_plain_tracebacks_without_rich(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("importlib.util.find_spec", lambda _name: None)
+
+    assert _console_exception_formatter() is structlog.dev.plain_traceback

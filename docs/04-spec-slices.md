@@ -86,7 +86,7 @@ Each slice lists: **scope**, **backend**, **AI**, **mobile/web**, **data**, **ac
 - **Acceptance:** an outfit photo returns ≥ 5 similar in-budget items; daily quota enforced; the upload is deleted after 24 h.
 
 ### S12 — Virtual try-on (F8)
-- **Scope:** `TryOnProvider` adapter, ARQ job, progress via SSE patch + push, `tryon_result`, report action, 24 h deletion, daily quota.
+- **Scope:** `TryOnProvider` adapter, outbox-driven job, progress via SSE patch + push, `tryon_result`, report action, 24 h deletion, daily quota.
 - **Data:** `tryon_jobs`, `uploads`, `content_reports`.
 - **Acceptance:** try-on finishes asynchronously while the user keeps browsing; failure shows a friendly retry; images are purged by cron.
 

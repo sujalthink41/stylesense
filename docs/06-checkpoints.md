@@ -16,7 +16,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | **Phase 1: Backend** | | | |
 | CP1 | Backend foundation & project structure | S0 | ✅ |
 | CP2 | Observability foundation | S0 | ✅ |
-| CP3 | Cross-cutting guards: idempotency, rate limiting, locks, outbox | S0 | ⬜ |
+| CP3 | Cross-cutting guards: idempotency, rate limiting, locks, outbox | S0 | ✅ |
 | CP4 | Auth & accounts | S1 | ⬜ |
 | CP5 | Catalog & mock data | S2 | ⬜ |
 | CP6 | LLM gateway & AI guardrails | S3 | ⬜ |
@@ -58,7 +58,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 **Exit:** one request is traceable across logs/metrics/traces by id; PII redaction tested; a forced error appears in GlitchTip.
 
 ## CP3 — Cross-cutting guards
-**Deliverables:** idempotency middleware/dependency (Redis, stored responses, concurrent-duplicate handling), rate limiter (sliding window + token bucket, policy table + Redis cache), distributed locks, single-flight helper, transactional outbox + worker (ARQ set up), backpressure (`503 + Retry-After`).
+**Deliverables:** idempotency middleware/dependency (Redis, stored responses, concurrent-duplicate handling), rate limiter (sliding window + token bucket, policy table + Redis cache), distributed locks, single-flight helper, transactional outbox + worker process (ADR 0005), backpressure (`503 + Retry-After`). Rate-limit policies are code defaults until the admin store in CP14.
 **Exit:** property tests for limiters; same idempotency key in parallel → one execution; outbox delivers exactly once to the handler, which is idempotent under redelivery; 2 API + 2 worker instances pass the suite.
 
 ## CP4 — Auth & accounts
@@ -94,7 +94,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 **Exit:** duplicate votes/items blocked under concurrency; public endpoints rate-limited.
 
 ## CP12 — Uploads, shop from photo, virtual try-on
-**Deliverables:** presigned uploads, EXIF strip, moderation, `photo.understand` flow, try-on provider evaluation (ADR) + adapter, ARQ job with dedupe, SSE patch on completion, quotas, 24 h purge, reports.
+**Deliverables:** presigned uploads, EXIF strip, moderation, `photo.understand` flow, try-on provider evaluation (ADR) + adapter, outbox-driven job with dedupe, SSE patch on completion, quotas, 24 h purge, reports.
 **Exit:** double-tap creates one paid try-on; provider failure is recoverable; purge verified.
 
 ## CP13 — Feed, notifications, price-drop alerts
