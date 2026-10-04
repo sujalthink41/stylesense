@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -63,6 +65,24 @@ def test_non_string_scalars_pass_through() -> None:
         "ratio": 0.5,
         "none": None,
     }
+
+
+def test_digit_runs_inside_ids_are_not_mistaken_for_phone_numbers() -> None:
+    trace_id = "9e2ac6dac6886634856afcbdcbe6597d"  # caught in CI: corrupted by the phone pattern
+
+    assert scrub(f"trace {trace_id}") == f"trace {trace_id}"
+
+
+@given(value=st.uuids())
+def test_ids_are_never_altered(value: uuid.UUID) -> None:
+    for text in (value.hex, str(value)):
+        assert scrub(text) == text
+
+
+def test_correlation_fields_are_never_scrubbed() -> None:
+    event = {"request_id": "x9876543210y", "trace_id": "6886634856", "span_id": "a@b.co"}
+
+    assert scrub(event) == event
 
 
 def test_versioned_names_are_not_mistaken_for_emails() -> None:
