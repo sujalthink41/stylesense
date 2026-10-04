@@ -44,7 +44,7 @@ jobs:
       - run: uv sync --frozen
       - name: Tests (unit + integration via testcontainers) with coverage gate
         run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: coverage, path: backend/coverage.xml }
 
