@@ -10,6 +10,8 @@ from stylesense.workers.runtime import PeriodicTask, Worker
 
 OUTBOX_GAUGE_INTERVAL_S = 30
 TOKEN_PRUNE_INTERVAL_S = 6 * 3_600
+EMBED_INTERVAL_S = 60
+EMBED_BATCH = 64
 
 
 def default_handlers(container: Container) -> dict[str, Handler]:
@@ -45,11 +47,15 @@ def build_worker(
         await container.auth.prune_expired()
         return False
 
+    async def embed_catalog() -> bool:
+        return await container.catalog.embed_pending(batch_size=EMBED_BATCH) >= EMBED_BATCH
+
     return Worker(
         [
             PeriodicTask("outbox.relay", settings.outbox_poll_interval_s, relay_outbox),
             PeriodicTask("outbox.backlog", OUTBOX_GAUGE_INTERVAL_S, measure_backlog),
             PeriodicTask("auth.prune_tokens", TOKEN_PRUNE_INTERVAL_S, prune_tokens, exclusive=True),
+            PeriodicTask("catalog.embed", EMBED_INTERVAL_S, embed_catalog),
         ],
         locks=container.locks,
         heartbeat=FileHeartbeat(settings.worker_heartbeat_file).beat,

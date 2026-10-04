@@ -19,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from stylesense.infra.database import Base
 from stylesense.platform.clock import Clock
+from stylesense.platform.ids import new_id
 from stylesense.platform.observability.redaction import scrub
 
 logger = structlog.get_logger(__name__)
@@ -46,7 +47,9 @@ class OutboxMessage(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=new_id, server_default=text("uuidv7()")
+    )
     topic: Mapped[str] = mapped_column(Text)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     dedupe_key: Mapped[str | None] = mapped_column(Text)

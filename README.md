@@ -2,7 +2,7 @@
 
 **An AI fashion stylist for India.** Tell it what you need ("summer t-shirt around ₹500"), answer a few quick taps, and swipe through the best picks across Amazon, Flipkart and Myntra, with price comparison, virtual try-on and outfit suggestions.
 
-> Status: **in active development**: backend Phase 1, checkpoint **CP4 complete**. See [progress](docs/06-checkpoints.md).
+> Status: **in active development**: backend Phase 1, checkpoint **CP5 complete**. See [progress](docs/06-checkpoints.md).
 
 ---
 
@@ -51,6 +51,7 @@ git clone https://github.com/sujalthink41/stylesense.git
 cd stylesense
 make setup   # install deps + git hooks, create .env
 make up      # start postgres, redis, migrations and the API (hot reload)
+make seed    # load the 300-product mock catalog
 ```
 
 - API docs: http://localhost:8000/docs

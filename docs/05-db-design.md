@@ -97,60 +97,54 @@ Indexes: `(family_id)`, `(user_id) WHERE revoked_at IS NULL`. Rows expired > 7 d
 `id`, `user_id`, `product_id`, `session_id NULL`, `direction` (`left`/`right`/`super`), `created_at`.
 Index: `(user_id, created_at DESC)`; `UNIQUE(user_id, product_id, session_id)`.
 
-## 4. Catalog
+## 4. Catalog *(built in CP5)*
 
 ### stores
-`id`, `code` UNIQUE (`amazon`, `flipkart`, `myntra`), `name`, `logo_url`, `active bool`, `source_adapter` (`mock`/`amazon`/…), `affiliate_config jsonb` (non-secret params only).
+`id`, `code` UNIQUE (`amazon`, `flipkart`, `myntra`), `name`, `allowed_hosts text[]` (the only domains `/v1/out` may redirect to), `active`. Seeded by migration 0004.
 
 ### products (canonical item)
 | Column | Type | Notes |
 |---|---|---|
-| id | uuid PK | |
-| title | text | |
-| brand | text | |
-| category | text | `tshirt`, `shirt`, `jeans`, `kurta`, `dress`, `shoes`, … |
-| subcategory | text NULL | |
-| gender | text | `men` \| `women` \| `unisex` |
-| attributes | jsonb | `{"fabric":"cotton","fit":"oversized","sleeve":"half","pattern":"solid","occasion":["casual","summer"]}` |
-| colors | text[] | normalized color names |
-| tags | text[] | derived, used for affinity + LLM compact view |
-| sizes_available | text[] | |
-| rating | numeric(2,1) | best/aggregated across offers |
-| rating_count | int | |
+| id | uuid PK | client-generated UUIDv7 (ADR 0008) |
+| canonical_key | text UNIQUE | groups the same item across stores; makes ingest idempotent |
+| title, brand, category, subcategory | text | |
+| gender | text | `men` \| `women` \| `unisex` (CHECK) |
+| attributes | jsonb | `{"fabric": "cotton", "fit": "oversized", "occasion": "casual, summer"}` |
+| colors, tags, sizes_available | text[] | tags derived from category, gender, colours and attribute values |
+| rating | numeric(2,1) | average across offers |
+| rating_count | int | summed across offers |
 | primary_image_url | text | |
-| embedding | vector(D) | text (+ later image) embedding |
-| min_price_paise | int | denormalized best active offer price |
+| min_price_paise | int NULL | best in-stock offer, denormalised for filtering |
 | active | bool | |
-| updated_at | timestamptz | |
+| content_hash | text | sha256 of the embeddable text |
+| embedding | vector(1536) NULL | |
+| embedding_hash | text NULL | `sha256(model:content_hash)`; stale when it differs (ADR 0007) |
 
-Indexes:
-- `HNSW (embedding vector_cosine_ops)`
-- `(category, gender, min_price_paise) WHERE active`
-- `GIN (tags)`, `GIN (attributes jsonb_path_ops)`
+Indexes: HNSW `(embedding vector_cosine_ops)` (m=16, ef_construction=64); `(category, gender, min_price_paise) WHERE active`; GIN `(tags)`.
 
 ### product_images
-`id`, `product_id`, `url`, `position`, `alt`.
+`id`, `product_id`, `url`, `position`; `UNIQUE(product_id, position)`. Updated in place by position on re-ingest.
 
 ### offers (a product sold at a store)
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
-| product_id | uuid FK | |
+| product_id | uuid FK (cascade) | |
 | store_id | uuid FK | |
-| external_id | text | store's product id (ASIN, FSN, …) |
-| url | text | plain product URL |
-| price_paise | int | current price |
-| mrp_paise | int NULL | for "% off" |
+| external_id | text | store's id; `UNIQUE(store_id, external_id)` |
+| url | text | must be HTTPS on the store's `allowed_hosts`; never exposed to clients |
+| price_paise | int | CHECK > 0 |
+| mrp_paise | int NULL | CHECK ≥ price |
+| rating | numeric(2,1) NULL | used to break price ties |
 | in_stock | bool | |
 | sizes_in_stock | text[] | |
 | last_refreshed_at | timestamptz | |
-`UNIQUE(store_id, external_id)`; index `(product_id)`.
 
 ### price_snapshots
-`id`, `offer_id`, `price_paise`, `captured_at`. Index `(offer_id, captured_at DESC)`. Written only when the price changes. This is also the future base for price history.
+`id`, `offer_id`, `price_paise`, `captured_at`. Written only when the price changes (first sighting included). Index `(offer_id, captured_at)`. The basis for price-drop alerts (CP13) and future price history.
 
 ### outbound_clicks
-`id`, `user_id NULL`, `offer_id`, `session_id NULL`, `source` (`stylist`/`feed`/`board`/`poll`/`share`), `created_at`. Monthly partitioning once volume grows.
+`id`, `offer_id`, `user_id NULL` (FK, `SET NULL` on purge), `source` (`stylist`/`feed`/`board`/`poll`/`share`/`product`/`other`), `created_at`. Index `(created_at)`.
 
 ## 5. Stylist sessions
 

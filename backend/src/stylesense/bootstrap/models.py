@@ -6,6 +6,14 @@ Add each new models module here.
 from stylesense.guards.outbox import OutboxMessage
 from stylesense.infra.database import Base
 from stylesense.modules.auth.models import RefreshToken
+from stylesense.modules.catalog.models import (
+    Offer,
+    OutboundClick,
+    PriceSnapshot,
+    Product,
+    ProductImage,
+    Store,
+)
 from stylesense.modules.users.models import (
     AccountDeletion,
     AuthIdentity,
@@ -19,8 +27,14 @@ __all__ = [
     "AuthIdentity",
     "Base",
     "Consent",
+    "Offer",
+    "OutboundClick",
     "OutboxMessage",
+    "PriceSnapshot",
+    "Product",
+    "ProductImage",
     "RefreshToken",
+    "Store",
     "User",
     "UserDevice",
 ]

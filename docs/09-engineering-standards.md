@@ -194,6 +194,8 @@ main → api → bootstrap → modules → guards → infra → platform
 
 - **One transaction per use case** (Unit of Work). Side effects that must happen after commit go through the **outbox** table, which is processed by a worker.
 - **Optimistic locking** (`version` column) where concurrent edits matter (boards, admin edits).
+- **Ids:** primary keys come from `platform.ids.new_id()` (UUIDv7) so inserts batch; never rely on server defaults being loaded after INSERT (`refresh()` explicitly) (ADR 0008).
+- **Relationships are `lazy="raise"`**: load what you need with `selectinload`; accidental lazy loads must fail in tests.
 - **Atomic counters** for quotas (Redis `INCR` with expiry / Lua scripts), never read-then-write.
 - **Migrations:** expand → migrate → contract; reviewed; tested on a copy of prod data before release; every migration has a downgrade or a documented reason why not.
 

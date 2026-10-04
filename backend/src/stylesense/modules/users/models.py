@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from stylesense.infra.database import Base
+from stylesense.platform.ids import new_id
 
 _now = func.now()
 
@@ -27,7 +28,9 @@ class User(Base):
         CheckConstraint("status IN ('active', 'suspended', 'deleting')", name="status"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=new_id, server_default=text("uuidv7()")
+    )
     email: Mapped[str] = mapped_column(CITEXT, unique=True)
     display_name: Mapped[str | None] = mapped_column(Text)
     avatar_url: Mapped[str | None] = mapped_column(Text)
@@ -48,7 +51,9 @@ class AuthIdentity(Base):
     __tablename__ = "auth_identities"
     __table_args__ = (UniqueConstraint("provider", "subject"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=new_id, server_default=text("uuidv7()")
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     provider: Mapped[str] = mapped_column(Text)
     subject: Mapped[str] = mapped_column(Text)
@@ -69,7 +74,9 @@ class UserDevice(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=new_id, server_default=text("uuidv7()")
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     installation_id: Mapped[uuid.UUID]
     platform: Mapped[str] = mapped_column(Text)
@@ -91,7 +98,9 @@ class Consent(Base):
         Index("ix_consents_user_kind_created", "user_id", "kind", "created_at"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=new_id, server_default=text("uuidv7()")
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     kind: Mapped[str] = mapped_column(Text)
     version: Mapped[str] = mapped_column(Text)
@@ -107,7 +116,9 @@ class AccountDeletion(Base):
         CheckConstraint("requested_via IN ('app', 'web', 'admin')", name="requested_via"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=new_id, server_default=text("uuidv7()")
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(unique=True)
     requested_via: Mapped[str] = mapped_column(Text)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
