@@ -101,6 +101,7 @@ Makefile        Developer commands
 | [How the system works](docs/07-system-architecture.md) | Living developer guide |
 | [Key concepts](docs/08-key-concepts.md) | Concepts to learn from this codebase |
 | [Engineering standards](docs/09-engineering-standards.md) | Mandatory coding rules |
+| [Observability guide](docs/guides/observability-guide.md) | Learn Grafana, Prometheus, Tempo, GlitchTip, Uptime Kuma |
 
 ## License
 
