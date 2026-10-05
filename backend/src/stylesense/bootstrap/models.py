@@ -15,6 +15,7 @@ from stylesense.modules.catalog.models import (
     ProductImage,
     Store,
 )
+from stylesense.modules.stylist.models import SessionEvent, StylistSession
 from stylesense.modules.users.models import (
     AccountDeletion,
     AuthIdentity,
@@ -38,7 +39,9 @@ __all__ = [
     "Product",
     "ProductImage",
     "RefreshToken",
+    "SessionEvent",
     "Store",
+    "StylistSession",
     "User",
     "UserDevice",
 ]

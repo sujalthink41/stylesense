@@ -1,0 +1,3085 @@
+{
+  "action_request": {
+    "$defs": {
+      "Back": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "back",
+            "default": "back",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Back",
+        "type": "object"
+      },
+      "CardOpen": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "card_open",
+            "default": "card_open",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id"
+        ],
+        "title": "CardOpen",
+        "type": "object"
+      },
+      "ChipSelect": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "option_ids": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Option Ids",
+            "type": "array"
+          },
+          "type": {
+            "const": "chip_select",
+            "default": "chip_select",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "option_ids"
+        ],
+        "title": "ChipSelect",
+        "type": "object"
+      },
+      "Restart": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "restart",
+            "default": "restart",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Restart",
+        "type": "object"
+      },
+      "Shortcut": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "shortcut",
+            "default": "shortcut",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "Shortcut",
+        "type": "object"
+      },
+      "SliderSet": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "max_paise": {
+            "minimum": 0,
+            "title": "Max Paise",
+            "type": "integer"
+          },
+          "min_paise": {
+            "minimum": 0,
+            "title": "Min Paise",
+            "type": "integer"
+          },
+          "type": {
+            "const": "slider_set",
+            "default": "slider_set",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "min_paise",
+          "max_paise"
+        ],
+        "title": "SliderSet",
+        "type": "object"
+      },
+      "Swipe": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "left",
+              "right",
+              "super"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "swipe",
+            "default": "swipe",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id",
+          "direction"
+        ],
+        "title": "Swipe",
+        "type": "object"
+      },
+      "TextInput": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "const": "text_input",
+            "default": "text_input",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TextInput",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "action": {
+        "discriminator": {
+          "mapping": {
+            "back": "#/$defs/Back",
+            "card_open": "#/$defs/CardOpen",
+            "chip_select": "#/$defs/ChipSelect",
+            "restart": "#/$defs/Restart",
+            "shortcut": "#/$defs/Shortcut",
+            "slider_set": "#/$defs/SliderSet",
+            "swipe": "#/$defs/Swipe",
+            "text_input": "#/$defs/TextInput"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ChipSelect"
+          },
+          {
+            "$ref": "#/$defs/SliderSet"
+          },
+          {
+            "$ref": "#/$defs/Swipe"
+          },
+          {
+            "$ref": "#/$defs/CardOpen"
+          },
+          {
+            "$ref": "#/$defs/TextInput"
+          },
+          {
+            "$ref": "#/$defs/Shortcut"
+          },
+          {
+            "$ref": "#/$defs/Back"
+          },
+          {
+            "$ref": "#/$defs/Restart"
+          }
+        ],
+        "title": "Action"
+      },
+      "turn_id": {
+        "minimum": 1,
+        "title": "Turn Id",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "turn_id",
+      "action"
+    ],
+    "title": "ActionRequest",
+    "type": "object"
+  },
+  "catalog_version": 1,
+  "envelope": {
+    "$defs": {
+      "Back": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "back",
+            "default": "back",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Back",
+        "type": "object"
+      },
+      "BudgetSlider": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/BudgetSliderProps"
+          },
+          "type": {
+            "const": "budget_slider",
+            "default": "budget_slider",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "BudgetSlider",
+        "type": "object"
+      },
+      "BudgetSliderProps": {
+        "additionalProperties": false,
+        "properties": {
+          "default_max_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Default Max Paise",
+            "type": "integer"
+          },
+          "default_min_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Default Min Paise",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "max_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Max Paise",
+            "type": "integer"
+          },
+          "min_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Min Paise",
+            "type": "integer"
+          },
+          "step_paise": {
+            "maximum": 1000000,
+            "minimum": 100,
+            "title": "Step Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "min_paise",
+          "max_paise",
+          "step_paise",
+          "default_min_paise",
+          "default_max_paise"
+        ],
+        "title": "BudgetSliderProps",
+        "type": "object"
+      },
+      "CardOpen": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "card_open",
+            "default": "card_open",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id"
+        ],
+        "title": "CardOpen",
+        "type": "object"
+      },
+      "ChipOption": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ChipOption",
+        "type": "object"
+      },
+      "ChipQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ChipQuestionProps"
+          },
+          "type": {
+            "const": "chip_question",
+            "default": "chip_question",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ChipQuestion",
+        "type": "object"
+      },
+      "ChipQuestionProps": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_custom": {
+            "default": false,
+            "title": "Allow Custom",
+            "type": "boolean"
+          },
+          "max_select": {
+            "default": 1,
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Max Select",
+            "type": "integer"
+          },
+          "multi": {
+            "default": false,
+            "title": "Multi",
+            "type": "boolean"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/$defs/ChipOption"
+            },
+            "maxItems": 12,
+            "minItems": 2,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "options"
+        ],
+        "title": "ChipQuestionProps",
+        "type": "object"
+      },
+      "ChipSelect": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "option_ids": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Option Ids",
+            "type": "array"
+          },
+          "type": {
+            "const": "chip_select",
+            "default": "chip_select",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "option_ids"
+        ],
+        "title": "ChipSelect",
+        "type": "object"
+      },
+      "ComparedOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "buy_path": {
+            "pattern": "^/v1/out/[0-9a-f-]{36}$",
+            "title": "Buy Path",
+            "type": "string"
+          },
+          "discount_percent": {
+            "maximum": 99,
+            "minimum": 0,
+            "title": "Discount Percent",
+            "type": "integer"
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "is_best": {
+            "title": "Is Best",
+            "type": "boolean"
+          },
+          "mrp_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp Paise"
+          },
+          "offer_id": {
+            "format": "uuid",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "price_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Price Paise",
+            "type": "integer"
+          },
+          "store": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Store",
+            "type": "string"
+          },
+          "store_name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Store Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "offer_id",
+          "store",
+          "store_name",
+          "price_paise",
+          "mrp_paise",
+          "discount_percent",
+          "in_stock",
+          "is_best",
+          "buy_path"
+        ],
+        "title": "ComparedOffer",
+        "type": "object"
+      },
+      "CompleteTheLook": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/CompleteTheLookProps"
+          },
+          "type": {
+            "const": "complete_the_look",
+            "default": "complete_the_look",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "CompleteTheLook",
+        "type": "object"
+      },
+      "CompleteTheLookProps": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_product_id": {
+            "format": "uuid",
+            "title": "Anchor Product Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ProductCardProps"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "remaining_budget_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Remaining Budget Paise"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "anchor_product_id",
+          "items"
+        ],
+        "title": "CompleteTheLookProps",
+        "type": "object"
+      },
+      "EmptyState": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/EmptyStateProps"
+          },
+          "type": {
+            "const": "empty_state",
+            "default": "empty_state",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "EmptyState",
+        "type": "object"
+      },
+      "EmptyStateProps": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Body",
+            "type": "string"
+          },
+          "recovery": {
+            "items": {
+              "$ref": "#/$defs/Suggestion"
+            },
+            "maxItems": 4,
+            "title": "Recovery",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "EmptyStateProps",
+        "type": "object"
+      },
+      "ImageChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "maxLength": 500,
+            "pattern": "^https://",
+            "title": "Image Url",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "image_url"
+        ],
+        "title": "ImageChoice",
+        "type": "object"
+      },
+      "ImageChoiceGrid": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ImageChoiceGridProps"
+          },
+          "type": {
+            "const": "image_choice_grid",
+            "default": "image_choice_grid",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ImageChoiceGrid",
+        "type": "object"
+      },
+      "ImageChoiceGridProps": {
+        "additionalProperties": false,
+        "properties": {
+          "max_select": {
+            "default": 1,
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Max Select",
+            "type": "integer"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/$defs/ImageChoice"
+            },
+            "maxItems": 12,
+            "minItems": 2,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "options"
+        ],
+        "title": "ImageChoiceGridProps",
+        "type": "object"
+      },
+      "InfoBanner": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/InfoBannerProps"
+          },
+          "type": {
+            "const": "info_banner",
+            "default": "info_banner",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "InfoBanner",
+        "type": "object"
+      },
+      "InfoBannerProps": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "tone": {
+            "default": "info",
+            "enum": [
+              "info",
+              "success",
+              "warning"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "InfoBannerProps",
+        "type": "object"
+      },
+      "LoadingSkeleton": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/LoadingSkeletonProps"
+          },
+          "type": {
+            "const": "loading_skeleton",
+            "default": "loading_skeleton",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "LoadingSkeleton",
+        "type": "object"
+      },
+      "LoadingSkeletonProps": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "default": 3,
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Count",
+            "type": "integer"
+          },
+          "shape": {
+            "enum": [
+              "cards",
+              "question",
+              "comparison"
+            ],
+            "title": "Shape",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shape"
+        ],
+        "title": "LoadingSkeletonProps",
+        "type": "object"
+      },
+      "ProductCard": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductCardProps"
+          },
+          "type": {
+            "const": "product_card",
+            "default": "product_card",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductCard",
+        "type": "object"
+      },
+      "ProductCardProps": {
+        "additionalProperties": false,
+        "properties": {
+          "best_store": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Best Store"
+          },
+          "brand": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Url"
+          },
+          "price_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rating"
+          },
+          "rating_count": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "brand",
+          "price_paise"
+        ],
+        "title": "ProductCardProps",
+        "type": "object"
+      },
+      "ProductSwipeDeck": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductSwipeDeckProps"
+          },
+          "type": {
+            "const": "product_swipe_deck",
+            "default": "product_swipe_deck",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductSwipeDeck",
+        "type": "object"
+      },
+      "ProductSwipeDeckProps": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/$defs/ProductCardProps"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Cards",
+            "type": "array"
+          },
+          "has_more": {
+            "default": false,
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
+          }
+        },
+        "required": [
+          "cards"
+        ],
+        "title": "ProductSwipeDeckProps",
+        "type": "object"
+      },
+      "Restart": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "restart",
+            "default": "restart",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Restart",
+        "type": "object"
+      },
+      "Shortcut": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "shortcut",
+            "default": "shortcut",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "Shortcut",
+        "type": "object"
+      },
+      "SliderSet": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "max_paise": {
+            "minimum": 0,
+            "title": "Max Paise",
+            "type": "integer"
+          },
+          "min_paise": {
+            "minimum": 0,
+            "title": "Min Paise",
+            "type": "integer"
+          },
+          "type": {
+            "const": "slider_set",
+            "default": "slider_set",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "min_paise",
+          "max_paise"
+        ],
+        "title": "SliderSet",
+        "type": "object"
+      },
+      "StoreComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/StoreComparisonProps"
+          },
+          "type": {
+            "const": "store_comparison",
+            "default": "store_comparison",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "StoreComparison",
+        "type": "object"
+      },
+      "StoreComparisonProps": {
+        "additionalProperties": false,
+        "properties": {
+          "offers": {
+            "items": {
+              "$ref": "#/$defs/ComparedOffer"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Offers",
+            "type": "array"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "offers"
+        ],
+        "title": "StoreComparisonProps",
+        "type": "object"
+      },
+      "Suggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "back": "#/$defs/Back",
+                "card_open": "#/$defs/CardOpen",
+                "chip_select": "#/$defs/ChipSelect",
+                "restart": "#/$defs/Restart",
+                "shortcut": "#/$defs/Shortcut",
+                "slider_set": "#/$defs/SliderSet",
+                "swipe": "#/$defs/Swipe",
+                "text_input": "#/$defs/TextInput"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ChipSelect"
+              },
+              {
+                "$ref": "#/$defs/SliderSet"
+              },
+              {
+                "$ref": "#/$defs/Swipe"
+              },
+              {
+                "$ref": "#/$defs/CardOpen"
+              },
+              {
+                "$ref": "#/$defs/TextInput"
+              },
+              {
+                "$ref": "#/$defs/Shortcut"
+              },
+              {
+                "$ref": "#/$defs/Back"
+              },
+              {
+                "$ref": "#/$defs/Restart"
+              }
+            ],
+            "title": "Action"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "action"
+        ],
+        "title": "Suggestion",
+        "type": "object"
+      },
+      "SuggestionBar": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/SuggestionBarProps"
+          },
+          "type": {
+            "const": "suggestion_bar",
+            "default": "suggestion_bar",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "SuggestionBar",
+        "type": "object"
+      },
+      "SuggestionBarProps": {
+        "additionalProperties": false,
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/$defs/Suggestion"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions"
+        ],
+        "title": "SuggestionBarProps",
+        "type": "object"
+      },
+      "Swipe": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "left",
+              "right",
+              "super"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "swipe",
+            "default": "swipe",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id",
+          "direction"
+        ],
+        "title": "Swipe",
+        "type": "object"
+      },
+      "TextInput": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "const": "text_input",
+            "default": "text_input",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TextInput",
+        "type": "object"
+      },
+      "TextInputBar": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/TextInputBarProps"
+          },
+          "type": {
+            "const": "text_input_bar",
+            "default": "text_input_bar",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "TextInputBar",
+        "type": "object"
+      },
+      "TextInputBarProps": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_photo": {
+            "default": false,
+            "title": "Allow Photo",
+            "type": "boolean"
+          },
+          "placeholder": {
+            "default": "Describe what you're looking for",
+            "maxLength": 80,
+            "title": "Placeholder",
+            "type": "string"
+          }
+        },
+        "title": "TextInputBarProps",
+        "type": "object"
+      }
+    },
+    "description": "One turn's UI. `turn_id` is what the app must echo back with its next action.",
+    "properties": {
+      "components": {
+        "items": {
+          "discriminator": {
+            "mapping": {
+              "budget_slider": "#/$defs/BudgetSlider",
+              "chip_question": "#/$defs/ChipQuestion",
+              "complete_the_look": "#/$defs/CompleteTheLook",
+              "empty_state": "#/$defs/EmptyState",
+              "image_choice_grid": "#/$defs/ImageChoiceGrid",
+              "info_banner": "#/$defs/InfoBanner",
+              "loading_skeleton": "#/$defs/LoadingSkeleton",
+              "product_card": "#/$defs/ProductCard",
+              "product_swipe_deck": "#/$defs/ProductSwipeDeck",
+              "store_comparison": "#/$defs/StoreComparison",
+              "suggestion_bar": "#/$defs/SuggestionBar",
+              "text_input_bar": "#/$defs/TextInputBar"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ChipQuestion"
+            },
+            {
+              "$ref": "#/$defs/BudgetSlider"
+            },
+            {
+              "$ref": "#/$defs/ImageChoiceGrid"
+            },
+            {
+              "$ref": "#/$defs/ProductCard"
+            },
+            {
+              "$ref": "#/$defs/ProductSwipeDeck"
+            },
+            {
+              "$ref": "#/$defs/StoreComparison"
+            },
+            {
+              "$ref": "#/$defs/CompleteTheLook"
+            },
+            {
+              "$ref": "#/$defs/SuggestionBar"
+            },
+            {
+              "$ref": "#/$defs/InfoBanner"
+            },
+            {
+              "$ref": "#/$defs/EmptyState"
+            },
+            {
+              "$ref": "#/$defs/TextInputBar"
+            },
+            {
+              "$ref": "#/$defs/LoadingSkeleton"
+            }
+          ]
+        },
+        "maxItems": 20,
+        "minItems": 1,
+        "title": "Components",
+        "type": "array"
+      },
+      "mode": {
+        "default": "replace",
+        "enum": [
+          "replace",
+          "append"
+        ],
+        "title": "Mode",
+        "type": "string"
+      },
+      "session_id": {
+        "format": "uuid",
+        "title": "Session Id",
+        "type": "string"
+      },
+      "turn_id": {
+        "minimum": 1,
+        "title": "Turn Id",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "session_id",
+      "turn_id",
+      "components"
+    ],
+    "title": "UiEnvelope",
+    "type": "object"
+  },
+  "event": {
+    "$defs": {
+      "Back": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "back",
+            "default": "back",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Back",
+        "type": "object"
+      },
+      "BudgetSlider": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/BudgetSliderProps"
+          },
+          "type": {
+            "const": "budget_slider",
+            "default": "budget_slider",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "BudgetSlider",
+        "type": "object"
+      },
+      "BudgetSliderProps": {
+        "additionalProperties": false,
+        "properties": {
+          "default_max_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Default Max Paise",
+            "type": "integer"
+          },
+          "default_min_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Default Min Paise",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "max_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Max Paise",
+            "type": "integer"
+          },
+          "min_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Min Paise",
+            "type": "integer"
+          },
+          "step_paise": {
+            "maximum": 1000000,
+            "minimum": 100,
+            "title": "Step Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "min_paise",
+          "max_paise",
+          "step_paise",
+          "default_min_paise",
+          "default_max_paise"
+        ],
+        "title": "BudgetSliderProps",
+        "type": "object"
+      },
+      "CardOpen": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "card_open",
+            "default": "card_open",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id"
+        ],
+        "title": "CardOpen",
+        "type": "object"
+      },
+      "ChipOption": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ChipOption",
+        "type": "object"
+      },
+      "ChipQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ChipQuestionProps"
+          },
+          "type": {
+            "const": "chip_question",
+            "default": "chip_question",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ChipQuestion",
+        "type": "object"
+      },
+      "ChipQuestionProps": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_custom": {
+            "default": false,
+            "title": "Allow Custom",
+            "type": "boolean"
+          },
+          "max_select": {
+            "default": 1,
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Max Select",
+            "type": "integer"
+          },
+          "multi": {
+            "default": false,
+            "title": "Multi",
+            "type": "boolean"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/$defs/ChipOption"
+            },
+            "maxItems": 12,
+            "minItems": 2,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "options"
+        ],
+        "title": "ChipQuestionProps",
+        "type": "object"
+      },
+      "ChipSelect": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "option_ids": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Option Ids",
+            "type": "array"
+          },
+          "type": {
+            "const": "chip_select",
+            "default": "chip_select",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "option_ids"
+        ],
+        "title": "ChipSelect",
+        "type": "object"
+      },
+      "ComparedOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "buy_path": {
+            "pattern": "^/v1/out/[0-9a-f-]{36}$",
+            "title": "Buy Path",
+            "type": "string"
+          },
+          "discount_percent": {
+            "maximum": 99,
+            "minimum": 0,
+            "title": "Discount Percent",
+            "type": "integer"
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "is_best": {
+            "title": "Is Best",
+            "type": "boolean"
+          },
+          "mrp_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp Paise"
+          },
+          "offer_id": {
+            "format": "uuid",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "price_paise": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Price Paise",
+            "type": "integer"
+          },
+          "store": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Store",
+            "type": "string"
+          },
+          "store_name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Store Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "offer_id",
+          "store",
+          "store_name",
+          "price_paise",
+          "mrp_paise",
+          "discount_percent",
+          "in_stock",
+          "is_best",
+          "buy_path"
+        ],
+        "title": "ComparedOffer",
+        "type": "object"
+      },
+      "CompleteTheLook": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/CompleteTheLookProps"
+          },
+          "type": {
+            "const": "complete_the_look",
+            "default": "complete_the_look",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "CompleteTheLook",
+        "type": "object"
+      },
+      "CompleteTheLookProps": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_product_id": {
+            "format": "uuid",
+            "title": "Anchor Product Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ProductCardProps"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "remaining_budget_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Remaining Budget Paise"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "anchor_product_id",
+          "items"
+        ],
+        "title": "CompleteTheLookProps",
+        "type": "object"
+      },
+      "DoneEvent": {
+        "properties": {
+          "event": {
+            "const": "done",
+            "default": "done",
+            "title": "Event",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "turn_id"
+        ],
+        "title": "DoneEvent",
+        "type": "object"
+      },
+      "EmptyState": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/EmptyStateProps"
+          },
+          "type": {
+            "const": "empty_state",
+            "default": "empty_state",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "EmptyState",
+        "type": "object"
+      },
+      "EmptyStateProps": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Body",
+            "type": "string"
+          },
+          "recovery": {
+            "items": {
+              "$ref": "#/$defs/Suggestion"
+            },
+            "maxItems": 4,
+            "title": "Recovery",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "EmptyStateProps",
+        "type": "object"
+      },
+      "ErrorEvent": {
+        "properties": {
+          "event": {
+            "const": "error",
+            "default": "error",
+            "title": "Event",
+            "type": "string"
+          },
+          "problem": {
+            "additionalProperties": true,
+            "title": "Problem",
+            "type": "object"
+          }
+        },
+        "required": [
+          "problem"
+        ],
+        "title": "ErrorEvent",
+        "type": "object"
+      },
+      "ImageChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "maxLength": 500,
+            "pattern": "^https://",
+            "title": "Image Url",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "image_url"
+        ],
+        "title": "ImageChoice",
+        "type": "object"
+      },
+      "ImageChoiceGrid": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ImageChoiceGridProps"
+          },
+          "type": {
+            "const": "image_choice_grid",
+            "default": "image_choice_grid",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ImageChoiceGrid",
+        "type": "object"
+      },
+      "ImageChoiceGridProps": {
+        "additionalProperties": false,
+        "properties": {
+          "max_select": {
+            "default": 1,
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Max Select",
+            "type": "integer"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/$defs/ImageChoice"
+            },
+            "maxItems": 12,
+            "minItems": 2,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "options"
+        ],
+        "title": "ImageChoiceGridProps",
+        "type": "object"
+      },
+      "InfoBanner": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/InfoBannerProps"
+          },
+          "type": {
+            "const": "info_banner",
+            "default": "info_banner",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "InfoBanner",
+        "type": "object"
+      },
+      "InfoBannerProps": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "tone": {
+            "default": "info",
+            "enum": [
+              "info",
+              "success",
+              "warning"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "InfoBannerProps",
+        "type": "object"
+      },
+      "LoadingEvent": {
+        "description": "Skeletons to show while the turn is being computed (e.g. waiting on AI).",
+        "properties": {
+          "components": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "budget_slider": "#/$defs/BudgetSlider",
+                  "chip_question": "#/$defs/ChipQuestion",
+                  "complete_the_look": "#/$defs/CompleteTheLook",
+                  "empty_state": "#/$defs/EmptyState",
+                  "image_choice_grid": "#/$defs/ImageChoiceGrid",
+                  "info_banner": "#/$defs/InfoBanner",
+                  "loading_skeleton": "#/$defs/LoadingSkeleton",
+                  "product_card": "#/$defs/ProductCard",
+                  "product_swipe_deck": "#/$defs/ProductSwipeDeck",
+                  "store_comparison": "#/$defs/StoreComparison",
+                  "suggestion_bar": "#/$defs/SuggestionBar",
+                  "text_input_bar": "#/$defs/TextInputBar"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ChipQuestion"
+                },
+                {
+                  "$ref": "#/$defs/BudgetSlider"
+                },
+                {
+                  "$ref": "#/$defs/ImageChoiceGrid"
+                },
+                {
+                  "$ref": "#/$defs/ProductCard"
+                },
+                {
+                  "$ref": "#/$defs/ProductSwipeDeck"
+                },
+                {
+                  "$ref": "#/$defs/StoreComparison"
+                },
+                {
+                  "$ref": "#/$defs/CompleteTheLook"
+                },
+                {
+                  "$ref": "#/$defs/SuggestionBar"
+                },
+                {
+                  "$ref": "#/$defs/InfoBanner"
+                },
+                {
+                  "$ref": "#/$defs/EmptyState"
+                },
+                {
+                  "$ref": "#/$defs/TextInputBar"
+                },
+                {
+                  "$ref": "#/$defs/LoadingSkeleton"
+                }
+              ]
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Components",
+            "type": "array"
+          },
+          "event": {
+            "const": "ui.loading",
+            "default": "ui.loading",
+            "title": "Event",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "turn_id",
+          "components"
+        ],
+        "title": "LoadingEvent",
+        "type": "object"
+      },
+      "LoadingSkeleton": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/LoadingSkeletonProps"
+          },
+          "type": {
+            "const": "loading_skeleton",
+            "default": "loading_skeleton",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "LoadingSkeleton",
+        "type": "object"
+      },
+      "LoadingSkeletonProps": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "default": 3,
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Count",
+            "type": "integer"
+          },
+          "shape": {
+            "enum": [
+              "cards",
+              "question",
+              "comparison"
+            ],
+            "title": "Shape",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shape"
+        ],
+        "title": "LoadingSkeletonProps",
+        "type": "object"
+      },
+      "ProductCard": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductCardProps"
+          },
+          "type": {
+            "const": "product_card",
+            "default": "product_card",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductCard",
+        "type": "object"
+      },
+      "ProductCardProps": {
+        "additionalProperties": false,
+        "properties": {
+          "best_store": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Best Store"
+          },
+          "brand": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Url"
+          },
+          "price_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rating"
+          },
+          "rating_count": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "brand",
+          "price_paise"
+        ],
+        "title": "ProductCardProps",
+        "type": "object"
+      },
+      "ProductSwipeDeck": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductSwipeDeckProps"
+          },
+          "type": {
+            "const": "product_swipe_deck",
+            "default": "product_swipe_deck",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductSwipeDeck",
+        "type": "object"
+      },
+      "ProductSwipeDeckProps": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/$defs/ProductCardProps"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Cards",
+            "type": "array"
+          },
+          "has_more": {
+            "default": false,
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
+          }
+        },
+        "required": [
+          "cards"
+        ],
+        "title": "ProductSwipeDeckProps",
+        "type": "object"
+      },
+      "RenderEvent": {
+        "properties": {
+          "envelope": {
+            "$ref": "#/$defs/UiEnvelope"
+          },
+          "event": {
+            "const": "ui.render",
+            "default": "ui.render",
+            "title": "Event",
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelope"
+        ],
+        "title": "RenderEvent",
+        "type": "object"
+      },
+      "Restart": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "restart",
+            "default": "restart",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Restart",
+        "type": "object"
+      },
+      "Shortcut": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "shortcut",
+            "default": "shortcut",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "Shortcut",
+        "type": "object"
+      },
+      "SliderSet": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "max_paise": {
+            "minimum": 0,
+            "title": "Max Paise",
+            "type": "integer"
+          },
+          "min_paise": {
+            "minimum": 0,
+            "title": "Min Paise",
+            "type": "integer"
+          },
+          "type": {
+            "const": "slider_set",
+            "default": "slider_set",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "min_paise",
+          "max_paise"
+        ],
+        "title": "SliderSet",
+        "type": "object"
+      },
+      "StoreComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/StoreComparisonProps"
+          },
+          "type": {
+            "const": "store_comparison",
+            "default": "store_comparison",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "StoreComparison",
+        "type": "object"
+      },
+      "StoreComparisonProps": {
+        "additionalProperties": false,
+        "properties": {
+          "offers": {
+            "items": {
+              "$ref": "#/$defs/ComparedOffer"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Offers",
+            "type": "array"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "offers"
+        ],
+        "title": "StoreComparisonProps",
+        "type": "object"
+      },
+      "Suggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "back": "#/$defs/Back",
+                "card_open": "#/$defs/CardOpen",
+                "chip_select": "#/$defs/ChipSelect",
+                "restart": "#/$defs/Restart",
+                "shortcut": "#/$defs/Shortcut",
+                "slider_set": "#/$defs/SliderSet",
+                "swipe": "#/$defs/Swipe",
+                "text_input": "#/$defs/TextInput"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ChipSelect"
+              },
+              {
+                "$ref": "#/$defs/SliderSet"
+              },
+              {
+                "$ref": "#/$defs/Swipe"
+              },
+              {
+                "$ref": "#/$defs/CardOpen"
+              },
+              {
+                "$ref": "#/$defs/TextInput"
+              },
+              {
+                "$ref": "#/$defs/Shortcut"
+              },
+              {
+                "$ref": "#/$defs/Back"
+              },
+              {
+                "$ref": "#/$defs/Restart"
+              }
+            ],
+            "title": "Action"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "action"
+        ],
+        "title": "Suggestion",
+        "type": "object"
+      },
+      "SuggestionBar": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/SuggestionBarProps"
+          },
+          "type": {
+            "const": "suggestion_bar",
+            "default": "suggestion_bar",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "SuggestionBar",
+        "type": "object"
+      },
+      "SuggestionBarProps": {
+        "additionalProperties": false,
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/$defs/Suggestion"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions"
+        ],
+        "title": "SuggestionBarProps",
+        "type": "object"
+      },
+      "Swipe": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "left",
+              "right",
+              "super"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "swipe",
+            "default": "swipe",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id",
+          "direction"
+        ],
+        "title": "Swipe",
+        "type": "object"
+      },
+      "TextInput": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "const": "text_input",
+            "default": "text_input",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TextInput",
+        "type": "object"
+      },
+      "TextInputBar": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/TextInputBarProps"
+          },
+          "type": {
+            "const": "text_input_bar",
+            "default": "text_input_bar",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "TextInputBar",
+        "type": "object"
+      },
+      "TextInputBarProps": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_photo": {
+            "default": false,
+            "title": "Allow Photo",
+            "type": "boolean"
+          },
+          "placeholder": {
+            "default": "Describe what you're looking for",
+            "maxLength": 80,
+            "title": "Placeholder",
+            "type": "string"
+          }
+        },
+        "title": "TextInputBarProps",
+        "type": "object"
+      },
+      "UiEnvelope": {
+        "description": "One turn's UI. `turn_id` is what the app must echo back with its next action.",
+        "properties": {
+          "components": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "budget_slider": "#/$defs/BudgetSlider",
+                  "chip_question": "#/$defs/ChipQuestion",
+                  "complete_the_look": "#/$defs/CompleteTheLook",
+                  "empty_state": "#/$defs/EmptyState",
+                  "image_choice_grid": "#/$defs/ImageChoiceGrid",
+                  "info_banner": "#/$defs/InfoBanner",
+                  "loading_skeleton": "#/$defs/LoadingSkeleton",
+                  "product_card": "#/$defs/ProductCard",
+                  "product_swipe_deck": "#/$defs/ProductSwipeDeck",
+                  "store_comparison": "#/$defs/StoreComparison",
+                  "suggestion_bar": "#/$defs/SuggestionBar",
+                  "text_input_bar": "#/$defs/TextInputBar"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ChipQuestion"
+                },
+                {
+                  "$ref": "#/$defs/BudgetSlider"
+                },
+                {
+                  "$ref": "#/$defs/ImageChoiceGrid"
+                },
+                {
+                  "$ref": "#/$defs/ProductCard"
+                },
+                {
+                  "$ref": "#/$defs/ProductSwipeDeck"
+                },
+                {
+                  "$ref": "#/$defs/StoreComparison"
+                },
+                {
+                  "$ref": "#/$defs/CompleteTheLook"
+                },
+                {
+                  "$ref": "#/$defs/SuggestionBar"
+                },
+                {
+                  "$ref": "#/$defs/InfoBanner"
+                },
+                {
+                  "$ref": "#/$defs/EmptyState"
+                },
+                {
+                  "$ref": "#/$defs/TextInputBar"
+                },
+                {
+                  "$ref": "#/$defs/LoadingSkeleton"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Components",
+            "type": "array"
+          },
+          "mode": {
+            "default": "replace",
+            "enum": [
+              "replace",
+              "append"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "minimum": 1,
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id",
+          "turn_id",
+          "components"
+        ],
+        "title": "UiEnvelope",
+        "type": "object"
+      }
+    },
+    "discriminator": {
+      "mapping": {
+        "done": "#/$defs/DoneEvent",
+        "error": "#/$defs/ErrorEvent",
+        "ui.loading": "#/$defs/LoadingEvent",
+        "ui.render": "#/$defs/RenderEvent"
+      },
+      "propertyName": "event"
+    },
+    "oneOf": [
+      {
+        "$ref": "#/$defs/RenderEvent"
+      },
+      {
+        "$ref": "#/$defs/LoadingEvent"
+      },
+      {
+        "$ref": "#/$defs/ErrorEvent"
+      },
+      {
+        "$ref": "#/$defs/DoneEvent"
+      }
+    ]
+  }
+}

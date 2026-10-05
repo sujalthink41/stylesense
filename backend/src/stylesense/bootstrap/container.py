@@ -28,6 +28,8 @@ from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
 from stylesense.modules.catalog.ports import Embedder
 from stylesense.modules.catalog.service import CatalogService
+from stylesense.modules.stylist.flows.demo import DemoFlow
+from stylesense.modules.stylist.service import StylistService
 from stylesense.modules.users.service import UsersService
 from stylesense.platform.clock import Clock, SystemClock
 from stylesense.platform.config import Settings
@@ -69,6 +71,7 @@ class Container:
     llm_admin: LlmAdmin
     llm_providers: tuple[str, ...]
     catalog: CatalogService
+    stylist: StylistService
     closers: tuple[Closer, ...] = ()
     closed: bool = field(default=False, init=False)
 
@@ -160,6 +163,11 @@ def build_container(
         else GatewayEmbedder(gateway, ModelRef.parse(settings.embedding_model))
     )
 
+    catalog = CatalogService(uow, clock=clock, embedder=embedder)
+    stylist = StylistService(
+        uow, flows={"demo": DemoFlow(catalog)}, default_flow="demo", clock=clock
+    )
+
     return Container(
         settings=settings,
         clock=clock,
@@ -183,8 +191,10 @@ def build_container(
             uow, config=llm_config, clock=clock, known_providers=KNOWN_LLM_PROVIDERS
         ),
         llm_providers=tuple(sorted(chat)),
-        catalog=CatalogService(uow, clock=clock, embedder=embedder),
-        closers=tuple(closers),
+        catalog=catalog,
+        stylist=stylist,
+        # In-flight stylist turns finish (and persist) before connections close.
+        closers=(stylist.wait_for_turns, *closers),
     )
 
 

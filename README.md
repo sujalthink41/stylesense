@@ -2,7 +2,7 @@
 
 **An AI fashion stylist for India.** Tell it what you need ("summer t-shirt around ₹500"), answer a few quick taps, and swipe through the best picks across Amazon, Flipkart and Myntra, with price comparison, virtual try-on and outfit suggestions.
 
-> Status: **in active development**: backend Phase 1, checkpoint **CP6 complete**. See [progress](docs/06-checkpoints.md).
+> Status: **in active development**: backend Phase 1, checkpoint **CP7 complete**. See [progress](docs/06-checkpoints.md).
 
 ---
 
@@ -61,6 +61,13 @@ Optional observability stack:
 
 ```bash
 make obs-up   # + Grafana :3001, Prometheus :9090, GlitchTip :8001, Uptime Kuma :3002, Tempo
+```
+
+Try the API locally before Google sign-in is configured (local only, refuses production):
+
+```bash
+docker compose --env-file .env -f infra/compose/compose.yml -f infra/compose/compose.dev.yml \
+  exec api python -m stylesense.cli dev-token you@example.com
 ```
 
 Run `make help` to see every command.

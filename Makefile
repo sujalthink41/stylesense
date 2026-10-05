@@ -62,6 +62,11 @@ migration: ## New migration: make migration m="add users"
 downgrade: ## Roll back one migration
 	$(UV) run --env-file ../.env alembic downgrade -1
 
+##@ Contracts
+.PHONY: contracts
+contracts: ## Regenerate backend/contracts/genui.schema.json (commit the result)
+	$(UV) run python -m stylesense.cli export-genui-contract > $(BACKEND)/contracts/genui.schema.json
+
 ##@ Data
 .PHONY: seed
 seed: ## Load the mock catalog + embeddings into the dev stack (refuses production)

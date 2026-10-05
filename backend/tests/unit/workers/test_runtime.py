@@ -38,6 +38,18 @@ async def _run_for(worker: Worker, seconds: float) -> None:
     await runner
 
 
+async def _run_until(worker: Worker, done: Callable[[], bool], *, settle_s: float = 0) -> None:
+    """Run until `done()` holds (bounded), so assertions don't depend on machine speed."""
+    stop = asyncio.Event()
+    runner = asyncio.create_task(worker.run(stop))
+    async with asyncio.timeout(5):
+        while not done():  # noqa: ASYNC110  # polling a counter owned by the code under test
+            await asyncio.sleep(0.005)
+    await asyncio.sleep(settle_s)
+    stop.set()
+    await runner
+
+
 def _worker(*tasks: PeriodicTask, **kwargs: object) -> Worker:
     return Worker(list(tasks), locks=None, **kwargs)  # type: ignore[arg-type]
 
@@ -45,15 +57,18 @@ def _worker(*tasks: PeriodicTask, **kwargs: object) -> Worker:
 async def test_runs_task_periodically_until_stopped() -> None:
     probe = Probe()
 
-    await _run_for(_worker(PeriodicTask("tick", 0.02, probe)), 0.11)
+    await _run_until(_worker(PeriodicTask("tick", 0.02, probe)), lambda: probe.runs >= 3)
 
-    assert 3 <= probe.runs <= 7
+    assert probe.runs >= 3
 
 
 async def test_runs_again_immediately_while_there_is_more_work() -> None:
     probe = Probe(more=[True, True, True])
 
-    await _run_for(_worker(PeriodicTask("drain", 60, probe)), 0.05)
+    # Wait for the drain, then a little longer: no fifth run may happen inside the 60 s interval.
+    await _run_until(
+        _worker(PeriodicTask("drain", 60, probe)), lambda: probe.runs >= 4, settle_s=0.05
+    )
 
     assert probe.runs == 4  # three "more" + one final; then waits the full interval
 

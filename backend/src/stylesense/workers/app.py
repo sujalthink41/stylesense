@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import timedelta
 
 from prometheus_client import CollectorRegistry, Gauge
 
@@ -12,6 +13,8 @@ OUTBOX_GAUGE_INTERVAL_S = 30
 TOKEN_PRUNE_INTERVAL_S = 6 * 3_600
 EMBED_INTERVAL_S = 60
 EMBED_BATCH = 64
+EVENT_PRUNE_INTERVAL_S = 24 * 3_600
+EVENT_RETENTION = timedelta(days=90)
 
 
 def default_handlers(container: Container) -> dict[str, Handler]:
@@ -47,6 +50,10 @@ def build_worker(
         await container.auth.prune_expired()
         return False
 
+    async def prune_session_events() -> bool:
+        await container.stylist.prune_events(older_than=EVENT_RETENTION)
+        return False
+
     async def embed_catalog() -> bool:
         return await container.catalog.embed_pending(batch_size=EMBED_BATCH) >= EMBED_BATCH
 
@@ -56,6 +63,9 @@ def build_worker(
             PeriodicTask("outbox.backlog", OUTBOX_GAUGE_INTERVAL_S, measure_backlog),
             PeriodicTask("auth.prune_tokens", TOKEN_PRUNE_INTERVAL_S, prune_tokens, exclusive=True),
             PeriodicTask("catalog.embed", EMBED_INTERVAL_S, embed_catalog),
+            PeriodicTask(
+                "stylist.prune_events", EVENT_PRUNE_INTERVAL_S, prune_session_events, exclusive=True
+            ),
         ],
         locks=container.locks,
         heartbeat=FileHeartbeat(settings.worker_heartbeat_file).beat,

@@ -317,3 +317,24 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 77. GenAI semantic conventions
 **What:** OpenTelemetry defines standard attribute names for AI calls (`gen_ai.request.model`, `gen_ai.usage.input_tokens`, …). Using them means any compatible tool (Tempo, Langfuse, vendor APMs) understands our traces without custom glue.
+
+## 78. Discriminated unions
+**What:** a field (`type`) tells the parser which shape to expect: `{"type": "chip_question", …}` vs `{"type": "budget_slider", …}`. Pydantic picks the right model from that one field, so validation errors are precise and the JSON Schema maps cleanly onto TypeScript unions.
+**Where:** every GenUI component, action and stream event.
+
+## 79. Compare-and-swap (CAS)
+**What:** "change it from A to B only if it's still A", done atomically by the database (`UPDATE … WHERE turn_id = 3`). If two requests race, exactly one sees 1 row updated; the other sees 0 and knows it lost.
+**Why:** turns advance exactly once, without locks held during slow AI work.
+
+## 80. Server-Sent Events in practice
+**What:** a normal HTTP response that stays open and sends `event:`/`data:` frames as they're ready. Comments (`: keep-alive`) are ignored by clients but stop proxies from closing quiet connections.
+**Our twist:** each action's response is its own short stream, so no message broker is needed (ADR 0011).
+
+## 81. Decoupling work from the connection
+**What:** the turn runs in a background task and hands events to the HTTP response through a queue. If the user's train enters a tunnel, the turn still finishes and is saved; the app picks it up from the snapshot.
+
+## 82. Contract snapshots
+**What:** the GenUI JSON Schema is generated from code and committed. A test regenerates it and fails on any difference, so a backend change that would break the app's generated types can't slip through unnoticed.
+
+## 83. Graceful version negotiation
+**What:** the app says which catalog version it understands; the server never sends it anything newer, and swaps unknown components for an "update the app" banner in the same slot. Old app versions keep working instead of crashing.

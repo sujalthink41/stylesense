@@ -5,7 +5,7 @@ import asyncio
 import json
 import sys
 from collections.abc import Sequence
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -14,6 +14,7 @@ from stylesense.ai.gateway.exceptions import AIUnavailableError
 from stylesense.ai.gateway.tasks import DIAGNOSTICS_ECHO, EchoInput
 from stylesense.ai.gateway.types import ModelRef
 from stylesense.bootstrap.container import Container, build_container
+from stylesense.genui.schema import contract_json
 from stylesense.integrations.sources.mock import MockSource
 from stylesense.platform.config import Environment, Settings, get_settings
 from stylesense.platform.logging import configure_logging
@@ -32,6 +33,28 @@ async def seed_catalog(settings: Settings, *, seed: int) -> dict[str, int]:
     finally:
         await container.aclose()
     return {**asdict(report), "embedded": embedded}
+
+
+@dataclass(frozen=True, slots=True)
+class _DevIdentity:
+    email: str
+    provider: str = "dev"
+    name: str | None = "Local Developer"
+    picture_url: str | None = None
+
+    @property
+    def subject(self) -> str:
+        return self.email
+
+
+async def dev_token(settings: Settings, *, email: str) -> dict[str, Any]:
+    """Local-only: a real user + real tokens without Google, for trying the API."""
+    if settings.env == Environment.PRODUCTION:
+        raise SystemExit("refusing to mint developer tokens in production")
+    async with _Session(settings) as c:
+        user, _ = await c.users.sign_in(_DevIdentity(email=email.strip().lower()))
+        pair = await c.auth.issue_session(user)
+    return {"user_id": str(user.id), **pair.model_dump(mode="json")}
 
 
 async def llm_price(settings: Settings, args: argparse.Namespace) -> dict[str, Any]:
@@ -114,11 +137,18 @@ def _parser() -> argparse.ArgumentParser:
     route.add_argument("--disable", action="store_true")
 
     commands.add_parser("llm-check", help="call the configured model end to end")
+    commands.add_parser("export-genui-contract", help="print the GenUI JSON Schema contract")
+
+    dev = commands.add_parser("dev-token", help="local-only: tokens for a test user (no Google)")
+    dev.add_argument("email")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "export-genui-contract":
+        sys.stdout.write(contract_json())  # no settings or DB needed
+        return 0
     settings = get_settings()
     # Logs to stderr: stdout carries only the JSON result, so it stays machine-readable.
     configure_logging(level="WARNING", json_logs=True, stream=sys.stderr)
@@ -129,6 +159,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = asyncio.run(llm_price(settings, args))
         case "llm-route":
             result = asyncio.run(llm_route(settings, args))
+        case "dev-token":
+            result = asyncio.run(dev_token(settings, email=args.email))
         case _:
             result = asyncio.run(llm_check(settings))
     sys.stdout.write(json.dumps(result, indent=2, default=str) + "\n")

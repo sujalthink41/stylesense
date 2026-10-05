@@ -44,6 +44,14 @@ class AuthService:
     ) -> SignInResult:
         identity = await self._verifier.verify(id_token)
         user, created = await self._users.sign_in(identity)
+        pair = await self.issue_session(user, installation_id=installation_id)
+        logger.info("signed_in", user_id=str(user.id), new_user=created)
+        return SignInResult(tokens=pair, user=user, is_new_user=created)
+
+    async def issue_session(
+        self, user: UserProfile, *, installation_id: uuid.UUID | None = None
+    ) -> TokenPair:
+        """Start a new session for an already-authenticated user."""
         async with self._uow() as uow:
             repo = RefreshTokenRepository(uow.session)
             if installation_id is not None:
@@ -51,9 +59,7 @@ class AuthService:
                 await repo.revoke_for_user(
                     user.id, self._clock.now(), installation_id=installation_id
                 )
-            pair = await self._start_token(repo, user, uuid.uuid4(), installation_id)
-        logger.info("signed_in", user_id=str(user.id), new_user=created)
-        return SignInResult(tokens=pair, user=user, is_new_user=created)
+            return await self._start_token(repo, user, uuid.uuid4(), installation_id)
 
     async def refresh(self, refresh_token: str) -> TokenPair:
         """Rotate: the presented token is spent and a new one issued in the same family.

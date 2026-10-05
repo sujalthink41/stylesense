@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP6 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. All AI access goes through a provider-agnostic gateway with routing, fallbacks, breakers, budgets and metering; the AI stylist (CP8) builds on it. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP7 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. All AI access goes through a provider-agnostic gateway with routing, fallbacks, breakers, budgets and metering; the AI stylist (CP8) builds on it. The generative-UI protocol is live: sessions stream typed UI components turn by turn, driven today by a scripted demo flow. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -182,6 +182,29 @@ worker "catalog.embed" (every 60 s) ─► Embedder port (hashing now, model in 
 
 **Degraded mode:** the gateway raises `AIUnavailableError` (not configured, disabled, budget exhausted, or every target failed); callers catch it and fall back to rule-based behaviour. The catalog already does: embedding is deferred, never lost.
 
+## 2j. Generative UI protocol *(built)*
+
+```
+POST /v1/stylist/sessions ──► flow.start ──► UiEnvelope (turn 1) ──► stylist_sessions.envelope
+POST …/actions {turn_id, action}
+   ├─ validate action against the stored screen (422)
+   ├─ claim turn: UPDATE … WHERE turn_id=:t AND status='active' (409 if lost)
+   └─ background task: flow.act ─► ui.loading … ─► persist screen + session_events ─► ui.render ─► done
+                         (queue) ─► SSE frames to the client (keep-alive every 15 s)
+GET …/sessions/{id} ──► last screen (resume)
+```
+
+| Piece | Where | Notes |
+|---|---|---|
+| Component catalog | `genui/components.py` | 12 typed components, strict limits (ids, lengths, counts); `CATALOG_VERSION`; buy links must be `/v1/out/…` |
+| Actions | `genui/actions.py` | 8 action types; `validate_action` checks them against the rendered screen |
+| Versioning | `genui/versioning.py` | `X-GenUI-Version`; newer components become an "update the app" banner in the same slot; too-old apps get 426 |
+| Contract | `contracts/genui.schema.json` | JSON Schema the mobile types are generated from; a test fails if it drifts (`make contracts`) |
+| Engine | `modules/stylist/service.py` | CAS turns, background turns, failure → safe fallback screen (never stuck busy) |
+| Flows | `modules/stylist/flows/` | `Flow` protocol; `DemoFlow` (scripted: category → budget → deck → store comparison, back/restart/swipe); the LangGraph stylist plugs in at CP8 |
+
+Try it locally without Google: `python -m stylesense.cli dev-token you@example.com` (refuses production), then call the API with the access token.
+
 ## 3. Request lifecycle: a stylist turn *(planned)*
 
 1. The user taps **"Party"** on the home screen → `POST /v1/stylist/sessions {entry: "occasion_tile", value: "party"}` → the backend creates `stylist_sessions` row and LangGraph thread.
@@ -244,6 +267,8 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Return cacheable reads | `api/http_cache.etag_response(request, model, max_age_s=…)` |
 | Add an AI task | Define a `TaskSpec` (instructions, schemas, `prompt_version`); route it with `llm-route`; catch `AIUnavailableError` and degrade |
 | Add an AI provider | Implement `ChatProvider` (and/or `EmbeddingProvider`) in `integrations/llm/`; register it in `bootstrap/container.py` and `KNOWN_LLM_PROVIDERS` |
+| Add a GenUI component | Add props + component in `genui/components.py`, register it in `INTRODUCED_IN` with the new catalog version, bump `CATALOG_VERSION`, run `make contracts` |
+| Add a stylist flow | Implement `Flow` (`start`, `act` yielding `Progress`… then one `Rendered`); register it in `bootstrap/container.py` |
 | Make a write endpoint safe to retry | Take `IdempotencyKey` as a dependency and wrap the use case in `run_idempotent(...)` |
 | Trigger a side effect after a write | `container.outbox.add(uow.session, topic, payload)` in the same Unit of Work; register a handler for `topic` |
 | Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
@@ -269,3 +294,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP4 | 2026-10-05 | Auth & accounts: Google ID-token verification, own HS256 access JWT + rotating hashed refresh tokens with reuse detection and grace window, one session per install, roles + admin allow-list, `/v1/auth/*`, `/v1/me` (profile, devices, consents, deletion with 30-day outbox purge), `/v1/app/config`, per-user and auth rate limits, token pruning task; migration 0003. |
 | CP5 | 2026-10-05 | Catalog: stores (with redirect allow-lists), canonical products + offers, price snapshots, outbound clicks; deterministic 300-product mock source; idempotent ingest; Embedder port + hashing embedder and pgvector HNSW similarity; `/v1/products`, `/v1/products/{id}` (ETag), `/similar`, `/v1/out/{offer_id}`; `make seed` CLI; worker embedding task; client-side UUIDv7 ids + batched inserts; migration 0004. |
 | CP6 | 2026-10-05 | AI gateway: OpenAI + Anthropic adapters, DB routing + prices hot-reloaded via Redis, fallbacks, Redis-shared circuit breaker, retries with Retry-After, input cap, response cache + single-flight, per-user quota, daily budget, bulkheads, JSON validation + repair, `llm_usage` ledger, Prometheus + OTel GenAI telemetry, admin AI API + CLI, gateway-backed embedder; migration 0005; ADRs 0009–0010. |
+| CP7 | 2026-10-05 | GenUI protocol: typed component catalog v1 + actions + versioning + JSON Schema contract; stylist sessions with turn compare-and-swap, action-scoped SSE (ADR 0011), background turns that survive disconnects, failure fallback, session event log (90-day pruning); scripted demo flow over the real catalog; `dev-token` CLI; migration 0006. |
