@@ -40,16 +40,16 @@ def _rupees(paise: int | None) -> str:
     return "₹" + ",".join([g for g in [head, *pairs] if g] + [tail])
 
 
-async def _best_offer(container: ContainerDep, p: ProductSummary) -> str | None:
+async def _best_offer(container: ContainerDep, p: ProductSummary) -> tuple[str, str] | None:
+    """(offer id, store name) to send the shopper to: the best priced offer, or else any
+    in-stock listing whose price we don't know yet ("See price on …")."""
     try:
         detail = await container.catalog.get_product(p.id)
     except AppError:
         return None
     offers = [o for o in detail.offers if o.in_stock]
-    best = next((o for o in offers if o.is_best), None) or min(
-        offers, key=lambda o: o.price_paise, default=None
-    )
-    return str(best.id) if best else None
+    best = next((o for o in offers if o.is_best), None) or next(iter(offers), None)
+    return (str(best.id), best.store_name) if best else None
 
 
 @router.get("/l/{slug}", response_class=HTMLResponse)
@@ -66,7 +66,7 @@ async def share_page(slug: Slug, container: ContainerDep) -> HTMLResponse:
     cards = []
     for p in share.products:
         offer = await _best_offer(container, p)
-        cards.append(_product_card(p, f"/v1/out/{offer}?src=share" if offer else None))
+        cards.append(_product_card(p, offer))
     image = next((p.primary_image_url for p in share.products if p.primary_image_url), None)
     body = f"""
     <header class="band"><div class="brand">{_LOGO}<span>StyleSense</span></div>
@@ -119,16 +119,17 @@ def _img(url: str | None, alt: str) -> str:
     )
 
 
-def _product_card(p: ProductSummary, buy: str | None) -> str:
-    store = STORES.get(p.best_store or "", (p.best_store or "").title())
-    cta = (
-        f'<a class="buy" href="{escape(buy)}" rel="nofollow sponsored">Shop{" on " + escape(store) if store else ""} →</a>'
-        if buy
-        else '<span class="soldout">Out of stock</span>'
-    )
+def _product_card(p: ProductSummary, offer: tuple[str, str] | None) -> str:
+    if offer is None:
+        cta, price = '<span class="soldout">Out of stock</span>', _rupees(None)
+    else:
+        offer_id, store = offer
+        label = f"Shop on {store}" if p.min_price_paise is not None else f"See price on {store}"
+        cta = f'<a class="buy" href="/v1/out/{escape(offer_id)}?src=share" rel="nofollow sponsored">{escape(label)} →</a>'
+        price = _rupees(p.min_price_paise) if p.min_price_paise is not None else ""
     return f"""<article class="card"><div class="photo">{_img(p.primary_image_url, p.title)}</div>
       <div class="meta"><span class="brandname">{escape(p.brand)}</span><span class="title">{escape(p.title)}</span>
-      <span class="price">{_rupees(p.min_price_paise)}</span>{cta}</div></article>"""
+      <span class="price">{price}</span>{cta}</div></article>"""
 
 
 def _message_page(title: str, text: str, status: int) -> HTMLResponse:

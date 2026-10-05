@@ -48,6 +48,7 @@ def test_offers_of_one_product_agree_on_what_it_is(products: dict[str, list[RawO
 
 def test_prices_are_realistic_for_each_category(offers: list[RawOffer]) -> None:
     for offer in offers:
+        assert offer.price_paise is not None  # the mock source always has a price
         low, high = CATEGORIES[offer.category].price_range_rupees
         assert low * 100 * 0.85 <= offer.price_paise <= high * 100 * 1.15
         assert offer.price_paise % 100 == 0  # whole rupees, like real listings
@@ -62,7 +63,7 @@ def test_every_link_is_a_safe_store_url(offers: list[RawOffer]) -> None:
 def test_catalog_covers_all_categories_genders_and_a_budget_range(offers: list[RawOffer]) -> None:
     assert {o.category for o in offers} == set(CATEGORIES)
     assert {o.gender for o in offers} >= {"men", "women", "unisex"}
-    assert any(o.price_paise <= 50_000 for o in offers)  # "under ₹500" must return results
+    assert any((o.price_paise or 0) <= 50_000 for o in offers)  # "under ₹500" must return results
 
 
 def test_sizes_match_the_category(offers: list[RawOffer]) -> None:

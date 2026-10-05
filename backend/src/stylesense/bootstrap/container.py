@@ -25,6 +25,12 @@ from stylesense.integrations.google_identity import GoogleIdTokenVerifier, googl
 from stylesense.integrations.llm.anthropic_provider import AnthropicProvider
 from stylesense.integrations.llm.openai_provider import OpenAIProvider
 from stylesense.integrations.media.cloudinary import CloudinaryStore
+from stylesense.integrations.sources.web_search import (
+    WebCatalog,
+    WebSearchFinder,
+    ddg_images,
+    fetch_page,
+)
 from stylesense.integrations.tryon.fake import FakeTryOnProvider
 from stylesense.integrations.tryon.openai_images import OpenAIImageTryOn
 from stylesense.modules.auth.ports import IdentityVerifier
@@ -240,7 +246,14 @@ def build_container(
     stylist = StylistService(
         uow,
         flows={
-            "stylist": StylistFlow(catalog, gateway, personalization, looks, uploads),
+            "stylist": StylistFlow(
+                catalog,
+                gateway,
+                personalization,
+                looks,
+                uploads,
+                live=_live_catalog(settings, catalog),
+            ),
             "style_dna": StyleDnaFlow(personalization),
             # Kept so sessions started on it keep working.
             "demo": DemoFlow(catalog),
@@ -298,6 +311,12 @@ def _media_store(settings: Settings) -> MediaStore | None:
         else "",
         upload_preset=settings.cloudinary_upload_preset,
     )
+
+
+def _live_catalog(settings: Settings, catalog: CatalogService) -> WebCatalog | None:
+    if not settings.web_search_enabled:
+        return None
+    return WebCatalog(catalog, WebSearchFinder(search=ddg_images, fetch=fetch_page))
 
 
 def _tryon_provider(settings: Settings) -> TryOnProvider | None:

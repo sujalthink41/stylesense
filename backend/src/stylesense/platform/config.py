@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     media_ttl_hours: int = Field(default=24, ge=1, le=168)  # user photos are deleted after this
     upload_daily_limit: int = Field(default=30, ge=1, le=1_000)  # per user
     photo_search_daily_limit: int = Field(default=10, ge=1, le=1_000)  # per user
+    # Live product search (DuckDuckGo → Amazon.in, Flipkart, Myntra) when the catalog has too
+    # little for a request. Interim until the stores' affiliate APIs; prices are never estimated.
+    web_search_enabled: bool = False
     # Virtual try-on. "fake" returns the garment image (local testing only); "none" = off;
     # "openai" = image editing with the OpenAI key (model and per-image cost from settings).
     tryon_provider: Literal["none", "fake", "openai"] = "none"

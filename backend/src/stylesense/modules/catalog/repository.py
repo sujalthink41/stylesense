@@ -81,10 +81,14 @@ class CatalogRepository:
         taste = Product.embedding.cosine_distance(q.taste) if q.taste is not None else null
         stmt = (
             select(Product, distance.label("distance"), taste.label("taste"))
-            .where(Product.active, Product.min_price_paise.is_not(None))
+            .where(Product.active)
             .options(selectinload(Product.offers).selectinload(Offer.store))
             .limit(q.limit)
         )
+        if q.price_known is True:
+            stmt = stmt.where(Product.min_price_paise.is_not(None))
+        elif q.price_known is False:
+            stmt = stmt.where(Product.min_price_paise.is_(None))
         if q.category:
             stmt = stmt.where(Product.category == q.category)
         if q.gender in {"men", "women"}:

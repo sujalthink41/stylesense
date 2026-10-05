@@ -27,7 +27,7 @@ import { Skeleton } from '@/ui/organisms/Skeleton';
 interface Offer {
   id: string;
   store_name: string;
-  price_paise: number;
+  price_paise: number | null;
   in_stock: boolean;
   is_best: boolean;
   buy_path: string;
@@ -54,7 +54,9 @@ export default function ProductScreen() {
   const p = product.data;
   const offers: OfferData[] = (p?.offers ?? []).map((o) => ({ ...o, offer_id: o.id }));
   const inStock = offers.filter((o) => o.in_stock);
-  const best = inStock.find((o) => o.is_best) ?? [...inStock].sort((a, b) => a.price_paise - b.price_paise)[0];
+  const priced = inStock.filter((o) => o.price_paise != null);
+  const best =
+    priced.find((o) => o.is_best) ?? [...priced].sort((a, b) => (a.price_paise ?? 0) - (b.price_paise ?? 0))[0] ?? inStock[0];
   const open = (path: string) => void Linking.openURL(`${API_URL}${path}?src=product`);
 
   return (
@@ -140,7 +142,7 @@ export default function ProductScreen() {
             ) : null}
           </ScrollView>
           {best ? (
-            <BuyBar storeName={best.store_name} pricePaise={best.price_paise} isBest={inStock.length > 1} onBuy={() => open(best.buy_path)} />
+            <BuyBar storeName={best.store_name} pricePaise={best.price_paise} isBest={priced.length > 1} onBuy={() => open(best.buy_path)} />
           ) : null}
         </>
       )}

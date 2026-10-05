@@ -122,7 +122,7 @@ class ComparedOffer(_Props):
     offer_id: uuid.UUID
     store: Label
     store_name: Label
-    price_paise: Paise
+    price_paise: Paise | None  # None: price not known yet ("See price on <store>")
     mrp_paise: Paise | None
     discount_percent: int = Field(ge=0, le=99)
     in_stock: bool

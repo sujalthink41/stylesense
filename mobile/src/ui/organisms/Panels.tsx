@@ -19,7 +19,7 @@ import { OptionTile } from '@/ui/molecules/OptionTile';
 import { StoreOfferRow } from '@/ui/molecules/StoreOfferRow';
 import { enter } from '@/ui/motion';
 
-import type { ProductCardData } from './ProductSwipeCard';
+import { storeName, type ProductCardData } from './ProductSwipeCard';
 
 // ---------- question card ----------
 
@@ -191,7 +191,7 @@ export function ImageChoiceGrid({
 export interface OfferData {
   offer_id: string;
   store_name: string;
-  price_paise: number;
+  price_paise: number | null;
   in_stock: boolean;
   is_best: boolean;
   buy_path: string;
@@ -275,7 +275,7 @@ function MiniCard({ item, onPress, onShell, index = 0 }: { item: ProductCardData
       <PressableScale
         onPress={onPress}
         scaleTo={0.96}
-        accessibilityLabel={`${item.title}, ${item.price_paise != null ? formatRupees(item.price_paise) : 'out of stock'}`}
+        accessibilityLabel={`${item.title}, ${item.price_paise != null ? formatRupees(item.price_paise) : item.best_store ? `price on ${storeName(item.best_store)}` : 'out of stock'}`}
         style={[styles.mini, { backgroundColor: onShell ? palette.indigo700 : colors.raised }, elevation(onShell ? 0 : 2)]}
       >
         <View style={[styles.miniPhoto, { backgroundColor: onShell ? palette.indigo500 : colors.tonal }]}>
@@ -291,7 +291,7 @@ function MiniCard({ item, onPress, onShell, index = 0 }: { item: ProductCardData
           <Text variant="bodySmall" tone={onShell ? 'onShell' : 'default'} numberOfLines={2}>
             {item.title}
           </Text>
-          <Price paise={item.price_paise} size="sm" tone={onShell ? 'onShell' : 'default'} showDiscount={false} />
+          <Price paise={item.price_paise} size="sm" tone={onShell ? 'onShell' : 'default'} showDiscount={false} store={storeName(item.best_store)} />
         </View>
       </PressableScale>
     </Animated.View>

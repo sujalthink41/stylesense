@@ -17,7 +17,7 @@ class RawOffer:
     category: str
     gender: str
     url: str
-    price_paise: int
+    price_paise: int | None  # None: real price unknown (never estimate one)
     mrp_paise: int | None = None
     subcategory: str | None = None
     attributes: Mapping[str, str] = field(default_factory=dict)

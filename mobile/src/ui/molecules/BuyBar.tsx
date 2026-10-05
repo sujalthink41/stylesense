@@ -8,7 +8,7 @@ import { Text } from '@/ui/atoms/Text';
 
 export interface BuyBarProps {
   storeName: string;
-  pricePaise: number;
+  pricePaise: number | null; // null: price not known yet, the store shows it
   /** Several stores compared: say this is the lowest. */
   isBest: boolean;
   onBuy(): void;
@@ -21,12 +21,12 @@ export function BuyBar({ storeName, pricePaise, isBest, onBuy }: BuyBarProps) {
     <View style={[styles.bar, { backgroundColor: colors.raised, borderTopColor: colors.hairline }, elevation(3)]}>
       <View style={styles.price}>
         <Text variant="caption" tone="secondary">
-          {isBest ? 'Best price' : 'Price'} · {storeName}
+          {pricePaise == null ? 'Listed on' : isBest ? 'Best price' : 'Price'} · {storeName}
         </Text>
-        <Price paise={pricePaise} size="md" showDiscount={false} />
+        {pricePaise != null ? <Price paise={pricePaise} size="md" showDiscount={false} /> : null}
       </View>
       <Button
-        label={`Buy on ${storeName}`}
+        label={pricePaise == null ? `See price on ${storeName}` : `Buy on ${storeName}`}
         variant="action"
         icon="arrowUpRight"
         iconPosition="end"

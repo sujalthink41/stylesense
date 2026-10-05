@@ -8,14 +8,22 @@ import { useTheme } from '@/design/theme';
 import { radius } from '@/design/tokens';
 import { Icon, type IconName } from '@/ui/atoms/Icon';
 import { Text } from '@/ui/atoms/Text';
+import { LoadingOverlay } from '@/ui/organisms/LoadingOverlay';
+import { useStylist } from '@/stylist';
 
 /** Four destinations, Material 3 navigation bar in our colours (indicator pill when active). */
+function StartingOverlay() {
+  const phase = useStylist((s) => s.phase);
+  return <LoadingOverlay visible={phase === 'starting'} />;
+}
+
 export default function TabsLayout() {
   const { colors, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <Tabs>
       <TabSlot />
+      <StartingOverlay />
       <TabList
         style={[
           styles.bar,

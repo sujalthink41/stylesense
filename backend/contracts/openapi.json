@@ -700,10 +700,17 @@
             "type": "string"
           },
           "price_paise": {
-            "maximum": 100000000.0,
-            "minimum": 0.0,
-            "title": "Price Paise",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
           },
           "store": {
             "maxLength": 40,
@@ -1623,8 +1630,15 @@
             "title": "Mrp Paise"
           },
           "price_paise": {
-            "title": "Price Paise",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
           },
           "rating": {
             "anyOf": [

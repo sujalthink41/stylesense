@@ -16,6 +16,13 @@ from stylesense.ai.gateway.types import ModelRef
 from stylesense.bootstrap.container import Container, build_container
 from stylesense.genui.schema import contract_json
 from stylesense.integrations.sources.mock import MockSource
+from stylesense.integrations.sources.web_search import (
+    StaticSource,
+    WebQuery,
+    WebSearchFinder,
+    ddg_images,
+    fetch_page,
+)
 from stylesense.modules.stylist.evals.scoring import Report, load_golden, score, score_async
 from stylesense.modules.stylist.slots import Slots
 from stylesense.modules.stylist.tasks import STYLIST_UNDERSTAND, UnderstandInput
@@ -23,6 +30,7 @@ from stylesense.modules.stylist.understanding import parse_request
 from stylesense.platform.config import Environment, Settings, get_settings
 from stylesense.platform.logging import configure_logging
 
+WEB_SEED_PAUSE_S = 1.5  # between searches: be a polite client
 EVAL_BAR = 0.90  # minimum field accuracy for request understanding (CP8 exit criterion)
 
 
@@ -39,6 +47,52 @@ async def seed_catalog(settings: Settings, *, seed: int) -> dict[str, int]:
     finally:
         await container.aclose()
     return {**asdict(report), "embedded": embedded}
+
+
+# What the web seed searches: every catalog category for the genders it's sold to.
+WEB_SEED_QUERIES: tuple[tuple[str, str, str], ...] = tuple(
+    (f"{gender} {label}", category, gender)
+    for category, label, genders in (
+        ("tshirt", "t-shirt", ("men", "women")),
+        ("shirt", "shirt", ("men", "women")),
+        ("jeans", "jeans", ("men", "women")),
+        ("trousers", "trousers", ("men", "women")),
+        ("kurta", "kurta", ("men", "women")),
+        ("dress", "dress", ("women",)),
+        ("top", "top", ("women",)),
+        ("shorts", "shorts", ("men", "women")),
+        ("sneakers", "sneakers", ("men", "women")),
+        ("jacket", "jacket", ("men", "women")),
+        ("hoodie", "hoodie", ("men", "women")),
+    )
+    for gender in genders
+)
+
+
+async def seed_web(settings: Settings, *, retire_mock: bool, per_store: int) -> dict[str, Any]:
+    """Fill the catalog with real products from Amazon.in, Flipkart and Myntra via web search.
+    Free (no API keys); throttled so the search engine isn't hammered."""
+    container = build_container(settings)
+    finder = WebSearchFinder(search=ddg_images, fetch=fetch_page, per_store=per_store)
+    totals: dict[str, int] = {"found": 0, "priced": 0, "products_created": 0, "queries_failed": 0}
+    try:
+        for text, category, gender in WEB_SEED_QUERIES:
+            offers = await finder.find(WebQuery(text, category, gender))
+            if not offers:
+                totals["queries_failed"] += 1
+            else:
+                report = await container.catalog.ingest(StaticSource("web", offers))
+                totals["found"] += len(offers)
+                totals["priced"] += sum(o.price_paise is not None for o in offers)
+                totals["products_created"] += report.products_created
+            await asyncio.sleep(WEB_SEED_PAUSE_S)
+        while await container.catalog.embed_pending(batch_size=200):
+            pass
+        if retire_mock and totals["products_created"]:
+            totals["mock_retired"] = await container.catalog.retire("mock-")
+    finally:
+        await container.aclose()
+    return totals
 
 
 async def dev_token(settings: Settings, *, email: str) -> dict[str, Any]:
@@ -152,6 +206,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     seed.add_argument("--seed", type=int, default=2026)
 
+    web = commands.add_parser(
+        "seed-web", help="load real products from Amazon.in, Flipkart, Myntra (web search)"
+    )
+    web.add_argument("--retire-mock", action="store_true", help="hide the mock catalog after")
+    web.add_argument("--per-store", type=int, default=8)
+
     price = commands.add_parser("llm-price", help="set a model's price (USD per million tokens)")
     price.add_argument("model", help="provider:model")
     price.add_argument("--input", required=True)
@@ -195,6 +255,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     match args.command:
         case "seed-catalog":
             result: dict[str, Any] = asyncio.run(seed_catalog(settings, seed=args.seed))
+        case "seed-web":
+            result = asyncio.run(
+                seed_web(settings, retire_mock=args.retire_mock, per_store=args.per_store)
+            )
         case "llm-price":
             result = asyncio.run(llm_price(settings, args))
         case "llm-route":

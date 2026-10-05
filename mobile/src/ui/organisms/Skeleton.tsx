@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepea
 
 import { useTheme } from '@/design/theme';
 import { radius } from '@/design/tokens';
-import { PrintRepeat } from '@/ui/molecules/PrintRepeat';
+import { SearchLoader } from './SearchLoader';
 
 export type SkeletonShape = 'cards' | 'question' | 'comparison';
 
@@ -19,7 +19,7 @@ const LABELS: Record<SkeletonShape, string> = {
  * so the layout doesn't jump when the real screen lands. Card searches get the print loader.
  */
 export function Skeleton({ shape, count = 3 }: { shape: SkeletonShape; count?: number }) {
-  if (shape === 'cards') return <PrintRepeat label={LABELS.cards} />;
+  if (shape === 'cards') return <SearchLoader />;
   return (
     <Pulse label={LABELS[shape]}>
       {shape === 'question' ? <QuestionBones options={count} /> : <ComparisonBones offers={count} />}

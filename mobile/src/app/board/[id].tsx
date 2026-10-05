@@ -16,6 +16,7 @@ import { WISHLIST_KEY } from '@/boards/wishlist';
 import { useTheme } from '@/design/theme';
 import { palette, radius, space } from '@/design/tokens';
 import { formatRupees } from '@/lib/money';
+import { storeName } from '@/ui/organisms/ProductSwipeCard';
 import { shareLink } from '@/lib/share';
 import { Button } from '@/ui/atoms/Button';
 import { Icon } from '@/ui/atoms/Icon';
@@ -147,7 +148,7 @@ export default function BoardScreen() {
                     ) : null}
                     <LinearGradient colors={['transparent', 'rgba(15,22,51,0.75)']} style={styles.scrim} pointerEvents="none" />
                     <Text variant="label" tone="onShell" style={styles.price}>
-                      {item.product.min_price_paise != null ? formatRupees(item.product.min_price_paise) : 'Out of stock'}
+                      {item.product.min_price_paise != null ? formatRupees(item.product.min_price_paise) : item.product.best_store ? `See price on ${storeName(item.product.best_store)}` : 'Out of stock'}
                     </Text>
                     {polling ? (
                       <View style={[styles.pick, { backgroundColor: on ? colors.bestPrice : 'rgba(255,255,255,0.85)' }]}>

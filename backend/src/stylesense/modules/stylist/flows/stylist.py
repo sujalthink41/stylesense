@@ -88,7 +88,7 @@ from stylesense.modules.personalization.schemas import SwipeInput, Taste
 from stylesense.modules.personalization.styles import SIZE_KIND
 from stylesense.modules.stylist.explain import clean, rule_reasons, rupees
 from stylesense.modules.stylist.flows.base import DeckPage, Entry, Progress, Rendered, TurnContext
-from stylesense.modules.stylist.ports import PhotoSource, TasteSource
+from stylesense.modules.stylist.ports import LiveCatalog, PhotoSource, TasteSource
 from stylesense.modules.stylist.ranking import Ranked, rank
 from stylesense.modules.stylist.slots import CATEGORIES, OCCASIONS, Slots
 from stylesense.modules.stylist.tasks import (
@@ -116,6 +116,9 @@ logger = structlog.get_logger(__name__)
 DECK_SIZE = 10
 PHOTO_UNAVAILABLE = "Photo search is unavailable right now. Tell me what you're after instead."
 CANDIDATES = 60
+UNPRICED_LIMIT = 10
+LIVE_MIN_HITS = 12  # fewer matches than this: top the catalog up from live store search
+LIVE_TIMEOUT_S = 15  # the shopper is waiting; a slow search engine must not stall the turn
 MAX_HISTORY = 10
 SLIDER_MAX_PAISE = 500_000
 LOOK_SLIDER_MAX_PAISE = 1_000_000
@@ -148,6 +151,7 @@ class _State(TypedDict, total=False):
     text: str | None
     notice: str | None
     hits: list[SearchHit]
+    unpriced: list[SearchHit]  # matches whose price we don't know yet: shown apart, never budgeted
     taste: Taste | None
     page: list[Ranked]
     has_more: bool
@@ -180,8 +184,11 @@ class StylistFlow:
         taste: TasteSource | None = None,
         looks: LookService | None = None,
         photos: PhotoSource | None = None,
+        *,
+        live: LiveCatalog | None = None,
     ) -> None:
         self._catalog = catalog
+        self._live = live
         self._ai = ai
         self._taste = taste
         self._looks = looks
@@ -348,7 +355,7 @@ class StylistFlow:
             Progress([LoadingSkeleton(id="loading", props=LoadingSkeletonProps(shape="cards"))])
         )
         hits, taste = await self._retrieve(s["user_id"], s["session_id"], s["persisted"])
-        return {"hits": hits, "taste": taste}
+        return {"hits": hits, "taste": taste, "unpriced": await self._unpriced(s["persisted"])}
 
     async def _rank(self, s: _State) -> _State:
         p = s["persisted"]
@@ -382,6 +389,7 @@ class StylistFlow:
             ),
             _RESTART,
         ]
+        check_price = _check_price(s.get("unpriced") or [])
         if not s["page"]:
             empty = EmptyState(
                 id="empty",
@@ -391,7 +399,7 @@ class StylistFlow:
                     recovery=bar_items,
                 ),
             )
-            return {"persisted": p, "components": [*_notice(s), empty]}
+            return {"persisted": p, "components": [*_notice(s), empty, *check_price]}
         if s["has_more"]:
             bar_items.insert(
                 0, Suggestion(id="more", label="Show more", action=Shortcut(value="more"))
@@ -406,6 +414,7 @@ class StylistFlow:
         components: list[Component] = [
             *_notice(s),
             deck,
+            *check_price,
             SuggestionBar(id="next", props=SuggestionBarProps(suggestions=bar_items[:6])),
             TextInputBar(
                 id="ask", props=TextInputBarProps(placeholder="Refine: e.g. only cotton, under 800")
@@ -520,9 +529,39 @@ class StylistFlow:
             limit=CANDIDATES,
         )
         hits = await self._catalog.search(query)
+        if len(hits) < LIVE_MIN_HITS and await self._top_up(slots):
+            hits = await self._catalog.search(query)
         if not hits and size:  # nothing left in their size: showing other sizes beats nothing
             hits = await self._catalog.search(query.model_copy(update={"size": None}))
         return hits, taste
+
+    async def _unpriced(self, p: dict[str, Any]) -> list[SearchHit]:
+        """Same request, items whose price isn't known yet (no budget claim is made for them)."""
+        if p.get("page", 0) or self._live is None:
+            return []
+        slots = Slots.model_validate(p["slots"])
+        query = SearchQuery(
+            category=slots.category,
+            gender=None if slots.gender == "any" else slots.gender,
+            text=_search_text(slots, p["query"]),
+            price_known=False,
+            limit=UNPRICED_LIMIT,
+        )
+        return await self._catalog.search(query)
+
+    async def _top_up(self, slots: Slots) -> bool:
+        """Too few matches: search the stores live, once per request shape (cached)."""
+        if self._live is None or not slots.category:
+            return False
+        try:
+            added = await asyncio.wait_for(
+                self._live.refresh(_web_query(slots), category=slots.category, gender=slots.gender),
+                LIVE_TIMEOUT_S,
+            )
+        except Exception as exc:  # noqa: BLE001 - live search is a bonus: never fail the turn
+            logger.info("live_catalog_skipped", reason=type(exc).__name__)
+            return False
+        return added > 0
 
     async def _load_taste(self, user_id: uuid.UUID) -> Taste | None:
         return await self._taste.taste(user_id) if self._taste is not None else None
@@ -730,6 +769,24 @@ def _look_slider(look: Look) -> BudgetSlider:
     )
 
 
+def _check_price(hits: list[SearchHit]) -> list[Component]:
+    if not hits:
+        return []
+    seen: set[str] = set()
+    items = []
+    for h in hits:  # the same item listed twice (two ASINs) shows once
+        key = h.product.title.lower()
+        if key not in seen:
+            seen.add(key)
+            items.append(_summary_card(h.product, []))
+    return [
+        ProductCarousel(
+            id="check_price",
+            props=ProductCarouselProps(title="Also on Amazon & Myntra: check price", items=items),
+        )
+    ]
+
+
 def _summary_card(p: ProductSummary, reasons: list[str]) -> ProductCardProps:
     return ProductCardProps(
         product_id=p.id,
@@ -808,6 +865,14 @@ def _budget_slider(slots: Slots) -> BudgetSlider:
             default_max_paise=typical,
         ),
     )
+
+
+def _web_query(slots: Slots) -> str:
+    """What a shopper would type into a store: "women black linen wedding kurta"."""
+    label = CATEGORIES[slots.category][0].lower() if slots.category else ""
+    gender = slots.gender if slots.gender in {"men", "women"} else ""
+    words = [gender, *slots.colors[:1], slots.fit, slots.fabric, slots.occasion, label]
+    return " ".join(w for w in words if w)
 
 
 def _search_text(slots: Slots, query: str) -> str | None:

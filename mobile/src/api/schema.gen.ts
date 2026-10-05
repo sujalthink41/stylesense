@@ -1116,7 +1116,7 @@ export interface components {
              */
             offer_id: string;
             /** Price Paise */
-            price_paise: number;
+            price_paise: number | null;
             /** Store */
             store: string;
             /** Store Name */
@@ -1496,7 +1496,7 @@ export interface components {
             /** Mrp Paise */
             mrp_paise: number | null;
             /** Price Paise */
-            price_paise: number;
+            price_paise: number | null;
             /** Rating */
             rating: number | null;
             /** Sizes In Stock */

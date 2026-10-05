@@ -183,8 +183,11 @@ function bestOffer(components: GenUIComponent[]) {
   const comparison = components.find((c) => c.type === 'store_comparison');
   if (comparison?.type !== 'store_comparison') return null;
   const inStock = comparison.props.offers.filter((o) => o.in_stock);
-  const offer = inStock.find((o) => o.is_best) ?? [...inStock].sort((a, b) => a.price_paise - b.price_paise)[0];
-  return offer ? { offer, compared: inStock.length > 1 } : null;
+  const priced = inStock.filter((o) => o.price_paise != null);
+  // Cheapest real price; with none known, the first store that lists it ("See price on …").
+  const offer =
+    priced.find((o) => o.is_best) ?? [...priced].sort((a, b) => (a.price_paise ?? 0) - (b.price_paise ?? 0))[0] ?? inStock[0];
+  return offer ? { offer, compared: priced.length > 1 } : null;
 }
 
 function openOffer(buyPath: string, src: ClickSource) {

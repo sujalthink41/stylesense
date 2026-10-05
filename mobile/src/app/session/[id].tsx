@@ -15,7 +15,7 @@ import { Button } from '@/ui/atoms/Button';
 import { IconButton } from '@/ui/atoms/IconButton';
 import { Text } from '@/ui/atoms/Text';
 import { Banner } from '@/ui/molecules/Banner';
-import { PrintRepeat } from '@/ui/molecules/PrintRepeat';
+import { SearchLoader } from '@/ui/organisms/SearchLoader';
 
 /** One stylist conversation, drawn entirely from server-sent components. */
 export default function SessionScreen() {
@@ -84,7 +84,7 @@ export default function SessionScreen() {
         )
       ) : (
         <View style={styles.pad}>
-          <PrintRepeat label="Opening your stylist…" />
+          <SearchLoader steps={['Opening your stylist…', 'Loading your picks…']} />
         </View>
       )}
     </SafeAreaView>

@@ -28,14 +28,15 @@ offers = st.lists(offer, max_size=6, unique_by=lambda o: o.store)
 @given(offers)
 def test_best_offer_is_in_stock_and_never_beaten_on_price(candidates: list[OfferView]) -> None:
     best = best_offer(candidates)
-    in_stock = [o for o in candidates if o.in_stock]
+    in_stock = [o for o in candidates if o.in_stock and o.price_paise is not None]
 
     if not in_stock:
         assert best is None
         return
     assert best is not None
     assert best.in_stock
-    assert all(best.price_paise <= o.price_paise for o in in_stock)
+    assert best.price_paise is not None
+    assert all(best.price_paise <= (o.price_paise or 0) for o in in_stock)
 
 
 @given(offers)

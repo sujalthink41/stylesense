@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict
 
 import structlog
+from sqlalchemy import update
 
 from stylesense.ai.gateway.exceptions import AIUnavailableError
 from stylesense.infra.database import UnitOfWork
@@ -90,9 +91,13 @@ class CatalogService:
             problem = "unknown_store"
         elif not is_allowed_store_url(raw.url, store.allowed_hosts):
             problem = "url_not_allowed"
-        elif raw.price_paise <= 0:
+        elif raw.price_paise is not None and raw.price_paise <= 0:
             problem = "invalid_price"
-        elif raw.mrp_paise is not None and raw.mrp_paise < raw.price_paise:
+        elif (
+            raw.price_paise is not None
+            and raw.mrp_paise is not None
+            and raw.mrp_paise < raw.price_paise
+        ):
             problem = "mrp_below_price"
         if problem:
             report.rejected_offers += 1
@@ -135,14 +140,15 @@ class CatalogService:
                 )
                 offer.store = store
                 product.offers.append(offer)  # FKs resolve at commit: one batched INSERT per table
-                self._snapshot(repo, offer, report)
+                if offer.price_paise is not None:
+                    self._snapshot(repo, offer, report)
                 report.offers_created += 1
                 continue
             price_changed = offer.price_paise != raw.price_paise
             if _apply(offer, values):
                 report.offers_updated += 1
             offer.last_refreshed_at = self._clock.now()
-            if price_changed:
+            if price_changed and offer.price_paise is not None:
                 self._snapshot(repo, offer, report)
 
         best = best_offer([_view(o) for o in product.offers])
@@ -157,6 +163,18 @@ class CatalogService:
         report.price_changes += 1
 
     # ---------- embeddings ----------
+
+    async def retire(self, key_prefix: str) -> int:
+        """Hide every product from one source (e.g. "mock-") without deleting history."""
+        async with self._uow() as uow:
+            result = await uow.session.execute(
+                update(Product)
+                .where(Product.canonical_key.startswith(key_prefix), Product.active)
+                .values(active=False)
+            )
+        retired = int(result.rowcount or 0)  # type: ignore[attr-defined]
+        logger.info("catalog_retired", prefix=key_prefix, count=retired)
+        return retired
 
     async def embed_pending(self, *, batch_size: int = 64) -> int:
         """Embed products whose content or embedding model changed. Returns how many."""
@@ -385,7 +403,10 @@ def _summary(p: Product) -> ProductSummary:
         rating=p.rating,
         rating_count=p.rating_count,
         offer_count=len(p.offers),
-        best_store=best.store.code if best else None,
+        # No priced offer yet: name the store that lists it ("See price on Myntra").
+        best_store=best.store.code
+        if best
+        else next((o.store.code for o in p.offers if o.in_stock), None),
         tags=p.tags,
     )
 

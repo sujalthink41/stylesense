@@ -10,7 +10,7 @@ import { Text } from '@/ui/atoms/Text';
 
 export interface StoreOfferRowProps {
   storeName: string;
-  pricePaise: number;
+  pricePaise: number | null; // null: the store lists it, price not known yet
   inStock: boolean;
   isBest: boolean;
   onBuy(): void;
@@ -26,7 +26,7 @@ export function StoreOfferRow({ storeName, pricePaise, inStock, isBest, onBuy, f
       onPress={onBuy}
       disabled={!inStock}
       scaleTo={0.99}
-      accessibilityLabel={`${storeName}, ${inStock ? formatRupees(pricePaise) : 'sold out'}${isBest ? ', best price' : ''}`}
+      accessibilityLabel={`${storeName}, ${!inStock ? 'sold out' : pricePaise != null ? formatRupees(pricePaise) : 'see price on the store'}${isBest ? ', best price' : ''}`}
       accessibilityHint={inStock ? `Opens ${storeName} to buy` : undefined}
       style={[
         styles.row,
@@ -44,12 +44,12 @@ export function StoreOfferRow({ storeName, pricePaise, inStock, isBest, onBuy, f
           {storeName}
         </Text>
         <Text variant="bodySmall" tone="secondary">
-          {inStock ? 'In stock' : `Last seen at ${formatRupees(pricePaise)}`}
+          {inStock ? (pricePaise != null ? 'In stock' : 'Price on the store') : pricePaise != null ? `Last seen at ${formatRupees(pricePaise)}` : 'Sold out'}
         </Text>
       </View>
       {inStock ? (
         <View style={styles.end}>
-          <Price paise={pricePaise} size={isBest ? 'md' : 'sm'} showDiscount={false} />
+          <Price paise={pricePaise} size={isBest ? 'md' : 'sm'} showDiscount={false} store={storeName} />
           {isBest ? <Badge kind="bestPrice" label="Best price" /> : null}
         </View>
       ) : (

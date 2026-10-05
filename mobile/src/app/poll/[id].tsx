@@ -12,6 +12,7 @@ import { api } from '@/auth/session';
 import { useTheme } from '@/design/theme';
 import { palette, radius, space } from '@/design/tokens';
 import { formatRupees } from '@/lib/money';
+import { storeName } from '@/ui/organisms/ProductSwipeCard';
 import { Badge } from '@/ui/atoms/Badge';
 import { Button } from '@/ui/atoms/Button';
 import { IconButton } from '@/ui/atoms/IconButton';
@@ -91,7 +92,7 @@ export default function PollScreen() {
                     {o.product.title}
                   </Text>
                   <Text variant="caption" tone="secondary">
-                    {o.product.min_price_paise != null ? formatRupees(o.product.min_price_paise) : 'Out of stock'}
+                    {o.product.min_price_paise != null ? formatRupees(o.product.min_price_paise) : o.product.best_store ? `See price on ${storeName(o.product.best_store)}` : 'Out of stock'}
                   </Text>
                   <VoteBar share={(o.votes ?? 0) / max} lead={leader?.option_id === o.option_id} delay={i * 90} />
                 </View>

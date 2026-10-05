@@ -98,7 +98,7 @@ export type InStock = boolean;
 export type IsBest = boolean;
 export type MrpPaise = number | null;
 export type OfferId = string;
-export type PricePaise1 = number;
+export type PricePaise1 = number | null;
 export type Store = string;
 export type StoreName = string;
 /**
