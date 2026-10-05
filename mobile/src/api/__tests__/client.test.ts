@@ -134,6 +134,78 @@ describe('ApiClient', () => {
   });
 });
 
+function sse(chunks: string[], { holdOpen = false, failAfter = false } = {}): Response {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const next = chunks.shift();
+      if (next !== undefined) {
+        await new Promise((r) => setTimeout(r, 1));
+        controller.enqueue(encoder.encode(next));
+      } else if (failAfter) controller.error(new TypeError('Network request failed'));
+      else if (!holdOpen) controller.close();
+      else await new Promise(() => undefined); // a silent server
+    },
+  });
+  return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+}
+
+describe('ApiClient.events', () => {
+  it('asks for a stream and delivers events as they arrive', async () => {
+    const seen: string[] = [];
+    const { api, calls } = client(() =>
+      sse(['event: ui.loading\ndata: {"n":1}\n\n: keep-alive\n\nevent: ui.ren', 'der\ndata: {"n":2}\n\nevent: done\ndata: {}\n\n']),
+    );
+
+    const result = await api.events('/v1/s/actions', { a: 1 }, (e) => seen.push(`${e.event}:${e.data}`));
+
+    expect(result).toEqual({ streamed: true });
+    expect(headersOf(calls[0]!.init).Accept).toBe('text/event-stream');
+    expect(seen).toEqual(['ui.loading:{"n":1}', 'ui.render:{"n":2}', 'done:{}']);
+  });
+
+  it('returns the JSON body when a proxy answers without streaming', async () => {
+    const { api } = client(() => json(200, { turn_id: 2 }));
+
+    await expect(api.events('/x', {}, () => undefined)).resolves.toEqual({ streamed: false, body: { turn_id: 2 } });
+  });
+
+  it('refreshes on 401 before the stream starts, and surfaces problems', async () => {
+    const ok = client((_, init) => (headersOf(init).Authorization === 'Bearer new' ? sse(['event: done\ndata: {}\n\n']) : json(401, {})));
+    await expect(ok.api.events('/x', {}, () => undefined)).resolves.toEqual({ streamed: true });
+
+    const stale = client(() => json(409, { code: 'stale_turn', current_turn: 7 }));
+    await expect(stale.api.events('/x', {}, () => undefined)).rejects.toMatchObject({ status: 409, code: 'stale_turn' });
+  });
+
+  it('reports a dropped stream as stream_lost, after the events it did get', async () => {
+    const seen: string[] = [];
+    const { api } = client(() => sse(['event: ui.loading\ndata: {}\n\n'], { failAfter: true }));
+
+    await expect(api.events('/x', {}, (e) => seen.push(e.event))).rejects.toMatchObject({ code: 'stream_lost' });
+    expect(seen).toEqual(['ui.loading']);
+  });
+
+  it('gives up on a stream that goes silent past the idle limit', async () => {
+    const { api } = client(() => sse([': keep-alive\n\n'], { holdOpen: true }));
+
+    await expect(api.events('/x', {}, () => undefined, { idleTimeoutMs: 30 })).rejects.toMatchObject({ code: 'stream_lost' });
+  });
+
+  it('still works where the response body cannot be read incrementally', async () => {
+    const seen: string[] = [];
+    const whole = new Response('event: ui.render\ndata: {"n":1}\n\nevent: done\ndata: {}', {
+      headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+    });
+    Object.defineProperty(whole, 'body', { value: null });
+    const { api } = client(() => whole);
+
+    await api.events('/x', {}, (e) => seen.push(e.event));
+
+    expect(seen).toEqual(['ui.render', 'done']);
+  });
+});
+
 describe('error messages', () => {
   it('speaks plainly for codes the user can act on', () => {
     expect(friendlyMessage(problemFrom(429, { code: 'daily_limit' }, null))).toMatch(/today's limit/);

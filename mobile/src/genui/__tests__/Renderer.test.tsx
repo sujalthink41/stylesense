@@ -1,20 +1,33 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Linking from 'expo-linking';
 
 import { ThemeProvider } from '@/design/theme';
 
 import { GenUIScreen } from '../Renderer';
 import type { GenUIContext, UiEnvelope } from '../types';
 
-jest.mock('@/auth/session', () => ({ api: { post: jest.fn(async () => ({ recorded: true })), get: jest.fn() } }));
+jest.mock('@/auth/session', () => ({
+  api: {
+    post: jest.fn(async () => ({ recorded: true })),
+    get: jest.fn(async (path: string) => (path === '/v1/boards/wishlist' ? { id: 'w', name: 'Wishlist', items: [] } : undefined)),
+    put: jest.fn(async () => ({ added: true })),
+    delete: jest.fn(async () => undefined),
+  },
+}));
+jest.mock('expo-linking', () => ({ openURL: jest.fn(async () => true) }));
 
 async function draw(components: unknown[], overrides: Partial<GenUIContext> = {}) {
   const dispatch = jest.fn();
   const envelope = { session_id: 's1', turn_id: 3, components } as unknown as UiEnvelope;
   const ctx: GenUIContext = { sessionId: 's1', turnId: 3, busy: false, dispatch, ...overrides };
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   await render(
-    <ThemeProvider scheme="light">
-      <GenUIScreen envelope={envelope} ctx={ctx} />
-    </ThemeProvider>,
+    <QueryClientProvider client={client}>
+      <ThemeProvider scheme="light">
+        <GenUIScreen envelope={envelope} ctx={ctx} />
+      </ThemeProvider>
+    </QueryClientProvider>,
   );
   return dispatch;
 }
@@ -126,6 +139,47 @@ describe('GenUI renderer', () => {
     expect(api.get).toHaveBeenCalledWith(expect.stringContaining('/v1/stylist/sessions/s1/deck?limit=10&exclude=p1'));
     expect(await screen.findByText('3 picks left')).toBeTruthy();
     expect(screen.getByLabelText('Tee p2. Opens details')).toBeTruthy();
+  });
+
+  describe('detail screen', () => {
+    const detail = { id: 'detail', type: 'product_detail', props: { product_id: 'p9', title: 'Linen shirt', brand: 'Kalaa', price_paise: 74_900, images: [] } };
+    const offer = (o: object) => ({ offer_id: 'o', store_name: 'Myntra', price_paise: 82_900, in_stock: true, is_best: false, buy_path: '/v1/out/o', ...o });
+    const comparison = (offers: object[]) => ({ id: 'cmp', type: 'store_comparison', props: { product_id: 'p9', title: 'Linen shirt', offers } });
+
+    it('docks a buy bar for the best in-stock offer and opens it through our redirect', async () => {
+      await draw([
+        detail,
+        comparison([
+          offer({ offer_id: 'a', store_name: 'Amazon', price_paise: 74_900, is_best: true, in_stock: false }),
+          offer({ offer_id: 'f', store_name: 'Flipkart', price_paise: 79_900, buy_path: '/v1/out/f' }),
+          offer({ offer_id: 'm' }),
+        ]),
+      ]);
+
+      await waitFor(() => expect(screen.getByLabelText('Save to wishlist')).toBeEnabled());
+      expect(screen.getByText('Buy on Flipkart')).toBeTruthy(); // the sold-out "best" is skipped
+      await fireEvent.press(screen.getByTestId('buy-best'));
+
+      expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/v1\/out\/f\?src=detail$/));
+    });
+
+    it('shows no buy bar when nothing is in stock', async () => {
+      await draw([detail, comparison([offer({ in_stock: false })])]);
+      await waitFor(() => expect(screen.getByLabelText('Save to wishlist')).toBeEnabled());
+
+      expect(screen.queryByTestId('buy-best')).toBeNull();
+    });
+
+    it('saves the product to the wishlist from the heart', async () => {
+      const { api } = jest.requireMock('@/auth/session') as { api: { put: jest.Mock } };
+      await draw([detail]);
+
+      await waitFor(() => expect(screen.getByLabelText('Save to wishlist')).toBeEnabled());
+      await fireEvent.press(screen.getByLabelText('Save to wishlist'));
+
+      expect(api.put).toHaveBeenCalledWith('/v1/boards/wishlist/items/p9');
+      expect(await screen.findByLabelText('Remove from wishlist')).toBeTruthy();
+    });
   });
 
   it('disables taps while a turn is in flight', async () => {

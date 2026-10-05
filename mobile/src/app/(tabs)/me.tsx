@@ -1,22 +1,43 @@
 import { useQuery } from '@tanstack/react-query';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_URL, APP_VERSION } from '@/api/config';
-import type { StyleProfileView } from '@/api/types';
+import type { StyleOptions, StyleProfileView } from '@/api/types';
 import { api, useSession } from '@/auth/session';
 import { useTheme } from '@/design/theme';
-import { radius, space } from '@/design/tokens';
+import { space } from '@/design/tokens';
 import { GENUI_CATALOG_VERSION } from '@/genui/types.gen';
-import { Badge } from '@/ui/atoms/Badge';
 import { Button } from '@/ui/atoms/Button';
 import { Text } from '@/ui/atoms/Text';
+import { StyleDnaCard } from '@/ui/organisms/StyleDnaCard';
+import { useStylist } from '@/stylist';
 
 export default function MeTab() {
-  const { colors, elevation } = useTheme();
+  const { colors } = useTheme();
   const user = useSession((s) => s.user);
   const signOut = useSession((s) => s.signOut);
   const profile = useQuery({ queryKey: ['style-profile'], queryFn: () => api.get<StyleProfileView>('/v1/me/style-profile') });
+  const options = useQuery({
+    queryKey: ['style-options'],
+    queryFn: () => api.get<StyleOptions>('/v1/me/style-profile/options'),
+    staleTime: 24 * 60 * 60 * 1000, // the catalogue of looks rarely changes
+  });
+  const start = useStylist((s) => s.start);
+  const phase = useStylist((s) => s.phase);
+  // Back from a Style DNA session or a swipe spree: show what changed.
+  const { refetch } = profile;
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+  const retake = async () => {
+    const id = await start('onboarding');
+    if (id) router.push(`/session/${id}`);
+  };
   const initial = (user?.display_name ?? user?.email ?? '?').charAt(0).toUpperCase();
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.ground }]} edges={['top']}>
@@ -35,25 +56,7 @@ export default function MeTab() {
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.raised }, elevation(2)]}>
-          <Text variant="headline">Your Style DNA</Text>
-          {profile.data?.onboarding_done ? (
-            <>
-              <Text variant="bodySmall" tone="secondary">
-                {profile.data.swipe_count} swipes taught your stylist so far.
-              </Text>
-              <View style={styles.tags}>
-                {[...profile.data.styles, ...profile.data.top_tags].slice(0, 6).map((t) => (
-                  <Badge key={t} kind="taste" label={t} />
-                ))}
-              </View>
-            </>
-          ) : (
-            <Text variant="bodySmall" tone="secondary">
-              Not set yet. Start it from Home: 30 seconds, taps only.
-            </Text>
-          )}
-        </View>
+        <StyleDnaCard profile={profile.data} options={options.data} busy={phase === 'starting'} onStart={() => void retake()} />
 
         <Button label="Sign out" variant="tonal" icon="logout" onPress={() => void signOut()} />
         <Text variant="caption" tone="secondary" align="center">
@@ -70,6 +73,4 @@ const styles = StyleSheet.create({
   body: { padding: space.screen, gap: space.lg },
   who: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: { width: 56, height: 56, borderRadius: 56, alignItems: 'center', justifyContent: 'center' },
-  card: { borderRadius: radius.lg, padding: 18, gap: 10 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 });

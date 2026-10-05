@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -13,6 +13,7 @@ import { api, useSession } from '@/auth/session';
 import { ThemeProvider, useTheme } from '@/design/theme';
 import { fontFiles } from '@/design/typography';
 import { initTelemetry } from '@/lib/telemetry';
+import { useOnboarding } from '@/onboarding';
 import { updateState } from '@/lib/version';
 
 void SplashScreen.preventAutoHideAsync();
@@ -42,6 +43,10 @@ function AppShell() {
   const status = useSession((s) => s.status);
   const boot = useSession((s) => s.boot);
   const [mustUpdate, setMustUpdate] = useState(false);
+  const onboarding = useOnboarding((s) => s.status);
+  const checkOnboarding = useOnboarding((s) => s.check);
+  const resetOnboarding = useOnboarding((s) => s.reset);
+  const next = useOnboarding((s) => s.next);
 
   useEffect(() => {
     void boot();
@@ -52,13 +57,27 @@ function AppShell() {
       .catch(() => undefined); // offline: never block the app on this check
   }, [boot]);
 
-  const ready = fontsLoaded && status !== 'booting';
+  // Signed in: decide on the welcome before the splash lifts, so the first screen doesn't jump.
+  useEffect(() => {
+    if (status === 'signedIn' && onboarding === 'unknown') void checkOnboarding();
+    if (status === 'signedOut') resetOnboarding();
+  }, [status, onboarding, checkOnboarding, resetOnboarding]);
+
+  // The welcome started Style DNA: open it now that the app's screens exist.
+  useEffect(() => {
+    if (onboarding !== 'settled' || !next) return;
+    const id = useOnboarding.getState().takeNext();
+    if (id) router.push(`/session/${id}`);
+  }, [onboarding, next]);
+
+  const ready = fontsLoaded && status !== 'booting' && (status !== 'signedIn' || onboarding !== 'unknown');
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync();
   }, [ready]);
   if (!ready) return null;
 
   const signedIn = status === 'signedIn';
+  const welcome = signedIn && onboarding === 'offer';
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'auto'} />
@@ -69,7 +88,10 @@ function AppShell() {
         <Stack.Protected guard={!mustUpdate && !signedIn}>
           <Stack.Screen name="sign-in" />
         </Stack.Protected>
-        <Stack.Protected guard={!mustUpdate && signedIn}>
+        <Stack.Protected guard={!mustUpdate && welcome}>
+          <Stack.Screen name="welcome" />
+        </Stack.Protected>
+        <Stack.Protected guard={!mustUpdate && signedIn && !welcome}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="session/[id]" options={{ animation: 'slide_from_right' }} />
         </Stack.Protected>

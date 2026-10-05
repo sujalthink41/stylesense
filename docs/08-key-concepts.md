@@ -443,3 +443,15 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 118. Design tokens
 **What:** colours, spacing, radii, type and motion are named values (`colors.action`, `space[4]`, `motion.stampPress`) that every component reads, never raw hex codes. **Why:** one place to change the look, dark mode for free, and rules like "madder only for actions" become checkable.
+
+## 119. Server-Sent Events on a phone
+**What:** one HTTP response that stays open while the server writes small `event:` / `data:` frames; the app reads them as they arrive. **Why:** the screen can say "checking prices…" in the shape of what's coming, instead of a spinner, and the answer appears the moment it's ready.
+
+## 120. Resume, don't resend
+**What:** if the connection drops after the server accepted a tap, the app asks "where are we now?" (the snapshot) rather than sending the tap again. **Why:** the work continues on the server; resending risks doing it twice, while reading the state is always safe.
+
+## 121. Optimistic UI with rollback
+**What:** the heart turns red immediately, the request goes out in the background, and if it fails the heart turns back (with a buzz). **Why:** taps feel instant; idempotent requests make the background call safe to retry.
+
+## 122. Prefetching
+**What:** download what the person will almost certainly need next (the next three card photos) while they look at the current one. **Why:** swiping never lands on a blank card, which matters more to perceived speed than raw network time.

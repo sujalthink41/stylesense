@@ -12,6 +12,7 @@ export type ActionResult = S['ActionResult'];
 export type BoardSummary = S['BoardSummary'];
 export type BoardView = S['BoardView'];
 export type StyleProfileView = S['StyleProfileView'];
+export type StyleOptions = S['StyleOptions'];
 export type ProductSummary = S['ProductSummary'];
 export type SwipeReceipt = S['SwipeReceipt'];
 export type SessionEntry = S['SessionCreate']['entry'];

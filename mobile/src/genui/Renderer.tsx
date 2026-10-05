@@ -1,11 +1,14 @@
+import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { API_URL } from '@/api/config';
 import { api } from '@/auth/session';
+import { useWishlist } from '@/boards/wishlist';
 import { useTheme } from '@/design/theme';
 import { space } from '@/design/tokens';
+import { timers } from '@/lib/perf';
 import { Badge } from '@/ui/atoms/Badge';
 import { Button } from '@/ui/atoms/Button';
 import { Chip } from '@/ui/atoms/Chip';
@@ -13,7 +16,8 @@ import { Text } from '@/ui/atoms/Text';
 import { AskField } from '@/ui/molecules/AskField';
 import { Banner } from '@/ui/molecules/Banner';
 import { BudgetSlider } from '@/ui/molecules/BudgetSlider';
-import { PrintRepeat } from '@/ui/molecules/PrintRepeat';
+import { BuyBar } from '@/ui/molecules/BuyBar';
+import { SaveHeart } from '@/ui/molecules/SaveHeart';
 import {
   EmptyState,
   ImageChoiceGrid,
@@ -24,6 +28,7 @@ import {
 } from '@/ui/organisms/Panels';
 import { ProductDetailView } from '@/ui/organisms/ProductDetailView';
 import { ProductSwipeCard, type ProductCardData } from '@/ui/organisms/ProductSwipeCard';
+import { Skeleton } from '@/ui/organisms/Skeleton';
 import { SwipeDeck, type SwipeDirection } from '@/ui/organisms/SwipeDeck';
 
 import type { Action, GenUIComponent, GenUIContext, UiEnvelope } from './types';
@@ -37,6 +42,7 @@ const UPDATE_PROMPT = 'Update StyleSense to see this.';
 export function GenUIScreen({ envelope, ctx, header }: { envelope: UiEnvelope; ctx: GenUIContext; header?: ReactNode }) {
   const body = envelope.components.filter((c) => c.type !== 'text_input_bar');
   const composer = envelope.components.find((c) => c.type === 'text_input_bar');
+  const buy = bestOffer(envelope.components);
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -46,6 +52,9 @@ export function GenUIScreen({ envelope, ctx, header }: { envelope: UiEnvelope; c
         ))}
       </ScrollView>
       {composer ? <View style={styles.composer}>{renderComponent(composer, ctx)}</View> : null}
+      {buy ? (
+        <BuyBar storeName={buy.offer.store_name} pricePaise={buy.offer.price_paise} isBest={buy.compared} onBuy={() => openOffer(buy.offer.buy_path, 'detail')} />
+      ) : null}
     </View>
   );
 }
@@ -86,7 +95,7 @@ export function renderComponent(c: GenUIComponent, ctx: GenUIContext): ReactNode
       return (
         <StoreComparison
           offers={c.props.offers}
-          onBuy={(o) => void Linking.openURL(`${API_URL}${o.buy_path}?src=stylist`)}
+          onBuy={(o) => openOffer(o.buy_path, 'stylist')}
         />
       );
     case 'complete_the_look':
@@ -99,7 +108,7 @@ export function renderComponent(c: GenUIComponent, ctx: GenUIContext): ReactNode
         />
       );
     case 'product_detail':
-      return <ProductDetailView detail={c.props} />;
+      return <ProductDetailView detail={c.props} accessory={<WishlistHeart productId={c.props.product_id} />} />;
     case 'product_carousel':
       return (
         <ProductCarousel
@@ -138,10 +147,33 @@ export function renderComponent(c: GenUIComponent, ctx: GenUIContext): ReactNode
         />
       );
     case 'loading_skeleton':
-      return <PrintRepeat />;
+      return <Skeleton shape={c.props.shape} count={c.props.count} />;
     default:
       return <Banner text={UPDATE_PROMPT} />; // a newer component than this app knows
   }
+}
+
+/** The lowest in-stock offer on a detail screen, for the docked buy bar. */
+function bestOffer(components: GenUIComponent[]) {
+  const comparison = components.find((c) => c.type === 'store_comparison');
+  if (comparison?.type !== 'store_comparison') return null;
+  const inStock = comparison.props.offers.filter((o) => o.in_stock);
+  const offer = inStock.find((o) => o.is_best) ?? [...inStock].sort((a, b) => a.price_paise - b.price_paise)[0];
+  return offer ? { offer, compared: inStock.length > 1 } : null;
+}
+
+function openOffer(buyPath: string, src: string) {
+  // The redirect endpoint records the click and only goes to allow-listed store hosts.
+  void Linking.openURL(`${API_URL}${buyPath}?src=${src}`);
+}
+
+function WishlistHeart({ productId }: { productId: string }) {
+  const { ready, isSaved, toggle } = useWishlist();
+  const onToggle = async () => {
+    // The heart already flipped back; a buzz says the save didn't stick.
+    if (!(await toggle(productId))) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  };
+  return <SaveHeart saved={isSaved(productId)} disabled={!ready} onToggle={() => void onToggle()} />;
 }
 
 function BudgetQuestion({ component, ctx }: { component: Extract<GenUIComponent, { type?: 'budget_slider' }>; ctx: GenUIContext }) {
@@ -166,6 +198,7 @@ function DeckAdapter({ component, ctx }: { component: Extract<GenUIComponent, { 
   const { colors } = useTheme();
   const [cards, setCards] = useState<ProductCardData[]>(component.props.cards as ProductCardData[]);
   const [hasMore, setHasMore] = useState(component.props.has_more ?? false);
+  useEffect(() => void timers.end('first_products'), []);
 
   const onSwipe = useCallback(
     (card: ProductCardData, direction: SwipeDirection) => {

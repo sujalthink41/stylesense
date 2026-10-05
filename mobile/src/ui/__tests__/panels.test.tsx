@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/design/theme';
 import { snap } from '@/ui/molecules/BudgetSlider';
 import { ImageChoiceGrid, StoreComparison, type OfferData } from '@/ui/organisms/Panels';
 import { ProductDetailView } from '@/ui/organisms/ProductDetailView';
+import { StyleDnaCard } from '@/ui/organisms/StyleDnaCard';
 
 const inTheme = (node: React.ReactElement) => render(<ThemeProvider scheme="light">{node}</ThemeProvider>);
 
@@ -113,5 +114,59 @@ describe('product detail', () => {
     await inTheme(<ProductDetailView detail={{ title: 'Tee', brand: 'B', price_paise: 50_000, images: ['https://a', 'https://b'] }} />);
 
     expect(screen.getByLabelText('Tee, photo 2 of 2')).toBeTruthy();
+  });
+});
+
+describe('style DNA card', () => {
+  const options = {
+    styles: [{ id: 'minimal', label: 'Clean minimal', image_url: 'https://img/minimal.png' }],
+    max_styles: 3,
+    top_sizes: [],
+    bottom_sizes: [],
+    shoe_sizes: [],
+  };
+  const profile = (o: object) => ({
+    fit_preference: null,
+    styles: [],
+    sizes: { top: null, bottom: null, shoe: null },
+    onboarding_done: false,
+    swipe_count: 0,
+    top_tags: [],
+    ...o,
+  });
+
+  it('invites someone without a Style DNA to start', async () => {
+    const onStart = jest.fn();
+    await inTheme(<StyleDnaCard profile={profile({})} options={options} onStart={onStart} />);
+
+    await fireEvent.press(screen.getByText('Find my Style DNA'));
+
+    expect(onStart).toHaveBeenCalled();
+  });
+
+  it('shows chosen looks by name, sizes, and what swipes taught it', async () => {
+    await inTheme(
+      <StyleDnaCard
+        profile={profile({
+          onboarding_done: true,
+          styles: ['minimal', 'retired-style'],
+          fit_preference: 'women',
+          sizes: { top: 'M', bottom: '30', shoe: null },
+          swipe_count: 1,
+          top_tags: ['linen'],
+        })}
+        options={options}
+        onStart={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Look you love: Clean minimal')).toBeTruthy();
+    expect(screen.getByLabelText('Look you love: retired-style')).toBeTruthy(); // unknown id still shown
+    expect(screen.getByText('1 swipe has taught your stylist so far')).toBeTruthy();
+    expect(screen.getByText('For Women')).toBeTruthy();
+    expect(screen.getByText('Top M')).toBeTruthy();
+    expect(screen.queryByText(/^Shoe/)).toBeNull();
+    expect(screen.getByText('linen')).toBeTruthy();
+    expect(screen.getByText('Retake Style DNA')).toBeTruthy();
   });
 });

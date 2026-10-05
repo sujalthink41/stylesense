@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/design/theme';
@@ -39,14 +40,23 @@ export function ReasonChips({ reasons }: { reasons: string[] }) {
 }
 
 /** Photo first, price at display scale, three reasons. */
-export function ProductSwipeCard({ card, imageHeight = 400 }: { card: ProductCardData; imageHeight?: number }) {
+// Memoised: while one card is dragged, the card underneath must not re-render.
+export const ProductSwipeCard = memo(function ProductSwipeCard({ card, imageHeight = 400 }: { card: ProductCardData; imageHeight?: number }) {
   const { colors, elevation } = useTheme();
   const best = storeName(card.best_store);
   return (
     <View style={[styles.card, { backgroundColor: colors.raised }, elevation(3)]}>
       <View style={[styles.photo, { height: imageHeight, backgroundColor: palette.indigo700 }]}>
         {card.image_url ? (
-          <Image source={{ uri: card.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} accessibilityLabel={card.title} />
+          <Image
+            source={{ uri: card.image_url }}
+            recyclingKey={card.product_id}
+            cachePolicy="memory-disk"
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={120}
+            accessibilityLabel={card.title}
+          />
         ) : null}
         {best ? (
           <View style={styles.bestTag}>
@@ -70,7 +80,7 @@ export function ProductSwipeCard({ card, imageHeight = 400 }: { card: ProductCar
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { borderRadius: radius.xl, overflow: 'hidden' },
