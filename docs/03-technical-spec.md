@@ -209,38 +209,33 @@ Action types: `chip_select`, `slider_set`, `swipe` (`left`/`right`/`super`), `ca
 
 ### 6.1 Stylist graph (LangGraph)
 
+One graph run per turn, compiled **without a checkpointer**: the session engine (§ GenUI, ADR 0011) loads the state, runs the graph, and saves the new state with the turn bump (ADR 0012).
+
 ```
-            ┌──────────────┐
- action ──▶ │ ingest_action│  (validate, apply to state; swipes update taste — no LLM)
-            └──────┬───────┘
+ action/entry ─▶ ingest      apply the action to state (chips, slider, swipe, back, restart…)
+                   │
                    ▼
-            ┌──────────────┐  text/photo?   ┌────────────────┐
-            │ route        │ ─────────────▶ │ understand (LLM)│ → extracts slots from free text / image
-            └──────┬───────┘                └───────┬────────┘
-                   ▼                                ▼
-            ┌──────────────┐  missing slot  ┌────────────────┐
-            │ slot_check   │ ─────────────▶ │ ask_question   │ → deterministic templates (no LLM);
-            └──────┬───────┘                │                │   LLM only to propose smart options
-                   │ all slots filled       └───────┬────────┘   when the intent is unusual
-                   ▼                                ▼
-            ┌──────────────┐                 interrupt() → wait for next action
-            │ retrieve     │  SQL filters (budget, size, category, gender) + pgvector similarity
-            └──────┬───────┘
+                 understand  rules parse free text → slots; LLM (stylist.understand) only
+                   │         fills required slots the rules left empty, never overrides
                    ▼
-            ┌──────────────┐
-            │ rank (code)  │  score = filters ∧ (w1·taste_sim + w2·rating + w3·budget_fit + w4·diversity)
-            └──────┬───────┘
-                   ▼
-            ┌──────────────┐
-            │ explain (LLM)│  one batched call: "why this pick" for top N, from attributes only
-            └──────┬───────┘
-                   ▼
-            ┌──────────────┐
-            │ compose_ui   │  build components + suggestions → stream → interrupt()
-            └──────────────┘
+              ┌── decide ──────────────┬──────────────────┐
+              ▼ slot missing           ▼ all filled       ▼ card opened
+             ask (template)          search             detail
+                                      │ SQL filters (budget, category, gender) + pgvector
+                                      ▼
+                                     rank   code: 0.40 match + 0.35 similarity + 0.25 rating×confidence,
+                                      │     brand-diversity penalty, budget re-checked
+                                      ▼
+                                     explain  rule reasons; optional one batched stylist.explain
+                                      ▼
+                                     compose  product_swipe_deck + suggestions + input bar
 ```
 
-Required slots (v1): `category`, `occasion`, `budget`, `size` (prefilled from Style DNA), `gender_fit` (from Style DNA), optional `color`, `fit`, `fabric`, `style`.
+Required slots (v1): `category`, `gender`, `budget`, asked in that order. Optional: `occasion`, `colors`, `fit`, `fabric` (boost ranking, never filter). `size` and Style DNA prefill arrive with CP9.
+
+**Degraded mode:** with no AI key, an open breaker or an exhausted budget, rules handle understanding and reasons; the session records `ai: "degraded"`.
+
+**Evals:** `stylist/evals/understand_golden.jsonl` (~50 intents); `python -m stylesense.cli eval-understand --engine rules|llm`. Bar: ≥ 90% field accuracy.
 
 Other graphs: `photo_search` (vision → attributes → retrieve), `complete_the_look`, `trending_curation` (offline, cron).
 

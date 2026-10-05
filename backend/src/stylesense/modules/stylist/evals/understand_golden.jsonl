@@ -1,0 +1,52 @@
+{"text": "summer t-shirt under 500", "expect": {"category": "tshirt", "occasion": "summer", "budget_max_paise": 50000}}
+{"text": "need a tshirt for summer for around 500 rupees", "expect": {"category": "tshirt", "occasion": "summer", "budget_min_paise": 35000, "budget_max_paise": 60000}}
+{"text": "mens black jeans below 1500", "expect": {"category": "jeans", "gender": "men", "colors": ["black"], "budget_max_paise": 150000}}
+{"text": "women's floral dress for a party under ₹2,000", "expect": {"category": "dress", "gender": "women", "occasion": "party", "budget_max_paise": 200000}}
+{"text": "kurta for diwali within 1k", "expect": {"category": "kurta", "occasion": "festive", "budget_max_paise": 100000}}
+{"text": "shaadi ke liye kurta 2000 tak", "expect": {"category": "kurta", "occasion": "wedding", "budget_max_paise": 200000}}
+{"text": "oversized hoodie for college", "expect": {"category": "hoodie", "fit": "oversized", "occasion": "college"}}
+{"text": "linen shirt for goa trip", "expect": {"category": "shirt", "fabric": "linen", "occasion": "travel"}}
+{"text": "white sneakers between 1500 and 3000", "expect": {"category": "sneakers", "colors": ["white"], "budget_min_paise": 150000, "budget_max_paise": 300000}}
+{"text": "office trousers for women", "expect": {"category": "trousers", "gender": "women", "occasion": "office"}}
+{"text": "slim fit formal shirt for men under 1200", "expect": {"category": "shirt", "gender": "men", "fit": "slim", "occasion": "office", "budget_max_paise": 120000}}
+{"text": "gym shorts for guys", "expect": {"category": "shorts", "gender": "men", "occasion": "sports"}}
+{"text": "puffer jacket for winter", "expect": {"category": "jacket", "occasion": "winter"}}
+{"text": "crop top under 600", "expect": {"category": "top", "budget_max_paise": 60000}}
+{"text": "something nice for a date night", "expect": {"category": null, "occasion": "date night"}}
+{"text": "red dress", "expect": {"category": "dress", "colors": ["red"]}}
+{"text": "budget 800-1200 tees", "expect": {"category": "tshirt", "budget_min_paise": 80000, "budget_max_paise": 120000}}
+{"text": "denim jacket for her", "expect": {"category": "jacket", "gender": "women", "fabric": "denim"}}
+{"text": "navy polo t shirt", "expect": {"category": "tshirt", "colors": ["navy"]}}
+{"text": "cotton kurta for office upto 1500", "expect": {"category": "kurta", "fabric": "cotton", "occasion": "office", "budget_max_paise": 150000}}
+{"text": "running shoes for men under 3k", "expect": {"category": "sneakers", "gender": "men", "occasion": "sports", "budget_max_paise": 300000}}
+{"text": "party wear for women", "expect": {"category": null, "gender": "women", "occasion": "party"}}
+{"text": "wedding guest outfit", "expect": {"occasion": "wedding"}}
+{"text": "ladies jeans less than 999", "expect": {"category": "jeans", "gender": "women", "budget_max_paise": 99900}}
+{"text": "boys hoodie", "expect": {"category": "hoodie", "gender": "men"}}
+{"text": "black kurta for men for festival", "expect": {"category": "kurta", "gender": "men", "colors": ["black"], "occasion": "festive"}}
+{"text": "relaxed fit jeans", "expect": {"category": "jeans", "fit": "relaxed"}}
+{"text": "show me shirts under rs. 700", "expect": {"category": "shirt", "budget_max_paise": 70000}}
+{"text": "Diwali outfit under 2500", "expect": {"occasion": "festive", "budget_max_paise": 250000}}
+{"text": "beach dress below 1,200", "expect": {"category": "dress", "occasion": "travel", "budget_max_paise": 120000}}
+{"text": "sweatshirt for winter for women", "expect": {"category": "hoodie", "gender": "women", "occasion": "winter"}}
+{"text": "chinos for men", "expect": {"category": "trousers", "gender": "men"}}
+{"text": "mustard top", "expect": {"category": "top", "colors": ["mustard"]}}
+{"text": "sneakers", "expect": {"category": "sneakers", "budget_max_paise": null}}
+{"text": "t-shirts for college under 400", "expect": {"category": "tshirt", "occasion": "college", "budget_max_paise": 40000}}
+{"text": "formal pants for office", "expect": {"category": "trousers", "occasion": "office"}}
+{"text": "grey oversized tee unisex", "expect": {"category": "tshirt", "gender": "unisex", "colors": ["grey"], "fit": "oversized"}}
+{"text": "maxi dress for vacation", "expect": {"category": "dress", "occasion": "travel"}}
+{"text": "skinny jeans for girls under 1000", "expect": {"category": "jeans", "gender": "women", "fit": "skinny", "budget_max_paise": 100000}}
+{"text": "silk kurta for wedding", "expect": {"category": "kurta", "fabric": "silk", "occasion": "wedding"}}
+{"text": "pink shirt for him", "expect": {"category": "shirt", "gender": "men", "colors": ["pink"]}}
+{"text": "trainers under 2000", "expect": {"category": "sneakers", "budget_max_paise": 200000}}
+{"text": "festive kurta 1.5k", "expect": {"category": "kurta", "occasion": "festive", "budget_max_paise": 150000}}
+{"text": "jacket for travel within 3,500", "expect": {"category": "jacket", "occasion": "travel", "budget_max_paise": 350000}}
+{"text": "olive cargo pants", "expect": {"category": "trousers", "colors": ["olive"]}}
+{"text": "white linen shirt", "expect": {"category": "shirt", "colors": ["white"], "fabric": "linen"}}
+{"text": "Women's sports shorts", "expect": {"category": "shorts", "gender": "women", "occasion": "sports"}}
+{"text": "maroon hoodie under ₹999", "expect": {"category": "hoodie", "colors": ["maroon"], "budget_max_paise": 99900}}
+{"text": "kurta under 500 for men", "expect": {"category": "kurta", "gender": "men", "budget_max_paise": 50000}}
+{"text": "party top for women below 800", "expect": {"category": "top", "gender": "women", "occasion": "party", "budget_max_paise": 80000}}
+{"text": "light blue jeans", "expect": {"category": "jeans", "colors": ["sky blue"]}}
+{"text": "beige trousers 1000-2000", "expect": {"category": "trousers", "colors": ["beige"], "budget_min_paise": 100000, "budget_max_paise": 200000}}

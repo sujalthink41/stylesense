@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from stylesense.modules.catalog.models import Offer, OutboundClick, PriceSnapshot, Product, Store
-from stylesense.modules.catalog.schemas import ProductFilters
+from stylesense.modules.catalog.schemas import ProductFilters, SearchQuery
 
 
 class CatalogRepository:
@@ -61,6 +61,38 @@ class CatalogRepository:
         if after is not None:
             stmt = stmt.where(Product.id > after)  # keyset pagination: stable and index-friendly
         return list((await self._s.scalars(stmt)).all())
+
+    async def search(
+        self, q: SearchQuery, embedding: Sequence[float] | None
+    ) -> list[tuple[Product, float | None]]:
+        distance = Product.embedding.cosine_distance(embedding) if embedding is not None else None
+        columns = (Product, distance.label("distance")) if distance is not None else (Product,)
+        stmt = (
+            select(*columns)
+            .where(Product.active, Product.min_price_paise.is_not(None))
+            .options(selectinload(Product.offers).selectinload(Offer.store))
+            .limit(q.limit)
+        )
+        if q.category:
+            stmt = stmt.where(Product.category == q.category)
+        if q.gender in {"men", "women"}:
+            stmt = stmt.where(Product.gender.in_({q.gender, "unisex"}))
+        elif q.gender == "unisex":
+            stmt = stmt.where(Product.gender == "unisex")
+        if q.min_price_paise is not None:
+            stmt = stmt.where(Product.min_price_paise >= q.min_price_paise)
+        if q.max_price_paise is not None:
+            stmt = stmt.where(Product.min_price_paise <= q.max_price_paise)
+        if q.exclude_ids:
+            stmt = stmt.where(Product.id.not_in(q.exclude_ids))
+        if distance is not None:
+            stmt = stmt.order_by(distance.asc().nulls_last(), Product.id)
+        else:
+            stmt = stmt.order_by(Product.rating.desc().nulls_last(), Product.id)
+        rows = (await self._s.execute(stmt)).all()
+        if distance is None:
+            return [(row[0], None) for row in rows]
+        return [(row[0], None if row[1] is None else 1.0 - float(row[1])) for row in rows]
 
     async def stale_embeddings(self, model: str, limit: int) -> list[Product]:
         # Mirrors rules.embedding_hash in SQL so the filter runs in the database.

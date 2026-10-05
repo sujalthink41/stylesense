@@ -70,6 +70,8 @@ docker compose --env-file .env -f infra/compose/compose.yml -f infra/compose/com
   exec api python -m stylesense.cli dev-token you@example.com
 ```
 
+The stylist works without an AI key (rules-only "degraded" mode). To score its request understanding: `python -m stylesense.cli eval-understand` (add `--engine llm` once a key is set).
+
 Run `make help` to see every command.
 
 ## Development

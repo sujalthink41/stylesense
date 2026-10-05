@@ -14,7 +14,7 @@ from stylesense.integrations.sources.mock import MockSource
 from stylesense.modules.catalog.exceptions import OfferNotFoundError, ProductNotFoundError
 from stylesense.modules.catalog.models import Offer, OutboundClick, PriceSnapshot, Product
 from stylesense.modules.catalog.ports import RawOffer
-from stylesense.modules.catalog.schemas import ProductFilters
+from stylesense.modules.catalog.schemas import ProductFilters, SearchQuery
 from stylesense.modules.catalog.service import CatalogService
 from tests.fakes.clock import FixedClock
 
@@ -389,3 +389,61 @@ async def test_embedding_outage_defers_work_without_losing_it(
 
     assert await _service(sessions, clock, embedder=DownEmbedder()).embed_pending() == 0
     assert await _service(sessions, clock).embed_pending() == 1  # still pending, picked up later
+
+
+# ---------- search ----------
+
+
+async def test_search_applies_hard_filters(seeded: CatalogService) -> None:
+    hits = await seeded.search(
+        SearchQuery(
+            category="tshirt",
+            gender="men",
+            min_price_paise=20_000,
+            max_price_paise=60_000,
+            limit=100,
+        )
+    )
+
+    assert hits
+    for hit in hits:
+        assert hit.product.category == "tshirt"
+        assert hit.product.gender in {"men", "unisex"}
+        assert 20_000 <= hit.product.min_price_paise <= 60_000  # type: ignore[operator]
+
+
+async def test_search_orders_by_similarity_within_the_filters(seeded: CatalogService) -> None:
+    # The stylist always filters by category; similarity orders items *within* it. (The offline
+    # hashing embedder matches words, not meaning: unfiltered, "t-shirt" ~ "shirt". ADR 0007.)
+    wanted = {"oversized", "cotton", "casual", "summer"}
+
+    hits = await seeded.search(
+        SearchQuery(category="tshirt", text=" ".join(sorted(wanted)), limit=10)
+    )
+
+    similarities = [h.similarity or 0.0 for h in hits]
+    assert similarities == sorted(similarities, reverse=True)
+    assert len(wanted & set(hits[0].product.tags)) >= 2
+
+
+async def test_search_excludes_dismissed_items(seeded: CatalogService) -> None:
+    first = await seeded.search(SearchQuery(category="jeans", limit=3))
+
+    again = await seeded.search(
+        SearchQuery(category="jeans", exclude_ids=[h.product.id for h in first], limit=3)
+    )
+
+    assert {h.product.id for h in first}.isdisjoint({h.product.id for h in again})
+
+
+async def test_search_without_text_or_embedder_falls_back_to_rating(
+    sessions: async_sessionmaker[AsyncSession], clock: FixedClock, seeded: CatalogService
+) -> None:
+    down = _service(sessions, clock, embedder=DownEmbedder())
+
+    hits = await down.search(SearchQuery(category="dress", text="flowy summer dress", limit=5))
+
+    assert hits
+    assert all(h.similarity is None for h in hits)
+    ratings = [h.product.rating or 0 for h in hits]
+    assert ratings == sorted(ratings, reverse=True)

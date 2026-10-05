@@ -66,6 +66,26 @@ class ProductFilters(BaseModel):
     cursor: str | None = Field(default=None, max_length=64)
 
 
+class SearchQuery(BaseModel):
+    """Hard filters (SQL) + optional free text for vector similarity."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: str | None = None
+    gender: Gender | None = None  # "men"/"women" also match unisex; None = any
+    min_price_paise: int | None = Field(default=None, ge=0)
+    max_price_paise: int | None = Field(default=None, ge=0)
+    text: str | None = Field(default=None, max_length=500)
+    exclude_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+@dataclass(frozen=True, slots=True)
+class SearchHit:
+    product: ProductSummary
+    similarity: float | None  # cosine similarity to the request text, when it was embedded
+
+
 @dataclass(slots=True)
 class IngestReport:
     products_created: int = 0
