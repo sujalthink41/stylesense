@@ -36,3 +36,8 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Claude Code skills (installed per machine with npx skills; not versioned)
+.claude/skills/
+skills-lock.json
+.impeccable/

@@ -434,3 +434,12 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 115. CDN caching vs deletion
 **What:** deleting a file at the origin doesn't instantly remove copies cached at CDN edges; invalidation takes time. **Why it matters:** privacy promises must account for caches. Here URLs are unguessable and only given to the owner, which bounds the risk.
+
+## 116. Generated contract types
+**What:** the app's TypeScript types for API bodies and GenUI components are generated from the backend's OpenAPI and JSON Schema files, and CI regenerates them and fails on any difference. **Why:** a renamed field becomes a red build, not a blank screen on someone's phone.
+
+## 117. Single-flight token refresh
+**What:** when several requests get a 401 at once, they all wait on one refresh call and then retry with the new token. **Why:** refresh tokens rotate; three parallel refreshes would look like token theft (reuse detection, CP4) and sign the user out.
+
+## 118. Design tokens
+**What:** colours, spacing, radii, type and motion are named values (`colors.action`, `space[4]`, `motion.stampPress`) that every component reads, never raw hex codes. **Why:** one place to change the look, dark mode for free, and rules like "madder only for actions" become checkable.

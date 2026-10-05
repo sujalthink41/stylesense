@@ -1,0 +1,7015 @@
+{
+  "components": {
+    "schemas": {
+      "AIStatus": {
+        "properties": {
+          "daily_budget_usd": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Daily Budget Usd",
+            "type": "string"
+          },
+          "embedding_model": {
+            "title": "Embedding Model",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "spent_today_usd": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Spent Today Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "providers",
+          "embedding_model",
+          "spent_today_usd",
+          "daily_budget_usd"
+        ],
+        "title": "AIStatus",
+        "type": "object"
+      },
+      "ActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "back": "#/components/schemas/Back",
+                "card_open": "#/components/schemas/CardOpen",
+                "chip_select": "#/components/schemas/ChipSelect",
+                "restart": "#/components/schemas/Restart",
+                "shortcut": "#/components/schemas/Shortcut",
+                "slider_set": "#/components/schemas/SliderSet",
+                "swipe": "#/components/schemas/Swipe",
+                "text_input": "#/components/schemas/TextInput"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChipSelect"
+              },
+              {
+                "$ref": "#/components/schemas/SliderSet"
+              },
+              {
+                "$ref": "#/components/schemas/Swipe"
+              },
+              {
+                "$ref": "#/components/schemas/CardOpen"
+              },
+              {
+                "$ref": "#/components/schemas/TextInput"
+              },
+              {
+                "$ref": "#/components/schemas/Shortcut"
+              },
+              {
+                "$ref": "#/components/schemas/Back"
+              },
+              {
+                "$ref": "#/components/schemas/Restart"
+              }
+            ],
+            "title": "Action"
+          },
+          "turn_id": {
+            "minimum": 1.0,
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "turn_id",
+          "action"
+        ],
+        "title": "ActionRequest",
+        "type": "object"
+      },
+      "ActionResult": {
+        "description": "Non-streaming response: the turn's final screen (and the error, if the turn failed).",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          },
+          "ui": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UiEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "turn_id",
+          "ui"
+        ],
+        "title": "ActionResult",
+        "type": "object"
+      },
+      "AppConfig": {
+        "properties": {
+          "latest_version": {
+            "title": "Latest Version",
+            "type": "string"
+          },
+          "min_supported_version": {
+            "title": "Min Supported Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "min_supported_version",
+          "latest_version"
+        ],
+        "title": "AppConfig",
+        "type": "object"
+      },
+      "Back": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "back",
+            "default": "back",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Back",
+        "type": "object"
+      },
+      "BoardCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BoardCreate",
+        "type": "object"
+      },
+      "BoardItemView": {
+        "properties": {
+          "added_at": {
+            "format": "date-time",
+            "title": "Added At",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductSummary"
+          }
+        },
+        "required": [
+          "product",
+          "position",
+          "note",
+          "added_at"
+        ],
+        "title": "BoardItemView",
+        "type": "object"
+      },
+      "BoardSummary": {
+        "properties": {
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "item_count": {
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "wishlist",
+              "outfit"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "version",
+          "item_count",
+          "cover_image_url",
+          "updated_at"
+        ],
+        "title": "BoardSummary",
+        "type": "object"
+      },
+      "BoardUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "cover_product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Product Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "BoardUpdate",
+        "type": "object"
+      },
+      "BoardView": {
+        "properties": {
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "item_count": {
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BoardItemView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "wishlist",
+              "outfit"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "version",
+          "item_count",
+          "cover_image_url",
+          "updated_at",
+          "items"
+        ],
+        "title": "BoardView",
+        "type": "object"
+      },
+      "BudgetSlider": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/BudgetSliderProps"
+          },
+          "type": {
+            "const": "budget_slider",
+            "default": "budget_slider",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "BudgetSlider",
+        "type": "object"
+      },
+      "BudgetSliderProps": {
+        "additionalProperties": false,
+        "properties": {
+          "default_max_paise": {
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Default Max Paise",
+            "type": "integer"
+          },
+          "default_min_paise": {
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Default Min Paise",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "max_paise": {
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Max Paise",
+            "type": "integer"
+          },
+          "min_paise": {
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Min Paise",
+            "type": "integer"
+          },
+          "step_paise": {
+            "maximum": 1000000.0,
+            "minimum": 100.0,
+            "title": "Step Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "min_paise",
+          "max_paise",
+          "step_paise",
+          "default_min_paise",
+          "default_max_paise"
+        ],
+        "title": "BudgetSliderProps",
+        "type": "object"
+      },
+      "CardOpen": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "card_open",
+            "default": "card_open",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id"
+        ],
+        "title": "CardOpen",
+        "type": "object"
+      },
+      "CheckOut": {
+        "properties": {
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "number"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "ok",
+          "duration_ms",
+          "error"
+        ],
+        "title": "CheckOut",
+        "type": "object"
+      },
+      "ChipOption": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ChipOption",
+        "type": "object"
+      },
+      "ChipQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/ChipQuestionProps"
+          },
+          "type": {
+            "const": "chip_question",
+            "default": "chip_question",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ChipQuestion",
+        "type": "object"
+      },
+      "ChipQuestionProps": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_custom": {
+            "default": false,
+            "title": "Allow Custom",
+            "type": "boolean"
+          },
+          "max_select": {
+            "default": 1,
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Max Select",
+            "type": "integer"
+          },
+          "multi": {
+            "default": false,
+            "title": "Multi",
+            "type": "boolean"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ChipOption"
+            },
+            "maxItems": 12,
+            "minItems": 2,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "options"
+        ],
+        "title": "ChipQuestionProps",
+        "type": "object"
+      },
+      "ChipSelect": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "option_ids": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Option Ids",
+            "type": "array"
+          },
+          "type": {
+            "const": "chip_select",
+            "default": "chip_select",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "option_ids"
+        ],
+        "title": "ChipSelect",
+        "type": "object"
+      },
+      "ComparedOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "buy_path": {
+            "pattern": "^/v1/out/[0-9a-f-]{36}$",
+            "title": "Buy Path",
+            "type": "string"
+          },
+          "discount_percent": {
+            "maximum": 99.0,
+            "minimum": 0.0,
+            "title": "Discount Percent",
+            "type": "integer"
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "is_best": {
+            "title": "Is Best",
+            "type": "boolean"
+          },
+          "mrp_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp Paise"
+          },
+          "offer_id": {
+            "format": "uuid",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "price_paise": {
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Price Paise",
+            "type": "integer"
+          },
+          "store": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Store",
+            "type": "string"
+          },
+          "store_name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Store Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "offer_id",
+          "store",
+          "store_name",
+          "price_paise",
+          "mrp_paise",
+          "discount_percent",
+          "in_stock",
+          "is_best",
+          "buy_path"
+        ],
+        "title": "ComparedOffer",
+        "type": "object"
+      },
+      "CompleteTheLook": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/CompleteTheLookProps"
+          },
+          "type": {
+            "const": "complete_the_look",
+            "default": "complete_the_look",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "CompleteTheLook",
+        "type": "object"
+      },
+      "CompleteTheLookProps": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_product_id": {
+            "format": "uuid",
+            "title": "Anchor Product Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductCardProps"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "remaining_budget_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Budget Paise"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "anchor_product_id",
+          "items"
+        ],
+        "title": "CompleteTheLookProps",
+        "type": "object"
+      },
+      "ConsentInput": {
+        "additionalProperties": false,
+        "properties": {
+          "granted": {
+            "title": "Granted",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ConsentKind"
+          },
+          "version": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "version",
+          "granted"
+        ],
+        "title": "ConsentInput",
+        "type": "object"
+      },
+      "ConsentKind": {
+        "enum": [
+          "terms",
+          "privacy",
+          "photo_processing",
+          "marketing_push"
+        ],
+        "title": "ConsentKind",
+        "type": "string"
+      },
+      "ConsentRecord": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "granted": {
+            "title": "Granted",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ConsentKind"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "version",
+          "granted",
+          "created_at"
+        ],
+        "title": "ConsentRecord",
+        "type": "object"
+      },
+      "DeletionReceipt": {
+        "properties": {
+          "purge_after": {
+            "format": "date-time",
+            "title": "Purge After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purge_after"
+        ],
+        "title": "DeletionReceipt",
+        "type": "object"
+      },
+      "DevSignInRequest": {
+        "additionalProperties": false,
+        "description": "Local development only (see Settings.dev_sign_in_enabled).",
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "minLength": 3,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "title": "Email",
+            "type": "string"
+          },
+          "installation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installation Id"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "DevSignInRequest",
+        "type": "object"
+      },
+      "Device": {
+        "properties": {
+          "app_version": {
+            "title": "App Version",
+            "type": "string"
+          },
+          "has_push_token": {
+            "title": "Has Push Token",
+            "type": "boolean"
+          },
+          "installation_id": {
+            "format": "uuid",
+            "title": "Installation Id",
+            "type": "string"
+          },
+          "last_active_at": {
+            "format": "date-time",
+            "title": "Last Active At",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "push_enabled": {
+            "title": "Push Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "installation_id",
+          "platform",
+          "app_version",
+          "push_enabled",
+          "has_push_token",
+          "last_active_at"
+        ],
+        "title": "Device",
+        "type": "object"
+      },
+      "DeviceRegistration": {
+        "additionalProperties": false,
+        "properties": {
+          "app_version": {
+            "maxLength": 20,
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "title": "App Version",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "push_enabled": {
+            "default": true,
+            "title": "Push Enabled",
+            "type": "boolean"
+          },
+          "push_token": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Push Token"
+          }
+        },
+        "required": [
+          "platform",
+          "app_version"
+        ],
+        "title": "DeviceRegistration",
+        "type": "object"
+      },
+      "EmptyState": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/EmptyStateProps"
+          },
+          "type": {
+            "const": "empty_state",
+            "default": "empty_state",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "EmptyState",
+        "type": "object"
+      },
+      "EmptyStateProps": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Body",
+            "type": "string"
+          },
+          "recovery": {
+            "items": {
+              "$ref": "#/components/schemas/Suggestion"
+            },
+            "maxItems": 4,
+            "title": "Recovery",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "EmptyStateProps",
+        "type": "object"
+      },
+      "GoogleSignInRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id_token": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Id Token",
+            "type": "string"
+          },
+          "installation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installation Id"
+          }
+        },
+        "required": [
+          "id_token"
+        ],
+        "title": "GoogleSignInRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImageChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "maxLength": 500,
+            "pattern": "^https://",
+            "title": "Image Url",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "image_url"
+        ],
+        "title": "ImageChoice",
+        "type": "object"
+      },
+      "ImageChoiceGrid": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/ImageChoiceGridProps"
+          },
+          "type": {
+            "const": "image_choice_grid",
+            "default": "image_choice_grid",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ImageChoiceGrid",
+        "type": "object"
+      },
+      "ImageChoiceGridProps": {
+        "additionalProperties": false,
+        "properties": {
+          "max_select": {
+            "default": 1,
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Max Select",
+            "type": "integer"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ImageChoice"
+            },
+            "maxItems": 12,
+            "minItems": 2,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "options"
+        ],
+        "title": "ImageChoiceGridProps",
+        "type": "object"
+      },
+      "InfoBanner": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/InfoBannerProps"
+          },
+          "type": {
+            "const": "info_banner",
+            "default": "info_banner",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "InfoBanner",
+        "type": "object"
+      },
+      "InfoBannerProps": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "tone": {
+            "default": "info",
+            "enum": [
+              "info",
+              "success",
+              "warning"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "InfoBannerProps",
+        "type": "object"
+      },
+      "ItemAdd": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ItemAdd",
+        "type": "object"
+      },
+      "ItemOrder": {
+        "additionalProperties": false,
+        "properties": {
+          "product_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Product Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "product_ids"
+        ],
+        "title": "ItemOrder",
+        "type": "object"
+      },
+      "ItemReceipt": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "boolean"
+          },
+          "board_id": {
+            "format": "uuid",
+            "title": "Board Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "board_id",
+          "product_id",
+          "added",
+          "version"
+        ],
+        "title": "ItemReceipt",
+        "type": "object"
+      },
+      "LivenessOut": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "LivenessOut",
+        "type": "object"
+      },
+      "LoadingSkeleton": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/LoadingSkeletonProps"
+          },
+          "type": {
+            "const": "loading_skeleton",
+            "default": "loading_skeleton",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "LoadingSkeleton",
+        "type": "object"
+      },
+      "LoadingSkeletonProps": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "default": 3,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "shape": {
+            "enum": [
+              "cards",
+              "question",
+              "comparison"
+            ],
+            "title": "Shape",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shape"
+        ],
+        "title": "LoadingSkeletonProps",
+        "type": "object"
+      },
+      "Look": {
+        "properties": {
+          "anchor_id": {
+            "format": "uuid",
+            "title": "Anchor Id",
+            "type": "string"
+          },
+          "budget_paise": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Paise"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LookItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "remaining_paise": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Paise"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_paise": {
+            "title": "Total Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "anchor_id",
+          "title",
+          "items",
+          "total_paise",
+          "budget_paise",
+          "remaining_paise"
+        ],
+        "title": "Look",
+        "type": "object"
+      },
+      "LookItem": {
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/ProductSummary"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "slot": {
+            "title": "Slot",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot",
+          "product",
+          "reasons"
+        ],
+        "title": "LookItem",
+        "type": "object"
+      },
+      "ModelPriceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "cached_input_usd_per_mtok": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,13}0*$)\\d{0,6}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Cached Input Usd Per Mtok"
+          },
+          "input_usd_per_mtok": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,13}0*$)\\d{0,6}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Input Usd Per Mtok"
+          },
+          "kind": {
+            "default": "chat",
+            "enum": [
+              "chat",
+              "embedding"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "output_usd_per_mtok": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,13}0*$)\\d{0,6}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Output Usd Per Mtok"
+          }
+        },
+        "required": [
+          "input_usd_per_mtok",
+          "cached_input_usd_per_mtok",
+          "output_usd_per_mtok"
+        ],
+        "title": "ModelPriceIn",
+        "type": "object"
+      },
+      "ModelPriceOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "cached_input_usd_per_mtok": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,13}0*$)\\d{0,6}\\.\\d{0,6}0*$)",
+            "title": "Cached Input Usd Per Mtok",
+            "type": "string"
+          },
+          "input_usd_per_mtok": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,13}0*$)\\d{0,6}\\.\\d{0,6}0*$)",
+            "title": "Input Usd Per Mtok",
+            "type": "string"
+          },
+          "kind": {
+            "default": "chat",
+            "enum": [
+              "chat",
+              "embedding"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "output_usd_per_mtok": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,13}0*$)\\d{0,6}\\.\\d{0,6}0*$)",
+            "title": "Output Usd Per Mtok",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_usd_per_mtok",
+          "cached_input_usd_per_mtok",
+          "output_usd_per_mtok",
+          "provider",
+          "model",
+          "updated_at"
+        ],
+        "title": "ModelPriceOut",
+        "type": "object"
+      },
+      "OfferOut": {
+        "properties": {
+          "buy_path": {
+            "title": "Buy Path",
+            "type": "string"
+          },
+          "discount_percent": {
+            "title": "Discount Percent",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "is_best": {
+            "title": "Is Best",
+            "type": "boolean"
+          },
+          "mrp_paise": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp Paise"
+          },
+          "price_paise": {
+            "title": "Price Paise",
+            "type": "integer"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "sizes_in_stock": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sizes In Stock",
+            "type": "array"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          },
+          "store_name": {
+            "title": "Store Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "store",
+          "store_name",
+          "price_paise",
+          "mrp_paise",
+          "discount_percent",
+          "rating",
+          "in_stock",
+          "sizes_in_stock",
+          "is_best",
+          "buy_path"
+        ],
+        "title": "OfferOut",
+        "type": "object"
+      },
+      "OptionView": {
+        "properties": {
+          "option_id": {
+            "format": "uuid",
+            "title": "Option Id",
+            "type": "string"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductSummary"
+          },
+          "votes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Votes"
+          }
+        },
+        "required": [
+          "option_id",
+          "product",
+          "votes"
+        ],
+        "title": "OptionView",
+        "type": "object"
+      },
+      "Platform": {
+        "enum": [
+          "android",
+          "ios",
+          "web"
+        ],
+        "title": "Platform",
+        "type": "string"
+      },
+      "PollCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "closes_in_hours": {
+            "default": 48,
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Closes In Hours",
+            "type": "integer"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "product_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 2,
+            "title": "Product Ids",
+            "type": "array"
+          },
+          "question": {
+            "default": "Which one should I buy?",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_ids"
+        ],
+        "title": "PollCreate",
+        "type": "object"
+      },
+      "PollView": {
+        "properties": {
+          "closes_at": {
+            "format": "date-time",
+            "title": "Closes At",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/OptionView"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total_votes": {
+            "title": "Total Votes",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "url",
+          "question",
+          "status",
+          "closes_at",
+          "total_votes",
+          "options",
+          "created_at"
+        ],
+        "title": "PollView",
+        "type": "object"
+      },
+      "ProductCard": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/ProductCardProps"
+          },
+          "type": {
+            "const": "product_card",
+            "default": "product_card",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductCard",
+        "type": "object"
+      },
+      "ProductCardProps": {
+        "additionalProperties": false,
+        "properties": {
+          "best_store": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Store"
+          },
+          "brand": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "price_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "rating_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "brand",
+          "price_paise"
+        ],
+        "title": "ProductCardProps",
+        "type": "object"
+      },
+      "ProductCarousel": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/ProductCarouselProps"
+          },
+          "type": {
+            "const": "product_carousel",
+            "default": "product_carousel",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductCarousel",
+        "type": "object"
+      },
+      "ProductCarouselProps": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductCardProps"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "items"
+        ],
+        "title": "ProductCarouselProps",
+        "type": "object"
+      },
+      "ProductDetailProps": {
+        "additionalProperties": false,
+        "properties": {
+          "brand": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "colors": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Colors",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Facts",
+            "type": "array"
+          },
+          "images": {
+            "items": {
+              "maxLength": 500,
+              "pattern": "^https://",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Images",
+            "type": "array"
+          },
+          "mrp_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp Paise"
+          },
+          "price_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "rating_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sizes": {
+            "items": {
+              "maxLength": 10,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Sizes",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "brand",
+          "price_paise"
+        ],
+        "title": "ProductDetailProps",
+        "type": "object"
+      },
+      "ProductPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ProductPage",
+        "type": "object"
+      },
+      "ProductSummary": {
+        "properties": {
+          "best_store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Store"
+          },
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "gender": {
+            "title": "Gender",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "min_price_paise": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Price Paise"
+          },
+          "offer_count": {
+            "title": "Offer Count",
+            "type": "integer"
+          },
+          "primary_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Image Url"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "rating_count": {
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategory"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "brand",
+          "category",
+          "subcategory",
+          "gender",
+          "primary_image_url",
+          "min_price_paise",
+          "rating",
+          "rating_count",
+          "offer_count",
+          "best_store",
+          "tags"
+        ],
+        "title": "ProductSummary",
+        "type": "object"
+      },
+      "ProductSwipeDeck": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/ProductSwipeDeckProps"
+          },
+          "type": {
+            "const": "product_swipe_deck",
+            "default": "product_swipe_deck",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductSwipeDeck",
+        "type": "object"
+      },
+      "ProductSwipeDeckProps": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/ProductCardProps"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Cards",
+            "type": "array"
+          },
+          "has_more": {
+            "default": false,
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "cards"
+        ],
+        "title": "ProductSwipeDeckProps",
+        "type": "object"
+      },
+      "ProfileUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "enum": [
+                  "en-IN",
+                  "hi-IN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          }
+        },
+        "title": "ProfileUpdate",
+        "type": "object"
+      },
+      "PublicPoll": {
+        "properties": {
+          "closes_at": {
+            "format": "date-time",
+            "title": "Closes At",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/OptionView"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total_votes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Votes"
+          },
+          "your_vote": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Your Vote"
+          }
+        },
+        "required": [
+          "slug",
+          "question",
+          "status",
+          "closes_at",
+          "options",
+          "total_votes",
+          "your_vote"
+        ],
+        "title": "PublicPoll",
+        "type": "object"
+      },
+      "PublicShare": {
+        "description": "What anyone with the link sees: products and live prices, nothing about the owner.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "look",
+              "product",
+              "board"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/ProductSummary"
+            },
+            "title": "Products",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "slug",
+          "kind",
+          "title",
+          "products",
+          "created_at"
+        ],
+        "title": "PublicShare",
+        "type": "object"
+      },
+      "ReadinessOut": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ],
+        "title": "ReadinessOut",
+        "type": "object"
+      },
+      "RefreshRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest",
+        "type": "object"
+      },
+      "ReportCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "enum": [
+              "inappropriate",
+              "offensive",
+              "wrong_item",
+              "spam",
+              "other"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "tryon",
+              "product",
+              "share",
+              "poll"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_kind",
+          "target_id",
+          "reason"
+        ],
+        "title": "ReportCreate",
+        "type": "object"
+      },
+      "ReportReceipt": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created"
+        ],
+        "title": "ReportReceipt",
+        "type": "object"
+      },
+      "Restart": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "restart",
+            "default": "restart",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "Restart",
+        "type": "object"
+      },
+      "Role": {
+        "enum": [
+          "user",
+          "curator",
+          "admin"
+        ],
+        "title": "Role",
+        "type": "string"
+      },
+      "SessionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "entry": {
+            "enum": [
+              "occasion_tile",
+              "search",
+              "photo",
+              "feed",
+              "onboarding"
+            ],
+            "title": "Entry",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "entry"
+        ],
+        "title": "SessionCreate",
+        "type": "object"
+      },
+      "SessionView": {
+        "description": "Everything needed to (re)draw a session; also the resume point after a dropped stream.",
+        "properties": {
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "busy",
+              "ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          },
+          "ui": {
+            "$ref": "#/components/schemas/UiEnvelope"
+          }
+        },
+        "required": [
+          "session_id",
+          "turn_id",
+          "status",
+          "ui"
+        ],
+        "title": "SessionView",
+        "type": "object"
+      },
+      "ShareCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "board_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board Id"
+          },
+          "kind": {
+            "enum": [
+              "look",
+              "product",
+              "board"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "product_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Product Ids",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ShareCreate",
+        "type": "object"
+      },
+      "ShareView": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "look",
+              "product",
+              "board"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "views": {
+            "title": "Views",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "slug",
+          "kind",
+          "url",
+          "title",
+          "views",
+          "created_at"
+        ],
+        "title": "ShareView",
+        "type": "object"
+      },
+      "Shortcut": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "shortcut",
+            "default": "shortcut",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "Shortcut",
+        "type": "object"
+      },
+      "SignInResult": {
+        "properties": {
+          "is_new_user": {
+            "title": "Is New User",
+            "type": "boolean"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenPair"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfile"
+          }
+        },
+        "required": [
+          "tokens",
+          "user",
+          "is_new_user"
+        ],
+        "title": "SignInResult",
+        "type": "object"
+      },
+      "Sizes": {
+        "additionalProperties": false,
+        "properties": {
+          "bottom": {
+            "anyOf": [
+              {
+                "enum": [
+                  "28",
+                  "30",
+                  "32",
+                  "34",
+                  "36",
+                  "38"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bottom"
+          },
+          "shoe": {
+            "anyOf": [
+              {
+                "enum": [
+                  "UK3",
+                  "UK4",
+                  "UK5",
+                  "UK6",
+                  "UK7",
+                  "UK8",
+                  "UK9",
+                  "UK10",
+                  "UK11"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shoe"
+          },
+          "top": {
+            "anyOf": [
+              {
+                "enum": [
+                  "XS",
+                  "S",
+                  "M",
+                  "L",
+                  "XL",
+                  "XXL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top"
+          }
+        },
+        "title": "Sizes",
+        "type": "object"
+      },
+      "SliderSet": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "max_paise": {
+            "minimum": 0.0,
+            "title": "Max Paise",
+            "type": "integer"
+          },
+          "min_paise": {
+            "minimum": 0.0,
+            "title": "Min Paise",
+            "type": "integer"
+          },
+          "type": {
+            "const": "slider_set",
+            "default": "slider_set",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "min_paise",
+          "max_paise"
+        ],
+        "title": "SliderSet",
+        "type": "object"
+      },
+      "StoreComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/StoreComparisonProps"
+          },
+          "type": {
+            "const": "store_comparison",
+            "default": "store_comparison",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "StoreComparison",
+        "type": "object"
+      },
+      "StoreComparisonProps": {
+        "additionalProperties": false,
+        "properties": {
+          "offers": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedOffer"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Offers",
+            "type": "array"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "offers"
+        ],
+        "title": "StoreComparisonProps",
+        "type": "object"
+      },
+      "StyleOption": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "image_url"
+        ],
+        "title": "StyleOption",
+        "type": "object"
+      },
+      "StyleOptions": {
+        "properties": {
+          "bottom_sizes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bottom Sizes",
+            "type": "array"
+          },
+          "max_styles": {
+            "title": "Max Styles",
+            "type": "integer"
+          },
+          "shoe_sizes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Shoe Sizes",
+            "type": "array"
+          },
+          "styles": {
+            "items": {
+              "$ref": "#/components/schemas/StyleOption"
+            },
+            "title": "Styles",
+            "type": "array"
+          },
+          "top_sizes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Top Sizes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "styles",
+          "max_styles",
+          "top_sizes",
+          "bottom_sizes",
+          "shoe_sizes"
+        ],
+        "title": "StyleOptions",
+        "type": "object"
+      },
+      "StyleProfileUpdate": {
+        "additionalProperties": false,
+        "description": "Full replacement (PUT): what onboarding or the edit screen submits.",
+        "properties": {
+          "fit_preference": {
+            "anyOf": [
+              {
+                "enum": [
+                  "men",
+                  "women",
+                  "unisex",
+                  "any"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fit Preference"
+          },
+          "sizes": {
+            "$ref": "#/components/schemas/Sizes"
+          },
+          "styles": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Styles",
+            "type": "array"
+          }
+        },
+        "title": "StyleProfileUpdate",
+        "type": "object"
+      },
+      "StyleProfileView": {
+        "properties": {
+          "fit_preference": {
+            "anyOf": [
+              {
+                "enum": [
+                  "men",
+                  "women",
+                  "unisex",
+                  "any"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fit Preference"
+          },
+          "onboarding_done": {
+            "title": "Onboarding Done",
+            "type": "boolean"
+          },
+          "sizes": {
+            "$ref": "#/components/schemas/Sizes"
+          },
+          "styles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Styles",
+            "type": "array"
+          },
+          "swipe_count": {
+            "title": "Swipe Count",
+            "type": "integer"
+          },
+          "top_tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Top Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fit_preference",
+          "styles",
+          "sizes",
+          "onboarding_done",
+          "swipe_count",
+          "top_tags"
+        ],
+        "title": "StyleProfileView",
+        "type": "object"
+      },
+      "Suggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "back": "#/components/schemas/Back",
+                "card_open": "#/components/schemas/CardOpen",
+                "chip_select": "#/components/schemas/ChipSelect",
+                "restart": "#/components/schemas/Restart",
+                "shortcut": "#/components/schemas/Shortcut",
+                "slider_set": "#/components/schemas/SliderSet",
+                "swipe": "#/components/schemas/Swipe",
+                "text_input": "#/components/schemas/TextInput"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChipSelect"
+              },
+              {
+                "$ref": "#/components/schemas/SliderSet"
+              },
+              {
+                "$ref": "#/components/schemas/Swipe"
+              },
+              {
+                "$ref": "#/components/schemas/CardOpen"
+              },
+              {
+                "$ref": "#/components/schemas/TextInput"
+              },
+              {
+                "$ref": "#/components/schemas/Shortcut"
+              },
+              {
+                "$ref": "#/components/schemas/Back"
+              },
+              {
+                "$ref": "#/components/schemas/Restart"
+              }
+            ],
+            "title": "Action"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "action"
+        ],
+        "title": "Suggestion",
+        "type": "object"
+      },
+      "SuggestionBar": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/SuggestionBarProps"
+          },
+          "type": {
+            "const": "suggestion_bar",
+            "default": "suggestion_bar",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "SuggestionBar",
+        "type": "object"
+      },
+      "SuggestionBarProps": {
+        "additionalProperties": false,
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/Suggestion"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions"
+        ],
+        "title": "SuggestionBarProps",
+        "type": "object"
+      },
+      "Swipe": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Component Id",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "left",
+              "right",
+              "super"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "swipe",
+            "default": "swipe",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id",
+          "product_id",
+          "direction"
+        ],
+        "title": "Swipe",
+        "type": "object"
+      },
+      "SwipeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "left",
+              "right",
+              "super"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          }
+        },
+        "required": [
+          "product_id",
+          "direction"
+        ],
+        "title": "SwipeInput",
+        "type": "object"
+      },
+      "SwipeReceipt": {
+        "properties": {
+          "recorded": {
+            "title": "Recorded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "recorded"
+        ],
+        "title": "SwipeReceipt",
+        "type": "object"
+      },
+      "TaskConfigIn": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_ttl_s": {
+            "default": 0,
+            "maximum": 604800.0,
+            "minimum": 0.0,
+            "title": "Cache Ttl S",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "max_input_tokens": {
+            "default": 4000,
+            "maximum": 200000.0,
+            "minimum": 100.0,
+            "title": "Max Input Tokens",
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "default": 600,
+            "maximum": 32000.0,
+            "minimum": 16.0,
+            "title": "Max Output Tokens",
+            "type": "integer"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "timeout_s": {
+            "default": 20,
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Timeout S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "targets"
+        ],
+        "title": "TaskConfigIn",
+        "type": "object"
+      },
+      "TaskConfigOut": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_ttl_s": {
+            "default": 0,
+            "maximum": 604800.0,
+            "minimum": 0.0,
+            "title": "Cache Ttl S",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "max_input_tokens": {
+            "default": 4000,
+            "maximum": 200000.0,
+            "minimum": 100.0,
+            "title": "Max Input Tokens",
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "default": 600,
+            "maximum": 32000.0,
+            "minimum": 16.0,
+            "title": "Max Output Tokens",
+            "type": "integer"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "timeout_s": {
+            "default": 20,
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Timeout S",
+            "type": "number"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targets",
+          "task",
+          "updated_at"
+        ],
+        "title": "TaskConfigOut",
+        "type": "object"
+      },
+      "TextInput": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "const": "text_input",
+            "default": "text_input",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TextInput",
+        "type": "object"
+      },
+      "TextInputBar": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/TextInputBarProps"
+          },
+          "type": {
+            "const": "text_input_bar",
+            "default": "text_input_bar",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "TextInputBar",
+        "type": "object"
+      },
+      "TextInputBarProps": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_photo": {
+            "default": false,
+            "title": "Allow Photo",
+            "type": "boolean"
+          },
+          "placeholder": {
+            "default": "Describe what you're looking for",
+            "maxLength": 80,
+            "title": "Placeholder",
+            "type": "string"
+          }
+        },
+        "title": "TextInputBarProps",
+        "type": "object"
+      },
+      "TokenPair": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "access_token_expires_in": {
+            "title": "Access Token Expires In",
+            "type": "integer"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "refresh_token_expires_in": {
+            "title": "Refresh Token Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "const": "Bearer",
+            "default": "Bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "access_token_expires_in",
+          "refresh_token",
+          "refresh_token_expires_in"
+        ],
+        "title": "TokenPair",
+        "type": "object"
+      },
+      "TryOnCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "selfie_upload_id": {
+            "format": "uuid",
+            "title": "Selfie Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selfie_upload_id",
+          "product_id"
+        ],
+        "title": "TryOnCreate",
+        "type": "object"
+      },
+      "TryOnView": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "result_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Url"
+          },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "product_id",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "TryOnView",
+        "type": "object"
+      },
+      "UiEnvelope": {
+        "description": "One turn's UI. `turn_id` is what the app must echo back with its next action.",
+        "properties": {
+          "components": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "budget_slider": "#/components/schemas/BudgetSlider",
+                  "chip_question": "#/components/schemas/ChipQuestion",
+                  "complete_the_look": "#/components/schemas/CompleteTheLook",
+                  "empty_state": "#/components/schemas/EmptyState",
+                  "image_choice_grid": "#/components/schemas/ImageChoiceGrid",
+                  "info_banner": "#/components/schemas/InfoBanner",
+                  "loading_skeleton": "#/components/schemas/LoadingSkeleton",
+                  "product_card": "#/components/schemas/ProductCard",
+                  "product_carousel": "#/components/schemas/ProductCarousel",
+                  "product_detail": "#/components/schemas/stylesense__genui__components__ProductDetail",
+                  "product_swipe_deck": "#/components/schemas/ProductSwipeDeck",
+                  "store_comparison": "#/components/schemas/StoreComparison",
+                  "suggestion_bar": "#/components/schemas/SuggestionBar",
+                  "text_input_bar": "#/components/schemas/TextInputBar"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ChipQuestion"
+                },
+                {
+                  "$ref": "#/components/schemas/BudgetSlider"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageChoiceGrid"
+                },
+                {
+                  "$ref": "#/components/schemas/ProductCard"
+                },
+                {
+                  "$ref": "#/components/schemas/ProductSwipeDeck"
+                },
+                {
+                  "$ref": "#/components/schemas/StoreComparison"
+                },
+                {
+                  "$ref": "#/components/schemas/CompleteTheLook"
+                },
+                {
+                  "$ref": "#/components/schemas/stylesense__genui__components__ProductDetail"
+                },
+                {
+                  "$ref": "#/components/schemas/ProductCarousel"
+                },
+                {
+                  "$ref": "#/components/schemas/SuggestionBar"
+                },
+                {
+                  "$ref": "#/components/schemas/InfoBanner"
+                },
+                {
+                  "$ref": "#/components/schemas/EmptyState"
+                },
+                {
+                  "$ref": "#/components/schemas/TextInputBar"
+                },
+                {
+                  "$ref": "#/components/schemas/LoadingSkeleton"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Components",
+            "type": "array"
+          },
+          "mode": {
+            "default": "replace",
+            "enum": [
+              "replace",
+              "append"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "minimum": 1.0,
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id",
+          "turn_id",
+          "components"
+        ],
+        "title": "UiEnvelope",
+        "type": "object"
+      },
+      "UploadCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "photo_search",
+              "selfie"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "UploadCreate",
+        "type": "object"
+      },
+      "UploadForm": {
+        "description": "POST the file as multipart `file` plus these fields to `url`.",
+        "properties": {
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "fields"
+        ],
+        "title": "UploadForm",
+        "type": "object"
+      },
+      "UploadView": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "photo_search",
+              "selfie"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "ready",
+              "rejected",
+              "deleted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "upload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UploadForm"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "expires_at"
+        ],
+        "title": "UploadView",
+        "type": "object"
+      },
+      "UsageSummaryRow": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "cache_hits": {
+            "title": "Cache Hits",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Usd",
+            "type": "string"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "invalid_outputs": {
+            "title": "Invalid Outputs",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "p95_latency_ms": {
+            "title": "P95 Latency Ms",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "task",
+          "provider",
+          "model",
+          "attempts",
+          "ok",
+          "errors",
+          "invalid_outputs",
+          "cache_hits",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "p95_latency_ms"
+        ],
+        "title": "UsageSummaryRow",
+        "type": "object"
+      },
+      "UserProfile": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "status": {
+            "$ref": "#/components/schemas/UserStatus"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "avatar_url",
+          "role",
+          "status",
+          "locale",
+          "created_at"
+        ],
+        "title": "UserProfile",
+        "type": "object"
+      },
+      "UserStatus": {
+        "enum": [
+          "active",
+          "suspended",
+          "deleting"
+        ],
+        "title": "UserStatus",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VoteInput": {
+        "additionalProperties": false,
+        "properties": {
+          "option_id": {
+            "format": "uuid",
+            "title": "Option Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "option_id"
+        ],
+        "title": "VoteInput",
+        "type": "object"
+      },
+      "stylesense__genui__components__ProductDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/components/schemas/ProductDetailProps"
+          },
+          "type": {
+            "const": "product_detail",
+            "default": "product_detail",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductDetail",
+        "type": "object"
+      },
+      "stylesense__modules__catalog__schemas__ProductDetail": {
+        "properties": {
+          "attributes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Attributes",
+            "type": "object"
+          },
+          "best_store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Store"
+          },
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "colors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Colors",
+            "type": "array"
+          },
+          "gender": {
+            "title": "Gender",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "min_price_paise": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Price Paise"
+          },
+          "offer_count": {
+            "title": "Offer Count",
+            "type": "integer"
+          },
+          "offers": {
+            "items": {
+              "$ref": "#/components/schemas/OfferOut"
+            },
+            "title": "Offers",
+            "type": "array"
+          },
+          "primary_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Image Url"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "rating_count": {
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "sizes_available": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sizes Available",
+            "type": "array"
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategory"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "brand",
+          "category",
+          "subcategory",
+          "gender",
+          "primary_image_url",
+          "min_price_paise",
+          "rating",
+          "rating_count",
+          "offer_count",
+          "best_store",
+          "tags",
+          "attributes",
+          "colors",
+          "sizes_available",
+          "images",
+          "offers"
+        ],
+        "title": "ProductDetail",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "StyleSense API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness: process is up",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Readiness: dependencies reachable",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/admin/ai/models": {
+      "get": {
+        "operationId": "list_models_v1_admin_ai_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelPriceOut"
+                  },
+                  "title": "Response List Models V1 Admin Ai Models Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Model prices (a model can't be used without one)",
+        "tags": [
+          "admin: ai"
+        ]
+      }
+    },
+    "/v1/admin/ai/models/{provider}/{model}": {
+      "put": {
+        "operationId": "put_model_v1_admin_ai_models__provider___model__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.:-]{0,79}$",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.:-]{0,79}$",
+              "title": "Model",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelPriceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelPriceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create or update a model price",
+        "tags": [
+          "admin: ai"
+        ]
+      }
+    },
+    "/v1/admin/ai/status": {
+      "get": {
+        "operationId": "ai_status_v1_admin_ai_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Configured providers and today's spend against the budget",
+        "tags": [
+          "admin: ai"
+        ]
+      }
+    },
+    "/v1/admin/ai/tasks": {
+      "get": {
+        "operationId": "list_tasks_v1_admin_ai_tasks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskConfigOut"
+                  },
+                  "title": "Response List Tasks V1 Admin Ai Tasks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Task routing: primary model, fallbacks and limits",
+        "tags": [
+          "admin: ai"
+        ]
+      }
+    },
+    "/v1/admin/ai/tasks/{task}": {
+      "put": {
+        "operationId": "put_task_v1_admin_ai_tasks__task__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.:-]{0,79}$",
+              "title": "Task",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskConfigIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskConfigOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create or update a task's routing (applies to all instances)",
+        "tags": [
+          "admin: ai"
+        ]
+      }
+    },
+    "/v1/admin/ai/usage": {
+      "get": {
+        "operationId": "usage_v1_admin_ai_usage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UsageSummaryRow"
+                  },
+                  "title": "Response Usage V1 Admin Ai Usage Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attempts, tokens, cost and p95 latency per day, task and model",
+        "tags": [
+          "admin: ai"
+        ]
+      }
+    },
+    "/v1/app/config": {
+      "get": {
+        "operationId": "app_config_v1_app_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Public app configuration (force-update thresholds)",
+        "tags": [
+          "app"
+        ]
+      }
+    },
+    "/v1/auth/dev": {
+      "post": {
+        "operationId": "sign_in_dev_v1_auth_dev_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Developer sign-in is disabled"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Local development only: sign in by email without Google (404 unless enabled)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/google": {
+      "post": {
+        "operationId": "sign_in_with_google_v1_auth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign in with a Google ID token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_v1_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End this session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "operationId": "refresh_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exchange a refresh token for a new token pair",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/boards": {
+      "get": {
+        "operationId": "list_boards_v1_boards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BoardSummary"
+                  },
+                  "title": "Response List Boards V1 Boards Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My boards (the wishlist always comes first)",
+        "tags": [
+          "boards"
+        ]
+      },
+      "post": {
+        "operationId": "create_board_v1_boards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create an outfit board; replaying with the same client id returns it (200)",
+        "tags": [
+          "boards"
+        ]
+      }
+    },
+    "/v1/boards/{board_id}": {
+      "delete": {
+        "operationId": "delete_board_v1_boards__board_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "pattern": "^(wishlist|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27})$",
+              "title": "Board Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a board",
+        "tags": [
+          "boards"
+        ]
+      },
+      "get": {
+        "operationId": "get_board_v1_boards__board_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "pattern": "^(wishlist|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27})$",
+              "title": "Board Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A board with its items; ETag = version",
+        "tags": [
+          "boards"
+        ]
+      },
+      "patch": {
+        "operationId": "update_board_v1_boards__board_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "pattern": "^(wishlist|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27})$",
+              "title": "Board Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "412": {
+            "description": "Changed elsewhere"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "428": {
+            "description": "No If-Match"
+          }
+        },
+        "summary": "Rename or set the cover (If-Match required)",
+        "tags": [
+          "boards"
+        ]
+      }
+    },
+    "/v1/boards/{board_id}/items/{product_id}": {
+      "delete": {
+        "operationId": "remove_item_v1_boards__board_id__items__product_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "pattern": "^(wishlist|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27})$",
+              "title": "Board Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove a product (idempotent)",
+        "tags": [
+          "boards"
+        ]
+      },
+      "put": {
+        "operationId": "add_item_v1_boards__board_id__items__product_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "pattern": "^(wishlist|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27})$",
+              "title": "Board Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ItemAdd"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save a product to a board (idempotent: saving twice keeps one)",
+        "tags": [
+          "boards"
+        ]
+      }
+    },
+    "/v1/boards/{board_id}/order": {
+      "put": {
+        "operationId": "reorder_v1_boards__board_id__order_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "pattern": "^(wishlist|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27})$",
+              "title": "Board Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "412": {
+            "description": "Changed elsewhere"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "428": {
+            "description": "No If-Match"
+          }
+        },
+        "summary": "Reorder items: list every product id once (If-Match required)",
+        "tags": [
+          "boards"
+        ]
+      }
+    },
+    "/v1/me": {
+      "delete": {
+        "operationId": "delete_me_v1_me_delete",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete my account (data purged after the grace period)",
+        "tags": [
+          "me"
+        ]
+      },
+      "get": {
+        "operationId": "get_me_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Profile of the signed-in user",
+        "tags": [
+          "me"
+        ]
+      },
+      "patch": {
+        "operationId": "update_me_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update profile fields",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/consents": {
+      "get": {
+        "operationId": "list_consents_v1_me_consents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConsentRecord"
+                  },
+                  "title": "Response List Consents V1 Me Consents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current answer per consent kind",
+        "tags": [
+          "me"
+        ]
+      },
+      "post": {
+        "operationId": "record_consent_v1_me_consents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record a consent answer",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/devices/{installation_id}": {
+      "delete": {
+        "operationId": "delete_device_v1_me_devices__installation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Installation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Device",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "put_device_v1_me_devices__installation_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Installation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register or update this device (idempotent upsert by installation id)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/style-profile": {
+      "get": {
+        "operationId": "get_style_profile_v1_me_style_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleProfileView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Style DNA and what my swipes taught the stylist",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "put_style_profile_v1_me_style_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleProfileView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Style DNA (full replace; idempotent)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/style-profile/options": {
+      "get": {
+        "operationId": "style_options_v1_me_style_profile_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "What onboarding offers: styles and sizes",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/swipes": {
+      "post": {
+        "operationId": "swipe_v1_me_swipes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwipeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwipeReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record a swipe; replays of the same swipe are ignored (safe to retry)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/out/{offer_id}": {
+      "get": {
+        "operationId": "outbound_v1_out__offer_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "offer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Offer Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "src",
+            "required": false,
+            "schema": {
+              "default": "product",
+              "enum": [
+                "stylist",
+                "feed",
+                "board",
+                "poll",
+                "share",
+                "product",
+                "other"
+              ],
+              "title": "Src",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Track a Buy tap and redirect to the store",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/polls": {
+      "get": {
+        "operationId": "list_polls_v1_polls_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PollView"
+                  },
+                  "title": "Response List Polls V1 Polls Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My polls, newest first, with live results",
+        "tags": [
+          "social"
+        ]
+      },
+      "post": {
+        "operationId": "create_poll_v1_polls_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PollCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask friends: a poll of 2-4 products; replaying with the same client id returns it",
+        "tags": [
+          "social"
+        ]
+      }
+    },
+    "/v1/polls/{poll_id}": {
+      "get": {
+        "operationId": "get_poll_v1_polls__poll_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "poll_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Poll Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One of my polls, with live results",
+        "tags": [
+          "social"
+        ]
+      }
+    },
+    "/v1/polls/{poll_id}/close": {
+      "post": {
+        "operationId": "close_poll_v1_polls__poll_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "poll_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Poll Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop voting now (idempotent)",
+        "tags": [
+          "social"
+        ]
+      }
+    },
+    "/v1/products": {
+      "get": {
+        "operationId": "list_products_v1_products_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gender",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "men",
+                    "women",
+                    "unisex"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gender"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_price_paise",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Price Paise"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_price_paise",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Price Paise"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Browse products with filters and cursor pagination",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/products/{product_id}": {
+      "get": {
+        "operationId": "get_product_v1_products__product_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/stylesense__modules__catalog__schemas__ProductDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Product detail with every store's offer (supports If-None-Match)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/products/{product_id}/alternatives": {
+      "get": {
+        "operationId": "alternatives_v1_products__product_id__alternatives_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_price_paise",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Price Paise"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductSummary"
+                  },
+                  "title": "Response Alternatives V1 Products  Product Id  Alternatives Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Similar items in stock now, within budget (fallback when few stores stock it)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/products/{product_id}/complete-look": {
+      "get": {
+        "operationId": "complete_look_v1_products__product_id__complete_look_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "budget_paise",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Budget Paise"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gender",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "men",
+                    "women",
+                    "unisex"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gender"
+            }
+          },
+          {
+            "in": "query",
+            "name": "occasion",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "pattern": "^[a-z ]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Occasion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Look"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pieces that go with this item; the whole look stays within `budget_paise`",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/products/{product_id}/similar": {
+      "get": {
+        "operationId": "similar_products_v1_products__product_id__similar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductSummary"
+                  },
+                  "title": "Response Similar Products V1 Products  Product Id  Similar Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Visually and stylistically similar items",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/public/polls/{slug}": {
+      "get": {
+        "operationId": "public_poll_v1_public_polls__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9]{6,16}$",
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Voter-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Za-z0-9_-]{16,128}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Voter-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPoll"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The vote page: results appear once you've voted",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/v1/public/polls/{slug}/votes": {
+      "post": {
+        "operationId": "vote_v1_public_polls__slug__votes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9]{6,16}$",
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Voter-Token",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{16,128}$",
+              "title": "X-Voter-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPoll"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Already voted for another option, or closed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vote (no sign-in). One vote per device; repeating the same vote is harmless",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/v1/public/shares/{slug}": {
+      "get": {
+        "operationId": "open_share_v1_public_shares__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9]{6,16}$",
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicShare"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "410": {
+            "description": "Revoked or deleted"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "What a share link shows (live prices); 410 once revoked",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/v1/reports": {
+      "post": {
+        "operationId": "report_v1_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report a try-on result, product, share or poll (reporting twice is harmless)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/shares": {
+      "get": {
+        "operationId": "list_shares_v1_shares_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShareView"
+                  },
+                  "title": "Response List Shares V1 Shares Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My active share links",
+        "tags": [
+          "social"
+        ]
+      },
+      "post": {
+        "operationId": "create_share_v1_shares_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a share link; sharing the same thing again returns the same link (200)",
+        "tags": [
+          "social"
+        ]
+      }
+    },
+    "/v1/shares/{slug}": {
+      "delete": {
+        "operationId": "revoke_share_v1_shares__slug__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9]{6,16}$",
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke a share link",
+        "tags": [
+          "social"
+        ]
+      }
+    },
+    "/v1/stylist/sessions": {
+      "post": {
+        "operationId": "start_session_v1_stylist_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start a stylist session",
+        "tags": [
+          "stylist"
+        ]
+      }
+    },
+    "/v1/stylist/sessions/{session_id}": {
+      "get": {
+        "operationId": "get_session_v1_stylist_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Current screen (resume after a dropped stream)",
+        "tags": [
+          "stylist"
+        ]
+      }
+    },
+    "/v1/stylist/sessions/{session_id}/actions": {
+      "post": {
+        "operationId": "act_v1_stylist_sessions__session_id__actions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              },
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Stale turn or session busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send a tap/swipe/text; streams the next screen as SSE when Accept: text/event-stream",
+        "tags": [
+          "stylist"
+        ]
+      }
+    },
+    "/v1/stylist/sessions/{session_id}/deck": {
+      "get": {
+        "operationId": "refill_deck_v1_stylist_sessions__session_id__deck_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "exclude",
+            "required": false,
+            "schema": {
+              "default": [],
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "title": "Exclude",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The session isn't showing products"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "More cards for the current deck (prefetch), skipping swiped and held cards",
+        "tags": [
+          "stylist"
+        ]
+      }
+    },
+    "/v1/tryon": {
+      "post": {
+        "operationId": "request_tryon_v1_tryon_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TryOnCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryOnView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start a try-on (Idempotency-Key required; the same selfie + item returns its job)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/tryon/{job_id}": {
+      "get": {
+        "operationId": "get_tryon_v1_tryon__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryOnView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A try-on's status and (when done) its signed result URL",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/tryon/{job_id}/events": {
+      "get": {
+        "operationId": "tryon_events_v1_tryon__job_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Server-Sent Events: the job each time its status changes, until done or failed",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/tryon/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_tryon_v1_tryon__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryOnView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry a failed try-on (no extra quota)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/uploads": {
+      "post": {
+        "operationId": "create_upload_v1_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a signed slot to upload a photo straight to storage (expires in 24 h)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/uploads/{upload_id}": {
+      "delete": {
+        "operationId": "delete_upload_v1_uploads__upload_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a photo now",
+        "tags": [
+          "media"
+        ]
+      },
+      "get": {
+        "operationId": "get_upload_v1_uploads__upload_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A photo's status and signed view URL",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/uploads/{upload_id}/confirm": {
+      "post": {
+        "operationId": "confirm_upload_v1_uploads__upload_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Not uploaded yet"
+          },
+          "422": {
+            "description": "Rejected"
+          }
+        },
+        "summary": "After uploading: we check the stored photo and make it usable (idempotent)",
+        "tags": [
+          "media"
+        ]
+      }
+    }
+  }
+}

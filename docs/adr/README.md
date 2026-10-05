@@ -21,3 +21,4 @@ One file per significant decision: `NNNN-title.md` with **Context**, **Decision*
 | [0015](0015-boards-shares-polls.md) | Boards, share links and polls: optimistic locking, natural idempotency, token voting | Accepted |
 | [0016](0016-cloudinary-for-media.md) | Cloudinary for user photos (supersedes 0003) | Accepted |
 | [0017](0017-tryon-as-background-jobs.md) | Virtual try-on: background jobs, a pluggable vendor, paid-call safety | Accepted |
+| [0018](0018-mobile-foundation.md) | Mobile foundation: Expo Go first, one design system, a thin GenUI renderer | Accepted |

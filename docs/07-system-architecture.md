@@ -259,6 +259,17 @@ Code: `modules/uploads/` (port, service), `integrations/media/cloudinary.py`, `m
 - **Purge:** worker `media.purge` every 15 min deletes expired photos and results from Cloudinary, then marks rows (storage first, so failures retry). `cli purge-media` runs it on demand.
 - **Observe:** `tryon_jobs_total{outcome}`, `media_purged_total{kind}`; dashboard panels; runbook `media-and-tryon`.
 
+## 2p. Mobile app foundation *(built)*
+
+Code: `mobile/` (Expo SDK 57, expo-router). ADR 0018; product record `PRODUCT.md`.
+
+- **Routes** (`src/app`): `_layout` loads fonts, restores the session, checks `/v1/app/config` for a forced update, then guards with `Stack.Protected`: `update` → `sign-in` → `(tabs)` (Home, Stylist, Saved, Me) + `session/[id]`.
+- **Design system "Indigo & Block"** (`src/design`, `src/ui`): tokens (vat indigo shell, cotton ground, madder for actions only, turmeric for best price), Anek Latin type scale with per-variant font-scale caps, atoms → molecules → organisms. Signature moments: the buti block stamp on a like, the print-repeat loader.
+- **API** (`src/api`): `ApiClient` sends `X-GenUI-Version` / `X-App-Version`, times out every call, parses problem+json into `ApiError`, and on 401 does one shared refresh then retries once. Types come from `backend/contracts` (`npm run gen`; CI fails on drift).
+- **Auth** (`src/auth`): refresh token in SecureStore, access token in memory; dev sign-in (`POST /v1/auth/dev`) when the server allows it.
+- **GenUI** (`src/genui`, `src/stylist`): the renderer maps each component type to an organism; unknown types show an update prompt. The stylist store keeps one turn in flight and recovers from `stale_turn` / `session_busy`. The swipe deck records swipes over REST and refills itself.
+- **Quality:** Jest (jest-expo + Testing Library), `tsc --strict`, `expo lint`; `mobile-ci` workflow also bundles for Android.
+
 ## 3. Request lifecycle: a stylist turn *(built)*
 
 1. The user types **"summer t-shirt under 500"** → `POST /v1/stylist/sessions {entry: "search", value: …}`.
@@ -304,6 +315,8 @@ Observability: `make obs-up` adds Grafana (http://localhost:3001), Prometheus (:
 
 Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid clashing with a native Postgres or other projects).
 
+**The app on a phone (Expo Go):** set `APP_DEV_SIGN_IN_ENABLED=true` in `.env`; start the API on the LAN with `API_BIND=0.0.0.0 API_HOST_PORT=8010 make up`; put `EXPO_PUBLIC_API_URL=http://<your-pc-ip>:8010` in `mobile/.env.local`; `cd mobile && npx expo start --lan`; scan the QR with Expo Go (same Wi-Fi) and sign in with any email.
+
 ## 8. Where to look for…
 
 | I want to… | Go to |
@@ -336,7 +349,9 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
 | Rate-limit a route differently | `Depends(rate_limited("policy.name"))`; add the policy to `DEFAULT_POLICIES` |
 | Add a dependency probe | Implement `HealthCheck` in `infra/health.py`, register it in `bootstrap/container.py` |
-| Add a new UI component | `backend/src/stylesense/ai/genui/` (schema) → regenerate types → `mobile/src/genui/components/` + register |
+| Add a new UI component | Backend `genui/components.py` → `make contracts` → a case in `mobile/src/genui/Renderer.tsx` built from `src/ui` pieces |
+| Add a screen | A file in `mobile/src/app/`; use `src/ui` atoms/molecules and `useTheme()` tokens, never raw colours |
+| Call a new endpoint from the app | `api.get/post<Type>(path)` from `@/auth/session`, with types from `@/api/types` (regenerate after backend changes) |
 | Change which model a task uses | Admin → AI → Task configs (or `llm_task_configs`) |
 | Add a new AI provider | `backend/src/stylesense/ai/gateway/providers/` |
 | Add a product source | `backend/src/stylesense/integrations/sources/` (implement `ProductSource`) |
@@ -362,3 +377,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP10 | 2026-10-05 | Detail screen: GenUI catalog v2 (`product_detail`, `product_carousel`), store comparison with a similar-items fallback (`/products/{id}/alternatives`), complete-the-look rules (slots, colour harmony, occasion register, exact budgeted assembly) with optional `look.complete` wording, whole-look budget slider, `/products/{id}/complete-look` (rules only, ETag); one best-offer rule for ingest and display; property tests for best price and look budgets; ADR 0014. |
 | CP11 | 2026-10-05 | Boards (wishlist alias + outfit boards) with optimistic locking (ETag/If-Match, 428/412) and idempotent item saves; share links (content-idempotent slugs, public page with live prices, revoke → 410); polls with public token voting (unique per token, per-IP-per-poll cap, `votes.per_ip`, `public.per_ip`, HMAC pseudonyms); client-id idempotent creates; `APP_PUBLIC_WEB_URL`; CORS allows If-Match / X-Voter-Token and exposes ETag; migration 0008; ADR 0015. |
 | CP12 | 2026-10-05 | Photos via Cloudinary (ADR 0016, supersedes 0003): signed direct uploads, server-side verification, authenticated delivery with signed URLs, 24 h purge (storage first, SET NULL user FKs); vision support in the LLM gateway (image parts for OpenAI/Anthropic, vision bulkhead) and `photo.understand`; shop from a photo via the stylist; try-on as outbox jobs (ADR 0017) with double-tap protection, retries, free retry, quotas and a global cap, SSE progress; content reports; `cli purge-media`; metrics + panels; runbook; migration 0009. |
+| CP15 | 2026-10-05 | Mobile foundation (ADR 0018): Expo SDK 57 app with expo-router guards, "Indigo & Block" design system (tokens, Anek Latin, atoms/molecules/organisms), API client with shared refresh and problem errors, SecureStore session, force-update screen, GenUI renderer for all 14 component types + stylist store + swipe deck; generated contract types checked in CI (`mobile-ci`); backend `POST /v1/auth/dev` (non-production) and `python -m stylesense.main openapi`; dev API can bind to the LAN. CP13/CP14 deferred. |

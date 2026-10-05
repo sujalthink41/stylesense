@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     refresh_reuse_grace_s: int = Field(default=30, ge=0, le=120)
     google_client_ids: list[str] = Field(default_factory=list)  # Android, iOS and web OAuth clients
     admin_emails: list[str] = Field(default_factory=list)
+    # Local only: lets the app sign in by email without Google (Expo Go has no native
+    # Google sign-in). Refused in production.
+    dev_sign_in_enabled: bool = False
     account_purge_delay_days: int = Field(default=30, ge=1, le=90)
     min_supported_app_version: str = Field(default="0.1.0", pattern=r"^\d+\.\d+\.\d+$")
     latest_app_version: str = Field(default="0.1.0", pattern=r"^\d+\.\d+\.\d+$")
@@ -145,6 +148,8 @@ class Settings(BaseSettings):
             raise ValueError("debug must be disabled in production")
         if self.env is Environment.PRODUCTION and not self.google_client_ids:
             raise ValueError("google_client_ids is required in production")
+        if self.env is Environment.PRODUCTION and self.dev_sign_in_enabled:
+            raise ValueError("developer sign-in must never be enabled in production")
         if self.env is Environment.PRODUCTION and self.tryon_provider == "fake":
             raise ValueError("the fake try-on provider must never serve real users")
         return self

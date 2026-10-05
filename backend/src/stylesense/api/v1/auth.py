@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, Response, status
 
-from stylesense.api.dependencies import ContainerDep
+from stylesense.api.dependencies import ContainerDep, SettingsDep
 from stylesense.api.rate_limit import rate_limited
 from stylesense.modules.auth.schemas import (
+    DevSignInRequest,
     GoogleSignInRequest,
     RefreshRequest,
     SignInResult,
     TokenPair,
 )
+from stylesense.platform.errors import NotFoundError
 
 router = APIRouter(
     prefix="/auth", tags=["auth"], dependencies=[Depends(rate_limited("auth.per_ip"))]
@@ -24,6 +26,20 @@ async def sign_in_with_google(
     return await container.auth.sign_in_with_google(
         body.id_token, installation_id=body.installation_id
     )
+
+
+@router.post(
+    "/dev",
+    summary="Local development only: sign in by email without Google (404 unless enabled)",
+    responses={404: {"description": "Developer sign-in is disabled"}},
+)
+async def sign_in_dev(
+    body: DevSignInRequest, response: Response, container: ContainerDep, settings: SettingsDep
+) -> SignInResult:
+    if not settings.dev_sign_in_enabled:
+        raise NotFoundError  # indistinguishable from a route that doesn't exist
+    response.headers.update(NO_STORE)
+    return await container.auth.sign_in_dev(body.email, installation_id=body.installation_id)
 
 
 @router.post("/refresh", summary="Exchange a refresh token for a new token pair")

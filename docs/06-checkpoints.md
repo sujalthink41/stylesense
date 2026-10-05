@@ -26,10 +26,10 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP10 | Detail, store comparison, complete the look | S8 | ✅ |
 | CP11 | Boards, shares, polls | S9, S10, S13 | ✅ |
 | CP12 | Uploads, shop from photo, virtual try-on | S11, S12 | ✅ |
-| CP13 | Feed, notifications, price-drop alerts | S14, S15 | ⬜ |
-| CP14 | Admin API complete | S16 | ⬜ |
+| CP13 | Feed, notifications, price-drop alerts | S14, S15 | ⏸ deferred |
+| CP14 | Admin API complete | S16 | ⏸ deferred |
 | **Phase 2: Frontend** | | | |
-| CP15 | Mobile foundation + auth + GenUI renderer | S0, S1, S4 | ⬜ |
+| CP15 | Mobile foundation + auth + GenUI renderer | S0, S1, S4 | ✅ |
 | CP16 | Mobile stylist, swipe, Style DNA, detail | S5–S8 | ⬜ |
 | CP17 | Mobile boards, share, polls, photo, try-on, feed, alerts | S9–S15 | ⬜ |
 | CP18 | Admin dashboard + public web pages | S16 | ⬜ |
@@ -98,6 +98,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 **Exit:** double-tap creates one paid try-on; provider failure is recoverable; purge verified.
 
 ## CP13 — Feed, notifications, price-drop alerts
+*Deferred (2026-10-05): the frontend comes first; CP13 and CP14 follow CP17.*
 **Deliverables:** feed collections cron (locked) + curation API, notifications inbox, FCM push adapter with dedupe, price-alert cron.
 **Exit:** price drop → exactly one notification per alert event, even with cron overlap or retries.
 
@@ -108,7 +109,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 # Phase 2: Frontend
 
 ## CP15 — Mobile foundation + auth + GenUI renderer
-Expo app structure, design system, API client (generated types), Google sign-in + token handling, force-update screen, GenUI registry + renderer + Zustand store, base components, Crashlytics.
+Expo app structure, design system, API client (generated types), Google sign-in + token handling, force-update screen, GenUI registry + renderer + Zustand store, base components, crash reporting (GlitchTip via the Sentry SDK, ADR 0018). Google sign-in itself needs OAuth client ids and a development build; until then a developer sign-in (non-production only) is used in Expo Go.
 **Exit:** the demo flow renders on device; contract types generated in CI.
 
 ## CP16 — Mobile stylist, swipe, Style DNA, detail

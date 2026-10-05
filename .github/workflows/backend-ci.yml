@@ -31,6 +31,8 @@ jobs:
         run: uv run pre-commit run --all-files --show-diff-on-failure
         env:
           SKIP: no-commit-to-branch
+      - name: OpenAPI contract is current
+        run: uv run python -m stylesense.main openapi | diff -u contracts/openapi.json - || { echo "::error::Run 'make contracts' and commit."; exit 1; }
       - name: Dependency vulnerability audit
         run: uv export --frozen --no-dev --no-hashes --no-emit-project > /tmp/req.txt && uvx pip-audit -r /tmp/req.txt --strict
 
