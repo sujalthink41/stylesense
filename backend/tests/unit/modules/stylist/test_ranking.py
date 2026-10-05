@@ -112,3 +112,71 @@ def test_reasons_are_deduped_trimmed_and_capped() -> None:
     )
 
     assert reasons == ["Breathable cotton", "x" * 40, "Rated 4.5★"]
+
+
+# ---------- taste (CP9) ----------
+
+
+def test_without_taste_the_order_is_unchanged() -> None:
+    hits = [_hit(tags=("linen",), rating=4.0), _hit(tags=("oversized",), rating=4.6)]
+
+    assert [r.hit for r in rank(hits, Slots(), limit=2)] == [
+        r.hit for r in rank(hits, Slots(), limit=2, affinity={})
+    ]
+
+
+def test_tag_affinity_lifts_liked_styles_over_better_rated_items() -> None:
+    liked = _hit(tags=("oversized", "graphic print"), rating=4.1)
+    plain = _hit(tags=("regular",), rating=4.6)
+
+    ranked = rank([plain, liked], Slots(), limit=2, affinity={"oversized": 10, "graphic print": 6})
+
+    assert ranked[0].hit == liked
+    assert ranked[0].liked == ("oversized", "graphic print")
+
+
+def test_disliked_tags_sink() -> None:
+    neon = _hit(tags=("neon",), rating=4.6)
+    other = _hit(tags=("solid",), rating=4.4)
+
+    assert rank([neon, other], Slots(), limit=2, affinity={"neon": -10})[0].hit == other
+
+
+def test_taste_vector_similarity_reorders_without_any_affinity() -> None:
+    close = _hit(rating=4.2)
+    far = _hit(rating=4.2)
+    hits = [
+        SearchHit(product=far.product, similarity=None, taste_similarity=0.1),
+        SearchHit(product=close.product, similarity=None, taste_similarity=0.9),
+    ]
+
+    assert rank(hits, Slots(), limit=2)[0].hit.product == close.product
+
+
+def test_requested_attributes_still_beat_taste() -> None:
+    requested = _hit(tags=("linen", "summer"), rating=4.0)
+    tasteful = _hit(tags=("oversized",), rating=4.0)
+
+    ranked = rank([tasteful, requested], SUMMER_LINEN, limit=2, affinity={"oversized": 20})
+
+    assert ranked[0].hit == requested
+
+
+def test_reasons_mention_the_users_style() -> None:
+    item = rank(
+        [_hit(tags=("oversized",), rating=3.5)], Slots(), limit=1, affinity={"oversized": 5}
+    )[0]
+
+    assert rule_reasons(item, Slots()) == ["Your style: oversized"]
+
+
+def test_vague_tags_are_learned_from_but_never_shown_as_a_reason() -> None:
+    item = rank(
+        [_hit(tags=("half", "olive"), rating=3.5)],
+        Slots(),
+        limit=1,
+        affinity={"half": 9, "olive": 2},
+    )[0]
+
+    assert item.liked == ("half", "olive")
+    assert rule_reasons(item, Slots()) == ["Your style: olive"]

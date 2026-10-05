@@ -63,9 +63,15 @@ class RateLimitedError(AppError):
 DEFAULT_POLICIES: dict[str, RateLimitPolicy] = {
     p.name: p
     for p in (
-        RateLimitPolicy("api.per_ip", limit=60, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
+        # Indian mobile carriers put many users behind one IP (CGNAT): per-IP is only a flood
+        # guard; per-user limits do the real work.
+        RateLimitPolicy("api.per_ip", limit=600, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
         RateLimitPolicy("api.per_user", limit=120, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
         RateLimitPolicy("ai.per_user", limit=30, window_s=3600, algorithm=Algorithm.TOKEN_BUCKET),
+        # Swiping is bursty (a card a second, then a pause): a bucket fits better than a window.
+        RateLimitPolicy(
+            "swipes.per_user", limit=240, window_s=60, algorithm=Algorithm.TOKEN_BUCKET
+        ),
         # Sign-in/refresh: tighter, against credential stuffing; roomy enough for shared NATs.
         RateLimitPolicy("auth.per_ip", limit=20, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
     )

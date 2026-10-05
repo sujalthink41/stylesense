@@ -7,8 +7,11 @@
 Persistence is the session engine's job (turn CAS); the graph gets the stored state as input
 and returns the next one, so no LangGraph checkpointer is needed (ADR 0012).
 Works fully without AI: rules understand requests and explain picks; the LLM only adds to them.
+Personal when a TasteSource is wired (CP9): Style DNA prefills gender and size, swipes are
+recorded and reshape ranking, and `deck()` refills the swipe deck without a turn.
 """
 
+import contextlib
 import copy
 import uuid
 from collections.abc import AsyncIterator, Mapping
@@ -65,8 +68,11 @@ from stylesense.genui.envelope import UiEnvelope
 from stylesense.modules.catalog.exceptions import ProductNotFoundError
 from stylesense.modules.catalog.schemas import SearchHit, SearchQuery
 from stylesense.modules.catalog.service import CatalogService
+from stylesense.modules.personalization.schemas import SwipeInput, Taste
+from stylesense.modules.personalization.styles import SIZE_KIND
 from stylesense.modules.stylist.explain import clean, rule_reasons, rupees
-from stylesense.modules.stylist.flows.base import Entry, Progress, Rendered, TurnContext
+from stylesense.modules.stylist.flows.base import DeckPage, Entry, Progress, Rendered, TurnContext
+from stylesense.modules.stylist.ports import TasteSource
 from stylesense.modules.stylist.ranking import Ranked, rank
 from stylesense.modules.stylist.slots import CATEGORIES, OCCASIONS, Slots
 from stylesense.modules.stylist.tasks import (
@@ -121,11 +127,13 @@ class Assistant(Protocol):
 class _State(TypedDict, total=False):
     persisted: dict[str, Any]  # survives between turns
     user_id: uuid.UUID
+    session_id: uuid.UUID
     action: Action | None
     entry: Entry | None
     text: str | None
     notice: str | None
     hits: list[SearchHit]
+    taste: Taste | None
     page: list[Ranked]
     has_more: bool
     reasons: dict[str, list[str]]
@@ -150,9 +158,12 @@ def _fresh() -> dict[str, Any]:
 class StylistFlow:
     name = "stylist"
 
-    def __init__(self, catalog: CatalogService, ai: Assistant | None) -> None:
+    def __init__(
+        self, catalog: CatalogService, ai: Assistant | None, taste: TasteSource | None = None
+    ) -> None:
         self._catalog = catalog
         self._ai = ai
+        self._taste = taste
         graph = StateGraph(_State)
         for node in (
             "ingest",
@@ -180,7 +191,12 @@ class StylistFlow:
     async def start(self, ctx: TurnContext, entry: Entry) -> Rendered:
         rendered: Rendered | None = None
         async for output in self._run(
-            {"persisted": _fresh(), "entry": entry, "user_id": ctx.user_id}
+            {
+                "persisted": _fresh(),
+                "entry": entry,
+                "user_id": ctx.user_id,
+                "session_id": ctx.session_id,
+            }
         ):
             if isinstance(output, Rendered):
                 rendered = output
@@ -191,7 +207,28 @@ class StylistFlow:
         self, ctx: TurnContext, state: Mapping[str, Any], screen: UiEnvelope, action: Action
     ) -> AsyncIterator[Progress | Rendered]:
         persisted = {**_fresh(), **copy.deepcopy(dict(state))}
-        return self._run({"persisted": persisted, "action": action, "user_id": ctx.user_id})
+        return self._run(
+            {
+                "persisted": persisted,
+                "action": action,
+                "user_id": ctx.user_id,
+                "session_id": ctx.session_id,
+            }
+        )
+
+    async def deck(
+        self, ctx: TurnContext, state: Mapping[str, Any], *, exclude: list[uuid.UUID], limit: int
+    ) -> DeckPage | None:
+        """Next cards for the current request, skipping anything swiped or already on screen.
+        Read-only (no turn) with rule reasons only: the app calls it often to prefetch."""
+        p = {**_fresh(), **copy.deepcopy(dict(state))}
+        slots = Slots.model_validate(p["slots"])
+        if p["step"] not in {"results", "detail"} or slots.missing():
+            return None
+        hits, taste = await self._retrieve(ctx.user_id, ctx.session_id, p, extra_exclude=exclude)
+        ranked = rank(hits, slots, limit=limit + 1, affinity=taste.affinity if taste else None)
+        cards = [_card(r, rule_reasons(r, slots)) for r in ranked[:limit]]
+        return DeckPage(cards=cards, has_more=len(ranked) > limit)
 
     async def _run(self, initial: _State) -> AsyncIterator[Progress | Rendered]:
         final: dict[str, Any] = {}
@@ -213,6 +250,9 @@ class StylistFlow:
             p["step"], p["detail"] = "results", None  # any other action leaves the detail screen
         if entry := s.get("entry"):
             slots, text, notice = _apply_entry(entry, slots)
+            slots = _prefill(slots, await self._load_taste(s["user_id"]))
+        if isinstance(action, Swipe):
+            await self._record_swipe(s, action)
         p, slots, typed = _apply_action(action, p, slots)
         text = typed or text
         if slots.model_dump() != p["slots"]:
@@ -283,25 +323,19 @@ class StylistFlow:
         get_stream_writer()(
             Progress([LoadingSkeleton(id="loading", props=LoadingSkeletonProps(shape="cards"))])
         )
-        p = s["persisted"]
-        slots = Slots.model_validate(p["slots"])
-        hits = await self._catalog.search(
-            SearchQuery(
-                category=slots.category,
-                gender=None if slots.gender == "any" else slots.gender,
-                min_price_paise=slots.budget_min_paise,
-                max_price_paise=slots.budget_max_paise,
-                text=_search_text(slots, p["query"]),
-                exclude_ids=[uuid.UUID(i) for i in p["dismissed"]],
-                limit=CANDIDATES,
-            )
-        )
-        return {"hits": hits}
+        hits, taste = await self._retrieve(s["user_id"], s["session_id"], s["persisted"])
+        return {"hits": hits, "taste": taste}
 
     async def _rank(self, s: _State) -> _State:
         p = s["persisted"]
         page = p["page"]
-        ranked = rank(s["hits"], Slots.model_validate(p["slots"]), limit=DECK_SIZE * (page + 1) + 1)
+        taste = s.get("taste")
+        ranked = rank(
+            s["hits"],
+            Slots.model_validate(p["slots"]),
+            limit=DECK_SIZE * (page + 1) + 1,
+            affinity=taste.affinity if taste else None,
+        )
         window = ranked[page * DECK_SIZE : (page + 1) * DECK_SIZE]
         return {"page": window, "has_more": len(ranked) > (page + 1) * DECK_SIZE}
 
@@ -402,6 +436,55 @@ class StylistFlow:
             ],
         }
 
+    # ---------- retrieval & personalization ----------
+
+    async def _retrieve(
+        self,
+        user_id: uuid.UUID,
+        session_id: uuid.UUID,
+        p: dict[str, Any],
+        *,
+        extra_exclude: list[uuid.UUID] | None = None,
+    ) -> tuple[list[SearchHit], Taste | None]:
+        slots = Slots.model_validate(p["slots"])
+        taste = await self._load_taste(user_id)
+        excluded = {uuid.UUID(i) for i in p["dismissed"]} | set(extra_exclude or [])
+        if self._taste is not None:
+            excluded |= set(await self._taste.session_swipes(user_id, session_id))
+        size = taste.sizes.get(SIZE_KIND.get(slots.category or "", "")) if taste else None
+        query = SearchQuery(
+            category=slots.category,
+            gender=None if slots.gender == "any" else slots.gender,
+            min_price_paise=slots.budget_min_paise,
+            max_price_paise=slots.budget_max_paise,
+            text=_search_text(slots, p["query"]),
+            exclude_ids=sorted(excluded)[:500],
+            size=size,
+            taste=taste.vector if taste else None,
+            limit=CANDIDATES,
+        )
+        hits = await self._catalog.search(query)
+        if not hits and size:  # nothing left in their size: showing other sizes beats nothing
+            hits = await self._catalog.search(query.model_copy(update={"size": None}))
+        return hits, taste
+
+    async def _load_taste(self, user_id: uuid.UUID) -> Taste | None:
+        return await self._taste.taste(user_id) if self._taste is not None else None
+
+    async def _record_swipe(self, s: _State, swipe: Swipe) -> None:
+        if self._taste is None:
+            return
+        # Removed from the catalog since the deck was drawn: nothing to learn.
+        with contextlib.suppress(ProductNotFoundError):
+            await self._taste.record_swipe(
+                s["user_id"],
+                SwipeInput(
+                    product_id=swipe.product_id,
+                    direction=swipe.direction,
+                    session_id=s["session_id"],
+                ),
+            )
+
     # ---------- AI (optional; every failure degrades to rules) ----------
 
     async def _ai_understand(self, s: _State, text: str, known: Slots) -> Slots | None:
@@ -458,6 +541,13 @@ def _fill_gaps(base: Slots, ai: Slots) -> Slots:
         if v not in (None, []) and getattr(base, k) in (None, [])
     }
     return base.model_copy(update=gaps)
+
+
+def _prefill(slots: Slots, taste: Taste | None) -> Slots:
+    """Style DNA answers the gender question up front; the request itself always wins."""
+    if taste is None or taste.fit_preference is None or slots.gender is not None:
+        return slots
+    return slots.model_copy(update={"gender": taste.fit_preference})
 
 
 def _push(p: dict[str, Any]) -> None:

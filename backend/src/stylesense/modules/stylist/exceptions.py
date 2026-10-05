@@ -24,6 +24,11 @@ class SessionBusyError(ConflictError):
         super().__init__(extra={"current_turn": current_turn}, headers={"Retry-After": "1"})
 
 
+class DeckUnavailableError(ConflictError):
+    code = "no_deck"
+    title = "This session isn't showing products right now"
+
+
 class SessionEndedError(ConflictError):
     code = "session_ended"
     title = "This session has ended; start a new one"

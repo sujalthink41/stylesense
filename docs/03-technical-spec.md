@@ -231,7 +231,7 @@ One graph run per turn, compiled **without a checkpointer**: the session engine 
                                      compose  product_swipe_deck + suggestions + input bar
 ```
 
-Required slots (v1): `category`, `gender`, `budget`, asked in that order. Optional: `occasion`, `colors`, `fit`, `fabric` (boost ranking, never filter). `size` and Style DNA prefill arrive with CP9.
+Required slots (v1): `category`, `gender`, `budget`, asked in that order. Optional: `occasion`, `colors`, `fit`, `fabric` (boost ranking, never filter). Style DNA prefills `gender` and the size filter (CP9).
 
 **Degraded mode:** with no AI key, an open breaker or an exhausted budget, rules handle understanding and reasons; the session records `ai: "degraded"`.
 
@@ -295,8 +295,9 @@ Providers are registered adapters (`openai`, `anthropic`, `google`, `ollama`, �
 
 | Scope | Limit (defaults, admin-editable) | Algorithm |
 |---|---|---|
-| Per IP (unauthenticated) | 60 req/min | sliding window |
+| Per IP (flood guard; CGNAT shares IPs) | 600 req/min | sliding window |
 | Per user (all API) | 120 req/min | sliding window |
+| Per user (swipes) | 240/min | token bucket |
 | Per user AI actions | 30/hour, 150/day | token bucket |
 | Per user photo searches | 10/day | fixed daily counter |
 | Per user try-ons | 3/day free | fixed daily counter |
@@ -335,8 +336,8 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 
 ## 8. Feature-specific designs
 
-- **Swipe learning:** each product has an embedding. The user's `taste_vector` is an exponential moving average: `taste = normalize(taste + α·liked − β·skipped)`. Tag counters also update. No LLM is involved.
-- **Style DNA:** a tap-only onboarding writing to `style_profiles`. It seeds the taste vector from chosen style images.
+- **Swipe learning** *(built, CP9, ADR 0013)*: `POST /me/swipes`, idempotent per (user, product, session). The taste vector is an EMA of liked item embeddings, `normalize((1 − α)·taste + α·item)` with α = 0.20 (right) / 0.35 (super); a skip pushes away weakly (β = 0.05). Tag affinity counts +1/+2/−1 per descriptive tag, capped at ±20. Ranking adds a taste term (vector similarity + affinity); the deck refills via `GET /stylist/sessions/{id}/deck`. No LLM is involved.
+- **Style DNA** *(built, CP9)*: a tap-only onboarding flow (`entry: onboarding`): fit preference → up to 3 style images → top / waist / shoe size, every step skippable, saved once at the end. Picks seed the taste vector (embedding of the style's description) and tag affinity; fit preference prefills the stylist's gender question and the saved size filters decks (falls back to all sizes when nothing is left).
 - **Shop from photo:** upload → MinIO (private) → moderation → `photo.understand` (vision → attributes JSON) → embedding → retrieve + rank → UI.
 - **Virtual try-on:** `POST /v1/tryon` → job row + outbox message → worker → `TryOnProvider` adapter → result to MinIO → push + SSE patch. Selfies and results are deleted after 24 h (cron). Signed URLs expire in 15 min.
 - **Polls:** create from 2–4 items → public URL `https://<domain>/p/{slug}` → web vote page (Next.js, no login; device cookie + rate limit). The owner sees live results in the app.
@@ -349,8 +350,8 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 | Area | Endpoints |
 |---|---|
 | Auth | `POST /auth/google` (ID token → access+refresh), `POST /auth/refresh`, `POST /auth/logout` |
-| Me | `GET/PATCH /me`, `GET/PUT /me/style-profile`, `POST /me/devices`, `POST /me/export`, `DELETE /me` |
-| Stylist | `POST /stylist/sessions`, `GET /stylist/sessions/{id}`, `GET /stylist/sessions/{id}/stream` (SSE), `POST /stylist/sessions/{id}/actions` |
+| Me | `GET/PATCH /me`, `GET/PUT /me/style-profile`, `GET /me/style-profile/options`, `POST /me/swipes`, `PUT /me/devices/{installation_id}`, `POST /me/export`, `DELETE /me` |
+| Stylist | `POST /stylist/sessions`, `GET /stylist/sessions/{id}`, `POST /stylist/sessions/{id}/actions` (SSE response, ADR 0011), `GET /stylist/sessions/{id}/deck` (refill) |
 | Catalog | `GET /products/{id}`, `GET /products/{id}/offers`, `GET /products/{id}/complete-look` |
 | Photo | `POST /uploads` (presigned), `POST /photo-search` |
 | Try-on | `POST /tryon`, `GET /tryon/{id}` |

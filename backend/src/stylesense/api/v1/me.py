@@ -5,6 +5,13 @@ from fastapi import APIRouter, Depends, status
 from stylesense.api.auth import Claims
 from stylesense.api.dependencies import ContainerDep
 from stylesense.api.rate_limit import rate_limited_user
+from stylesense.modules.personalization.schemas import (
+    StyleOptions,
+    StyleProfileUpdate,
+    StyleProfileView,
+    SwipeInput,
+    SwipeReceipt,
+)
 from stylesense.modules.users.schemas import (
     ConsentInput,
     ConsentRecord,
@@ -67,3 +74,36 @@ async def record_consent(
     body: ConsentInput, claims: Claims, container: ContainerDep
 ) -> ConsentRecord:
     return await container.users.record_consent(claims.user_id, body)
+
+
+# ---------- Style DNA & swipes ----------
+
+
+@router.get("/style-profile", summary="My Style DNA and what my swipes taught the stylist")
+async def get_style_profile(claims: Claims, container: ContainerDep) -> StyleProfileView:
+    return await container.personalization.profile(claims.user_id)
+
+
+@router.put("/style-profile", summary="Save Style DNA (full replace; idempotent)")
+async def put_style_profile(
+    body: StyleProfileUpdate, claims: Claims, container: ContainerDep
+) -> StyleProfileView:
+    return await container.personalization.update_profile(claims.user_id, body)
+
+
+@router.get("/style-profile/options", summary="What onboarding offers: styles and sizes")
+async def style_options(claims: Claims, container: ContainerDep) -> StyleOptions:
+    return container.personalization.options()
+
+
+# Own router: swipes are frequent, so they get their own budget instead of api.per_user.
+swipes_router = APIRouter(
+    prefix="/me", tags=["me"], dependencies=[Depends(rate_limited_user("swipes.per_user"))]
+)
+
+
+@swipes_router.post(
+    "/swipes", summary="Record a swipe; replays of the same swipe are ignored (safe to retry)"
+)
+async def swipe(body: SwipeInput, claims: Claims, container: ContainerDep) -> SwipeReceipt:
+    return await container.personalization.record_swipe(claims.user_id, body)

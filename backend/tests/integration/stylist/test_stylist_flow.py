@@ -1,9 +1,6 @@
 import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 
-import pytest
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stylesense.ai.gateway.exceptions import AIUnavailableError
@@ -21,17 +18,14 @@ from stylesense.genui.actions import (
 )
 from stylesense.genui.components import ChipQuestion, ProductSwipeDeck
 from stylesense.genui.envelope import RenderEvent, UiEnvelope
-from stylesense.infra.database import UnitOfWork, create_engine, create_session_factory
+from stylesense.infra.database import UnitOfWork
 from stylesense.integrations.embeddings.hashing import HashingEmbedder
-from stylesense.integrations.sources.mock import MockSource
 from stylesense.modules.catalog.service import CatalogService
 from stylesense.modules.stylist.flows.stylist import StylistFlow
 from stylesense.modules.stylist.repository import StylistRepository
 from stylesense.modules.stylist.schemas import SessionCreate
 from stylesense.modules.stylist.service import StylistService
 from stylesense.modules.stylist.tasks import ExplainItem, ExplainOutput, UnderstandOutput
-from stylesense.modules.users.models import User
-from stylesense.platform.config import Settings
 from tests.fakes.clock import FixedClock
 
 
@@ -57,33 +51,6 @@ class StubAI:
         if answer is None:
             raise AIUnavailableError("not scripted")
         return answer
-
-
-@pytest.fixture(scope="module")
-async def catalog_sessions(
-    settings: Settings, migrated: None
-) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    """One seeded catalog per module: ingesting 300 products per test would be wasteful."""
-    engine = create_engine(settings)
-    async with engine.begin() as conn:
-        await conn.execute(text("TRUNCATE users, products CASCADE"))
-    factory = create_session_factory(engine)
-    catalog = CatalogService(
-        lambda: UnitOfWork(factory), clock=FixedClock(), embedder=HashingEmbedder()
-    )
-    await catalog.ingest(MockSource())
-    while await catalog.embed_pending(batch_size=300):
-        pass
-    yield factory
-    await engine.dispose()
-
-
-@pytest.fixture
-async def user_id(catalog_sessions: async_sessionmaker[AsyncSession]) -> uuid.UUID:
-    async with catalog_sessions() as s, s.begin():
-        user = User(email=f"{uuid.uuid4().hex}@example.com")
-        s.add(user)
-    return user.id
 
 
 class Driver:

@@ -16,3 +16,4 @@ One file per significant decision: `NNNN-title.md` with **Context**, **Decision*
 | [0010](0010-llm-observability-via-otel.md) | LLM observability via OTel GenAI spans + usage ledger | Accepted |
 | [0011](0011-action-scoped-sse-and-turn-cas.md) | Action-scoped SSE streams and turn compare-and-swap | Accepted |
 | [0012](0012-stylist-graph-rules-first.md) | Stylist graph: LangGraph without a checkpointer, rules first, LLM fills gaps | Accepted |
+| [0013](0013-swipes-outside-the-turn-protocol.md) | Swipes outside the turn protocol, learned synchronously | Accepted |

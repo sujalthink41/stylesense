@@ -8,6 +8,10 @@ from stylesense.modules.stylist.slots import Slots
 MAX_REASONS = 3
 MAX_REASON_CHARS = 40
 _WELL_RATED = 4.0
+# Learned from, but meaningless alone on a chip ("Your style: half" = sleeve length).
+_VAGUE_TAGS = frozenset(
+    {"half", "full", "mid", "high", "short", "knee", "calf", "light", "medium", "dark", "solid"}
+)
 
 _ATTRIBUTE_PHRASES = {
     "summer": "Made for summer",
@@ -27,6 +31,8 @@ _ATTRIBUTE_PHRASES = {
 def rule_reasons(item: Ranked, slots: Slots) -> list[str]:
     product = item.hit.product
     reasons = [_phrase(m) for m in item.matched]
+    if style := next((t for t in item.liked if t not in _VAGUE_TAGS), None):
+        reasons.append(f"Your style: {style}")
     if slots.budget_max_paise is not None and product.min_price_paise is not None:
         reasons.append(f"Within {rupees(slots.budget_max_paise)}")
     if product.rating is not None and product.rating >= _WELL_RATED:

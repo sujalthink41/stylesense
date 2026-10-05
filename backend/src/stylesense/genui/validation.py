@@ -18,6 +18,7 @@ from stylesense.genui.components import (
     ChipQuestion,
     CompleteTheLook,
     EmptyState,
+    ImageChoiceGrid,
     ProductCard,
     ProductSwipeDeck,
     SuggestionBar,
@@ -38,7 +39,7 @@ def validate_action(envelope: UiEnvelope, action: Action) -> None:
         case Back() | Restart():
             return
         case ChipSelect():
-            _check_chips(_component(envelope, action.component_id, ChipQuestion), action)
+            _check_chips(_choice(envelope, action.component_id), action)
         case SliderSet():
             props = _component(envelope, action.component_id, BudgetSlider).props
             if action.min_paise < props.min_paise or action.max_paise > props.max_paise:
@@ -69,7 +70,14 @@ def _component[C](envelope: UiEnvelope, component_id: str, kind: type[C]) -> C:
     raise InvalidActionError(f"no component '{component_id}' on this screen")
 
 
-def _check_chips(question: ChipQuestion, action: ChipSelect) -> None:
+def _choice(envelope: UiEnvelope, component_id: str) -> ChipQuestion | ImageChoiceGrid:
+    component = _component(envelope, component_id, object)
+    if not isinstance(component, ChipQuestion | ImageChoiceGrid):
+        raise InvalidActionError(f"'{component_id}' doesn't accept this action")
+    return component
+
+
+def _check_chips(question: ChipQuestion | ImageChoiceGrid, action: ChipSelect) -> None:
     offered = {o.id for o in question.props.options}
     chosen = action.option_ids
     if len(set(chosen)) != len(chosen):

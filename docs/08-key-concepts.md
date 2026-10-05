@@ -356,3 +356,24 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 89. A graph without a checkpointer
 **What:** LangGraph is used for its node/edge structure and streaming, not its persistence: each turn runs the graph once from saved state and returns the new state. **Why:** session state already lives in one table with turn compare-and-swap; a second copy would drift.
+
+## 90. Exponential moving average (EMA) for taste
+**What:** each like moves the taste vector a fixed fraction towards the item: `taste = normalize((1 − α)·taste + α·item)`. Old likes fade geometrically instead of being stored forever. **Why:** one line of arithmetic, constant memory, and recent taste counts more than last year's.
+
+## 91. Explicit vs implicit feedback
+**What:** Style DNA picks are *explicit* (the user told us); swipes are *implicit* (we infer). Both feed the same taste, but new picks blend in at 50% rather than overwrite what swipes taught. **Why:** people describe themselves differently from how they behave; keep both signals.
+
+## 92. Cold start
+**What:** a new user has no swipes, so there's nothing to personalise from. Style DNA seeds the taste vector from the embedding of each picked style's description, so the very first deck is already personal. **Why:** the first session decides whether people come back.
+
+## 93. Natural idempotency keys
+**What:** some writes carry their own unique identity, e.g. a swipe is (user, product, session). A unique constraint plus `ON CONFLICT DO NOTHING` makes retries free, with no Idempotency-Key header or Redis entry. `NULLS NOT DISTINCT` makes "no session" count as one value. **Why:** the simplest correct mechanism is the one the data already has.
+
+## 94. Row locks against lost updates
+**What:** two swipes read the same taste, each adds its change, and the second write erases the first. `SELECT … FOR UPDATE` on the profile row makes them queue. **Why:** read-modify-write on shared state needs a lock (or CAS); an atomic SQL update isn't possible when the maths happens in code.
+
+## 95. Prefetching
+**What:** the app asks for the next cards (`GET …/deck`) while the user is still swiping the current ones, excluding what it already holds. **Why:** the next card appears instantly; the network round trip hides behind the swipe animation.
+
+## 96. Soft filters with a fallback
+**What:** the saved size is a SQL filter, but if it leaves nothing, the search runs again without it. **Why:** an empty screen is worse than a near miss.

@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
@@ -5,14 +6,20 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
-from stylesense.infra.database import create_engine
+from stylesense.infra.database import UnitOfWork, create_engine, create_session_factory
 from stylesense.infra.redis import create_redis
+from stylesense.integrations.embeddings.hashing import HashingEmbedder
+from stylesense.integrations.sources.mock import MockSource
+from stylesense.modules.catalog.service import CatalogService
+from stylesense.modules.users.models import User
 from stylesense.platform.config import Settings
 from tests.factories import make_settings
+from tests.fakes.clock import FixedClock
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 POSTGRES_IMAGE = "pgvector/pgvector:pg18"
@@ -64,3 +71,30 @@ def migrated(settings: Settings) -> None:
     cfg.set_main_option("sqlalchemy.url", str(settings.database_url).replace("%", "%%"))
     cfg.attributes["configure_logger"] = False
     command.upgrade(cfg, "head")
+
+
+@pytest.fixture(scope="module")
+async def catalog_sessions(
+    settings: Settings, migrated: None
+) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """One seeded, embedded catalog per module: ingesting 300 products per test is wasteful."""
+    engine = create_engine(settings)
+    async with engine.begin() as conn:
+        await conn.execute(text("TRUNCATE users, products CASCADE"))
+    factory = create_session_factory(engine)
+    catalog = CatalogService(
+        lambda: UnitOfWork(factory), clock=FixedClock(), embedder=HashingEmbedder()
+    )
+    await catalog.ingest(MockSource())
+    while await catalog.embed_pending(batch_size=300):
+        pass
+    yield factory
+    await engine.dispose()
+
+
+@pytest.fixture
+async def user_id(catalog_sessions: async_sessionmaker[AsyncSession]) -> uuid.UUID:
+    async with catalog_sessions() as s, s.begin():
+        user = User(email=f"{uuid.uuid4().hex}@example.com")
+        s.add(user)
+    return user.id
