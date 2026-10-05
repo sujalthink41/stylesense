@@ -1,3 +1,4 @@
+from decimal import Decimal
 from enum import StrEnum
 from functools import lru_cache
 from typing import Literal, Self
@@ -84,12 +85,32 @@ class Settings(BaseSettings):
     min_supported_app_version: str = Field(default="0.1.0", pattern=r"^\d+\.\d+\.\d+$")
     latest_app_version: str = Field(default="0.1.0", pattern=r"^\d+\.\d+\.\d+$")
 
+    # AI gateway. A provider is enabled only when its key is set.
+    openai_api_key: SecretStr | None = None
+    anthropic_api_key: SecretStr | None = None
+    llm_daily_budget_usd: Decimal = Field(default=Decimal("2.00"), ge=0, le=10_000)
+    llm_budget_alert_ratio: float = Field(default=0.8, gt=0, le=1)
+    llm_max_attempts: int = Field(default=3, ge=1, le=5)
+    llm_breaker_threshold: int = Field(default=5, ge=1, le=100)
+    llm_breaker_window_s: float = Field(default=30, gt=0, le=600)
+    llm_breaker_cooldown_s: float = Field(default=60, gt=0, le=3_600)
+    llm_max_concurrency: int = Field(default=16, ge=1, le=1_000)
+    llm_max_queued: int = Field(default=32, ge=0, le=10_000)
+    # "hashing" (offline) or "provider:model"; changing it re-embeds the whole catalog.
+    embedding_model: str = Field(default="hashing", pattern=r"^(hashing|[a-z0-9_-]+:\S+)$")
+
     @field_validator("database_url")
     @classmethod
     def _require_async_driver(cls, url: PostgresDsn) -> PostgresDsn:
         if url.scheme != "postgresql+asyncpg":
             raise ValueError("database_url must use the postgresql+asyncpg driver")
         return url
+
+    @field_validator("openai_api_key", "anthropic_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_unset(cls, value: object) -> object:
+        # Compose passes unset variables as "", which must mean "no provider", not a blank key.
+        return None if isinstance(value, str) and not value.strip() else value
 
     @field_validator("admin_emails")
     @classmethod

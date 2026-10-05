@@ -19,7 +19,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP3 | Cross-cutting guards: idempotency, rate limiting, locks, outbox | S0 | ✅ |
 | CP4 | Auth & accounts | S1 | ✅ |
 | CP5 | Catalog & mock data | S2 | ✅ |
-| CP6 | LLM gateway & AI guardrails | S3 | ⬜ |
+| CP6 | LLM gateway & AI guardrails | S3 | ✅ |
 | CP7 | GenUI protocol (backend) | S4 | ⬜ |
 | CP8 | AI Stylist graph v1 | S5 | ⬜ |
 | CP9 | Swipes, taste learning, Style DNA | S6, S7 | ⬜ |
@@ -70,7 +70,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 **Exit:** idempotent seed; vector neighbors sensible; no N+1 queries (query-count tests).
 
 ## CP6 — LLM gateway & AI guardrails
-**Deliverables:** `LLMGateway`, provider adapters (OpenAI + one more to prove swappability), task configs (DB + Redis, hot reload), fallbacks, Redis-shared circuit breaker, retries, timeouts, token limits, response cache, single-flight, quotas, global budget cap + degraded mode, bulkheads, Langfuse, `llm_usage`, fake provider, prompt templates, admin LLM endpoints.
+**Deliverables:** `LLMGateway`, provider adapters (OpenAI + Anthropic), task routing + prices (DB, hot reload via Redis version), fallbacks, Redis-shared circuit breaker, retries, timeouts, input cap, response cache, single-flight, quotas, daily budget cap + degraded mode, bulkheads, OTel GenAI spans + `llm_usage` ledger (ADR 0010), fake provider, prompts in code (ADR 0009), admin AI endpoints + CLI, gateway-backed embedder.
 **Exit:** fault-injection tests (timeouts, 429, 500, invalid JSON) → breaker/fallback/degraded behave as specified; model change applies without restart; budget cap enforced.
 
 ## CP7 — GenUI protocol (backend)

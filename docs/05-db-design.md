@@ -209,32 +209,27 @@ Index `(user_id, created_at DESC)` (also used for the daily quota count).
 ### notifications
 `id`, `user_id`, `kind` (`price_drop`/`poll_result`/`tryon_ready`/`system`), `title`, `body`, `data jsonb` (deep link), `read_at NULL`, `pushed_at NULL`. Index `(user_id, created_at DESC)`.
 
-## 9. AI configuration & metering
+## 9. AI configuration & metering *(built in CP6)*
 
-### llm_providers
-`id`, `code` UNIQUE (`openai`, `anthropic`, `google`, `ollama`), `enabled`, `base_url NULL`, `env_key_name` (name of the env var that holds the key, **never the key itself**).
+### llm_models (prices)
+`id`, `provider`, `model` (`UNIQUE(provider, model)`), `kind` (`chat`/`embedding`), `input_usd_per_mtok`, `cached_input_usd_per_mtok`, `output_usd_per_mtok` (numeric(12,6)), `active`, `updated_at`, `updated_by`. A model with no active row is never called (ADR 0009). API keys are **never** stored here; they come from environment variables.
 
-### llm_task_configs
+### llm_task_configs (routing)
 | Column | Type | Notes |
 |---|---|---|
-| task | text PK | e.g. `stylist.explain` |
-| provider_code | text FK | |
-| model | text | |
-| fallbacks | jsonb | `[{"provider":"anthropic","model":"…"}]` |
-| params | jsonb | temperature, top_p… |
+| task | text PK | e.g. `stylist.explain`, `diagnostics.echo` |
+| targets | text[] | `provider:model`, primary first, then fallbacks |
+| temperature | float NULL | ignored by providers that don't support it |
 | max_input_tokens / max_output_tokens | int | |
-| timeout_s | int | |
-| cache_ttl_s | int | |
-| prompt_version | text | |
-| enabled | bool | false → degraded mode for this task |
-| updated_by / updated_at | | audited |
+| timeout_s | float | per attempt |
+| cache_ttl_s | int | 0 = no response caching |
+| enabled | bool | false → callers degrade immediately |
+| updated_at, updated_by | | |
 
-### prompt_templates
-`id`, `task`, `version`, `system`, `template`, `notes`, `active bool`, `UNIQUE(task, version)`.
+Prompts are not stored in the database; they live in code with a `prompt_version`.
 
-### llm_usage
-`id`, `user_id NULL`, `session_id NULL`, `task`, `provider`, `model`, `prompt_version`, `input_tokens`, `cached_input_tokens`, `output_tokens`, `cost_usd numeric(10,6)`, `latency_ms`, `cache_hit bool`, `outcome` (`ok`/`fallback`/`degraded`/`error`), `created_at`.
-Index `(created_at)`, `(user_id, created_at)`. Monthly partitions. The daily rollup view feeds the admin cost dashboard.
+### llm_usage (ledger)
+One row **per attempt**: `id`, `call_id` (groups attempts of one gateway call), `task`, `provider`, `model`, `user_id` (FK, `SET NULL`), `prompt_version`, `input_tokens`, `cached_input_tokens`, `output_tokens`, `cost_micro_usd` (bigint), `latency_ms`, `outcome` (`ok`/`cache_hit`/`error`/`invalid_output`), `error`, `created_at`. Indexes `(created_at)`, `(task, created_at)`.
 
 ## 10. Platform & governance
 

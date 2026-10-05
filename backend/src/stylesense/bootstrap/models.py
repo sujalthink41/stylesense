@@ -3,6 +3,7 @@
 Add each new models module here.
 """
 
+from stylesense.ai.gateway.models import LlmModel, LlmTaskConfig, LlmUsage
 from stylesense.guards.outbox import OutboxMessage
 from stylesense.infra.database import Base
 from stylesense.modules.auth.models import RefreshToken
@@ -27,6 +28,9 @@ __all__ = [
     "AuthIdentity",
     "Base",
     "Consent",
+    "LlmModel",
+    "LlmTaskConfig",
+    "LlmUsage",
     "Offer",
     "OutboundClick",
     "OutboxMessage",

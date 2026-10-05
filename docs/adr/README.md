@@ -7,8 +7,10 @@ One file per significant decision: `NNNN-title.md` with **Context**, **Decision*
 | [0001](0001-uv-for-python-tooling.md) | uv for Python dependencies and tooling | Accepted |
 | [0002](0002-layered-modular-monolith.md) | Layered modular monolith with routers in `api/` | Accepted |
 | [0003](0003-defer-object-storage.md) | Defer choosing the object store until CP12 | Accepted |
-| [0004](0004-defer-langfuse.md) | Defer Langfuse until the LLM gateway (CP6) | Accepted |
+| [0004](0004-defer-langfuse.md) | Defer Langfuse until the LLM gateway (CP6) | Superseded by 0010 |
 | [0005](0005-postgres-outbox-as-job-queue.md) | Postgres outbox as the job queue; no ARQ | Accepted |
 | [0006](0006-authentication-design.md) | Google ID tokens in; own JWT + rotating refresh tokens out | Accepted |
 | [0007](0007-embedder-port-with-hashing-baseline.md) | Embedder port with an offline hashing baseline until CP6 | Accepted |
 | [0008](0008-client-side-ids-and-batched-inserts.md) | Client-generated UUIDv7 keys and no eager server defaults | Accepted |
+| [0009](0009-llm-gateway-design.md) | LLM gateway: own adapters, prompts in code, routing and prices in the DB | Accepted |
+| [0010](0010-llm-observability-via-otel.md) | LLM observability via OTel GenAI spans + usage ledger | Accepted |

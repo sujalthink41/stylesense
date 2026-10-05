@@ -1,6 +1,6 @@
 # 0004 — Defer Langfuse until the LLM gateway (CP6)
 
-**Status:** Accepted (2026-10-04)
+**Status:** Superseded by [0010](0010-llm-observability-via-otel.md) (2026-10-05)
 
 ## Context
 CP2 planned to deploy Langfuse for LLM tracing. Self-hosted Langfuse v3 needs Postgres, ClickHouse, Redis and S3-compatible storage. Nothing calls an LLM until CP6, and object storage is deferred (ADR 0003).

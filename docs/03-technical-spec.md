@@ -66,7 +66,7 @@ See the feature list in `01-product-overview.md` §6 (F1–F14).
 | Validation | Pydantic v2 (all I/O, including every LLM output) |
 | DB access | SQLAlchemy 2.0 (async) + asyncpg; Alembic migrations |
 | AI orchestration | LangGraph (Postgres checkpointer) |
-| LLM abstraction | Own `LLMGateway` over LangChain `init_chat_model` (provider-agnostic) |
+| LLM abstraction | Own `LLMGateway` with thin adapters on the official `openai`/`anthropic` SDKs (ADR 0009) |
 | Background jobs | Postgres transactional outbox (`FOR UPDATE SKIP LOCKED`) + worker process with periodic tasks; Redis locks for cron-style jobs (ADR 0005) |
 | Rate limiting | Redis sliding-window/token-bucket (own middleware; `limits` library) |
 | Resilience | `pybreaker`-style circuit breaker (Redis-shared state) + `tenacity` retries |
@@ -265,7 +265,7 @@ result = await gateway.run(
 | `look.complete` | OpenAI mid model | outfit reasoning |
 | `embed.text` | OpenAI embeddings model | catalog + queries |
 
-Each task config holds: `provider`, `model`, `fallbacks[]` (ordered), `temperature`, `max_input_tokens`, `max_output_tokens`, `timeout_s`, `cache_ttl_s`, `prompt_version`, `enabled`.
+Each task config holds: `targets[]` (`provider:model`, primary first, then fallbacks), `temperature`, `max_input_tokens`, `max_output_tokens`, `timeout_s`, `cache_ttl_s`, `enabled`. Prompts and `prompt_version` live in code (`TaskSpec`); prices live in `llm_models` and are required (ADR 0009).
 
 Providers are registered adapters (`openai`, `anthropic`, `google`, `ollama`, …) behind one interface. API keys come only from environment variables or a secret file, never from the database.
 
@@ -277,7 +277,7 @@ Providers are registered adapters (`openai`, `anthropic`, `google`, `ollama`, �
 4. **Batching.** One explain call for the top N products, not N calls.
 5. **Prompt caching.** The static prefix (system prompt + component schema + rules) comes first and is identical across calls, so provider-side prefix caching applies (OpenAI caches long, repeated prefixes automatically).
 6. **Response cache.** Redis key = `hash(task, prompt_version, model, normalized_input)`. For example, explain results are cached per (product_id, slot signature).
-7. **Hard limits.** `max_input_tokens` is checked before sending (tiktoken-based count; input is trimmed or rejected). `max_output_tokens` is always set.
+7. **Hard limits.** `max_input_tokens` is checked before sending (conservative tokenizer-free estimate; oversized input is rejected). `max_output_tokens` is always set.
 8. **Image downscaling.** Photos are resized to ≤ 768 px and use a low-detail vision mode where possible.
 9. **Embeddings computed once** per product at ingest and cached for queries.
 
@@ -315,7 +315,7 @@ Responses include `X-RateLimit-Remaining` / `Retry-After`. The client renders a 
 - Prompts are versioned (`prompt_templates` table). Every LLM call logs `prompt_version` for reproducibility.
 
 ### 6.7 LLM observability
-Every call → Langfuse trace with task, model, prompt version, tokens in/out, cost, latency, cache hit, breaker state and user id (pseudonymous). Costs are aggregated into `llm_usage` for the admin cost dashboard.
+Every attempt → an OpenTelemetry GenAI span (Tempo) and an `llm_usage` row: task, model, prompt version, tokens in/out (incl. cached), cost in micro-USD, latency, outcome, user id. Prometheus counters feed Grafana; Langfuse can attach later via the collector (ADR 0010).
 
 ## 7. Product data layer
 

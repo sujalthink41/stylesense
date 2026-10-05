@@ -2,7 +2,7 @@
 
 **An AI fashion stylist for India.** Tell it what you need ("summer t-shirt around ₹500"), answer a few quick taps, and swipe through the best picks across Amazon, Flipkart and Myntra, with price comparison, virtual try-on and outfit suggestions.
 
-> Status: **in active development**: backend Phase 1, checkpoint **CP5 complete**. See [progress](docs/06-checkpoints.md).
+> Status: **in active development**: backend Phase 1, checkpoint **CP6 complete**. See [progress](docs/06-checkpoints.md).
 
 ---
 
@@ -34,7 +34,7 @@ Details: [How the system works](docs/07-system-architecture.md) · [Technical sp
 | Area | Stack |
 |---|---|
 | Backend | Python 3.13, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic, structlog |
-| AI | LangGraph, provider-agnostic LLM gateway (OpenAI by default) |
+| AI | Provider-agnostic LLM gateway (OpenAI + Anthropic adapters), pgvector; LangGraph for the stylist |
 | Data | PostgreSQL 18 + pgvector, Redis 8 |
 | Mobile *(Phase 2)* | React Native (Expo), TypeScript, Zustand, TanStack Query |
 | Admin *(Phase 2)* | Next.js, shadcn/ui |
@@ -104,6 +104,7 @@ Makefile        Developer commands
 | [Engineering standards](docs/09-engineering-standards.md) | Mandatory coding rules |
 | [Observability guide](docs/guides/observability-guide.md) | Learn Grafana, Prometheus, Tempo, GlitchTip, Uptime Kuma |
 | [Google Sign-In setup](docs/guides/google-sign-in-setup.md) | Create the OAuth client IDs the backend needs |
+| [AI setup](docs/guides/ai-setup.md) | Add API keys, set model prices, route AI tasks |
 
 ## License
 

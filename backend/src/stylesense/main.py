@@ -10,7 +10,7 @@ from prometheus_client import CollectorRegistry, GCCollector, PlatformCollector,
 from stylesense.api.health import router as health_router
 from stylesense.api.middleware import LoadSheddingMiddleware
 from stylesense.api.v1 import router as v1_router
-from stylesense.bootstrap.container import Container, build_container
+from stylesense.bootstrap.container import Container, Telemetry, build_container
 from stylesense.guards.bulkhead import Bulkhead
 from stylesense.infra.database import pool_stats
 from stylesense.platform.config import Environment, Settings, get_settings
@@ -39,7 +39,7 @@ def create_app(
     settings: Settings | None = None,
     *,
     tracer_provider: TracerProvider | None = None,
-    container_factory: Callable[[Settings], Container] = build_container,
+    container_factory: Callable[..., Container] = build_container,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(level=settings.log_level, json_logs=settings.env is not Environment.LOCAL)
@@ -49,7 +49,9 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        container = container_factory(settings)
+        container = container_factory(
+            settings, telemetry=Telemetry(registry=registry, tracer_provider=provider)
+        )
         app.state.container = container
         pool_collector = _attach_client_telemetry(container, registry, provider)
         logger.info("startup", env=settings.env, version=settings.version)
