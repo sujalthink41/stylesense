@@ -23,7 +23,10 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -47,7 +50,8 @@
         "expo-image-picker",
         {
           "photosPermission": "StyleSense uses your photos to find similar clothes and for virtual try-on. Photos are deleted within 24 hours.",
-          "cameraPermission": "StyleSense uses the camera to find clothes like the ones you photograph and for virtual try-on. Photos are deleted within 24 hours."
+          "cameraPermission": "StyleSense uses the camera to find clothes like the ones you photograph and for virtual try-on. Photos are deleted within 24 hours.",
+          "microphonePermission": false
         }
       ],
       "expo-sharing",
@@ -56,6 +60,12 @@
     "experiments": {
       "typedRoutes": true
     },
-    "extra": {}
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5e6276d4-42f6-453e-be77-93637f0a97ae"
+      }
+    },
+    "owner": "iamsujal"
   }
 }
