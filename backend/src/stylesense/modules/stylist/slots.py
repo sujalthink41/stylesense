@@ -1,0 +1,90 @@
+"""What the stylist knows about the request. Vocabularies match the catalog's attribute values."""
+
+from typing import Literal, Self
+
+from pydantic import BaseModel, ConfigDict, Field
+
+CATEGORIES: dict[str, tuple[str, str]] = {  # id → (label, icon)
+    "tshirt": ("T-shirts", "👕"),
+    "shirt": ("Shirts", "👔"),
+    "jeans": ("Jeans", "👖"),
+    "trousers": ("Trousers", "👖"),
+    "kurta": ("Kurtas", "🪔"),
+    "dress": ("Dresses", "👗"),
+    "top": ("Tops", "👚"),
+    "shorts": ("Shorts", "🩳"),
+    "sneakers": ("Sneakers", "👟"),
+    "jacket": ("Jackets", "🧥"),
+    "hoodie": ("Hoodies", "🧥"),
+}
+OCCASIONS = (
+    "summer",
+    "winter",
+    "party",
+    "wedding",
+    "office",
+    "college",
+    "festive",
+    "date night",
+    "sports",
+    "travel",
+    "casual",
+)
+COLORS = (
+    "black",
+    "white",
+    "navy",
+    "olive",
+    "beige",
+    "grey",
+    "maroon",
+    "sky blue",
+    "mustard",
+    "pink",
+    "red",
+    "green",
+    "lavender",
+    "brown",
+    "off-white",
+)
+FITS = ("oversized", "slim", "regular", "relaxed", "skinny", "straight", "bootcut", "wide-leg")
+FABRICS = ("cotton", "linen", "denim", "silk", "rayon", "polyester", "khadi", "georgette", "fleece")
+
+Gender = Literal["men", "women", "unisex", "any"]  # "any" = asked, no preference
+MAX_BUDGET_PAISE = 10_000_000  # ₹1,00,000: anything above is a parsing mistake
+
+
+class Slots(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: str | None = None
+    gender: Gender | None = None
+    budget_min_paise: int | None = Field(default=None, ge=0, le=MAX_BUDGET_PAISE)
+    budget_max_paise: int | None = Field(default=None, gt=0, le=MAX_BUDGET_PAISE)
+    occasion: str | None = None
+    colors: list[str] = Field(default_factory=list)
+    fit: str | None = None
+    fabric: str | None = None
+
+    def missing(self) -> list[str]:
+        """Required slots still unknown, in the order the stylist asks for them."""
+        needed = []
+        if self.category is None:
+            needed.append("category")
+        if self.gender is None:
+            needed.append("gender")
+        if self.budget_max_paise is None:
+            needed.append("budget")
+        return needed
+
+    def merged(self, update: "Slots") -> Self:
+        """Values present in `update` win; everything else is kept."""
+        changes = {
+            k: v for k, v in update.model_dump(exclude_defaults=True).items() if v not in (None, [])
+        }
+        return self.model_copy(update=changes)
+
+    def preferences(self) -> set[str]:
+        """Soft attributes to boost in ranking (never filters)."""
+        wanted = {*self.colors, self.fit, self.fabric, self.occasion}
+        return {w for w in wanted if w}

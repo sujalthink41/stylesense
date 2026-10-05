@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import text
 
 from stylesense.bootstrap.container import build_container
-from stylesense.cli import dev_token, main, seed_catalog
+from stylesense.cli import dev_token, eval_understand, main, seed_catalog
 from stylesense.infra.database import create_engine
 from stylesense.platform.config import Settings
 
@@ -106,3 +106,19 @@ async def test_dev_token_issues_working_tokens_for_a_local_user(
 async def test_dev_token_refuses_production(settings: Settings) -> None:
     with pytest.raises(SystemExit, match="production"):
         await dev_token(settings.model_copy(update={"env": "production"}), email="x@example.com")
+
+
+async def test_eval_understand_scores_the_rule_parser(settings: Settings) -> None:
+    report = await eval_understand(settings, engine="rules")
+
+    assert report["ok"] is True
+    assert report["examples"] >= 50
+
+
+async def test_eval_understand_llm_reports_unavailable_without_a_key(
+    settings: Settings, migrated: None
+) -> None:
+    report = await eval_understand(settings, engine="llm")
+
+    assert report["ok"] is False
+    assert "stylist.understand" in report["error"]

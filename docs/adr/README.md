@@ -15,3 +15,4 @@ One file per significant decision: `NNNN-title.md` with **Context**, **Decision*
 | [0009](0009-llm-gateway-design.md) | LLM gateway: own adapters, prompts in code, routing and prices in the DB | Accepted |
 | [0010](0010-llm-observability-via-otel.md) | LLM observability via OTel GenAI spans + usage ledger | Accepted |
 | [0011](0011-action-scoped-sse-and-turn-cas.md) | Action-scoped SSE streams and turn compare-and-swap | Accepted |
+| [0012](0012-stylist-graph-rules-first.md) | Stylist graph: LangGraph without a checkpointer, rules first, LLM fills gaps | Accepted |

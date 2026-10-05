@@ -16,8 +16,14 @@ from stylesense.ai.gateway.types import ModelRef
 from stylesense.bootstrap.container import Container, build_container
 from stylesense.genui.schema import contract_json
 from stylesense.integrations.sources.mock import MockSource
+from stylesense.modules.stylist.evals.scoring import Report, load_golden, score, score_async
+from stylesense.modules.stylist.slots import Slots
+from stylesense.modules.stylist.tasks import STYLIST_UNDERSTAND, UnderstandInput
+from stylesense.modules.stylist.understanding import parse_request
 from stylesense.platform.config import Environment, Settings, get_settings
 from stylesense.platform.logging import configure_logging
+
+EVAL_BAR = 0.90  # minimum field accuracy for request understanding (CP8 exit criterion)
 
 
 async def seed_catalog(settings: Settings, *, seed: int) -> dict[str, int]:
@@ -55,6 +61,38 @@ async def dev_token(settings: Settings, *, email: str) -> dict[str, Any]:
         user, _ = await c.users.sign_in(_DevIdentity(email=email.strip().lower()))
         pair = await c.auth.issue_session(user)
     return {"user_id": str(user.id), **pair.model_dump(mode="json")}
+
+
+async def eval_understand(settings: Settings, *, engine: str) -> dict[str, Any]:
+    """Score request understanding on the golden set: `rules` offline, or `llm` via the gateway."""
+    examples = load_golden()
+    if engine == "rules":
+        report = score(examples, parse_request)
+    else:
+        async with _Session(settings) as c:
+
+            async def via_llm(text: str) -> Slots:
+                result = await c.gateway.run(
+                    STYLIST_UNDERSTAND, UnderstandInput(text=text, known={})
+                )
+                return result.to_slots()
+
+            try:
+                report = await score_async(examples, via_llm)
+            except AIUnavailableError as exc:
+                return {"ok": False, "engine": engine, "error": str(exc)}
+    return _report(engine, report)
+
+
+def _report(engine: str, report: Report) -> dict[str, Any]:
+    return {
+        "ok": report.field_accuracy >= EVAL_BAR,
+        "engine": engine,
+        "examples": report.examples,
+        "field_accuracy": round(report.field_accuracy, 4),
+        "exact_match": round(report.exact_match, 4),
+        "failures": report.failures,
+    }
 
 
 async def llm_price(settings: Settings, args: argparse.Namespace) -> dict[str, Any]:
@@ -139,6 +177,11 @@ def _parser() -> argparse.ArgumentParser:
     commands.add_parser("llm-check", help="call the configured model end to end")
     commands.add_parser("export-genui-contract", help="print the GenUI JSON Schema contract")
 
+    evals = commands.add_parser(
+        "eval-understand", help="score request understanding on the golden set"
+    )
+    evals.add_argument("--engine", choices=["rules", "llm"], default="rules")
+
     dev = commands.add_parser("dev-token", help="local-only: tokens for a test user (no Google)")
     dev.add_argument("email")
     return parser
@@ -159,6 +202,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = asyncio.run(llm_price(settings, args))
         case "llm-route":
             result = asyncio.run(llm_route(settings, args))
+        case "eval-understand":
+            result = asyncio.run(eval_understand(settings, engine=args.engine))
         case "dev-token":
             result = asyncio.run(dev_token(settings, email=args.email))
         case _:

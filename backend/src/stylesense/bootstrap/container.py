@@ -29,6 +29,7 @@ from stylesense.modules.auth.tokens import AccessTokenCodec
 from stylesense.modules.catalog.ports import Embedder
 from stylesense.modules.catalog.service import CatalogService
 from stylesense.modules.stylist.flows.demo import DemoFlow
+from stylesense.modules.stylist.flows.stylist import StylistFlow
 from stylesense.modules.stylist.service import StylistService
 from stylesense.modules.users.service import UsersService
 from stylesense.platform.clock import Clock, SystemClock
@@ -165,7 +166,11 @@ def build_container(
 
     catalog = CatalogService(uow, clock=clock, embedder=embedder)
     stylist = StylistService(
-        uow, flows={"demo": DemoFlow(catalog)}, default_flow="demo", clock=clock
+        uow,
+        # "demo" stays registered so sessions started on it keep working.
+        flows={"stylist": StylistFlow(catalog, gateway), "demo": DemoFlow(catalog)},
+        default_flow="stylist",
+        clock=clock,
     )
 
     return Container(

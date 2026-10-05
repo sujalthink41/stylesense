@@ -338,3 +338,21 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 83. Graceful version negotiation
 **What:** the app says which catalog version it understands; the server never sends it anything newer, and swaps unknown components for an "update the app" banner in the same slot. Old app versions keep working instead of crashing.
+
+## 84. Rules first, LLM for the gaps
+**What:** a cheap, deterministic parser handles the common cases; the LLM is asked only about what the rules couldn't fill, and can't overwrite them. **Why:** it's free, instant, testable and works during outages; the model's job shrinks to the long tail. Numbers (budgets) always come from rules, because models can hallucinate them.
+
+## 85. Golden evals
+**What:** a file of real-looking inputs with expected outputs, plus a scorer that reports field accuracy and exact matches for any parser (rules or LLM). **Why:** "it seems better" isn't a measurement. Caveat: a set written next to the code it tests flatters that code; a **held-out** set (here: real queries from session events) is the honest number.
+
+## 86. Hybrid retrieval
+**What:** hard constraints (budget, category, gender) as SQL filters, then vector similarity for "feel". **Why:** a vector search alone happily returns a ₹3,000 shirt for "under 500". Filters guarantee correctness; vectors give relevance.
+
+## 87. Ranking in code, not in the model
+**What:** a transparent weighted score (attribute match, similarity, rating × confidence) instead of asking an LLM to pick. **Why:** deterministic, cheap, debuggable and tunable; "rating × confidence" stops a 5★ item with 3 reviews beating a 4.6★ item with 2,000.
+
+## 88. Diversity re-ranking
+**What:** each extra item from a brand already in the deck gets its score multiplied by a penalty (0.85). **Why:** without it, one brand with many similar products fills the whole deck.
+
+## 89. A graph without a checkpointer
+**What:** LangGraph is used for its node/edge structure and streaming, not its persistence: each turn runs the graph once from saved state and returns the new state. **Why:** session state already lives in one table with turn compare-and-swap; a second copy would drift.

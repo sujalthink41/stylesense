@@ -42,6 +42,8 @@ from stylesense.modules.catalog.schemas import (
     ProductFilters,
     ProductPage,
     ProductSummary,
+    SearchHit,
+    SearchQuery,
 )
 from stylesense.platform.clock import Clock
 
@@ -195,6 +197,18 @@ class CatalogService:
             items=[_summary(p) for p in page],
             next_cursor=_encode_cursor(page[-1].id) if more and page else None,
         )
+
+    async def search(self, query: SearchQuery) -> list[SearchHit]:
+        """Filtered retrieval, ordered by similarity to `query.text` when it can be embedded."""
+        embedding = None
+        if query.text:
+            try:
+                [embedding] = await self._embedder.embed([query.text])
+            except AIUnavailableError as exc:
+                logger.info("catalog_search_without_embedding", reason=str(exc))
+        async with self._uow() as uow:
+            rows = await CatalogRepository(uow.session).search(query, embedding)
+            return [SearchHit(product=_summary(p), similarity=s) for p, s in rows]
 
     async def similar(self, product_id: uuid.UUID, *, limit: int = 10) -> list[ProductSummary]:
         async with self._uow() as uow:

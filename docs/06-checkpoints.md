@@ -21,7 +21,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP5 | Catalog & mock data | S2 | ✅ |
 | CP6 | LLM gateway & AI guardrails | S3 | ✅ |
 | CP7 | GenUI protocol (backend) | S4 | ✅ |
-| CP8 | AI Stylist graph v1 | S5 | ⬜ |
+| CP8 | AI Stylist graph v1 | S5 | ✅ |
 | CP9 | Swipes, taste learning, Style DNA | S6, S7 | ⬜ |
 | CP10 | Detail, store comparison, complete the look | S8 | ⬜ |
 | CP11 | Boards, shares, polls | S9, S10, S13 | ⬜ |
@@ -78,7 +78,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 **Exit:** scripted SSE client completes the demo flow; stale turn → 409; unsupported version degrades.
 
 ## CP8 — AI Stylist graph v1
-**Deliverables:** LangGraph stylist with Postgres checkpointer, ingest/route/understand/slot_check/ask/retrieve/rank/explain/compose nodes, deterministic questions, hybrid retrieval + ranking, degraded mode, golden eval set (~50 intents) + runner.
+**Deliverables:** LangGraph stylist (one turn per run; session engine persists state, no checkpointer, ADR 0012), ingest/understand/ask/search/rank/explain/compose/detail nodes, deterministic questions, hybrid retrieval + ranking, degraded mode, golden eval set (~50 intents) + runner.
 **Exit:** "summer t-shirt under 500" → ≤ 3 questions → in-budget ranked results with reasons; LLM disabled → still works; eval ≥ 90% slot accuracy.
 
 ## CP9 — Swipes, taste learning, Style DNA
