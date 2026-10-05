@@ -72,6 +72,11 @@ DEFAULT_POLICIES: dict[str, RateLimitPolicy] = {
         RateLimitPolicy(
             "swipes.per_user", limit=240, window_s=60, algorithm=Algorithm.TOKEN_BUCKET
         ),
+        # Public pages (share links, poll pages) and votes, per IP (spec: 30 votes/min).
+        RateLimitPolicy(
+            "public.per_ip", limit=120, window_s=60, algorithm=Algorithm.SLIDING_WINDOW
+        ),
+        RateLimitPolicy("votes.per_ip", limit=30, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
         # Sign-in/refresh: tighter, against credential stuffing; roomy enough for shared NATs.
         RateLimitPolicy("auth.per_ip", limit=20, window_s=60, algorithm=Algorithm.SLIDING_WINDOW),
     )

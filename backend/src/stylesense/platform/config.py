@@ -52,6 +52,8 @@ class Settings(BaseSettings):
 
     readiness_timeout_s: float = Field(default=2.0, gt=0, le=10)
     cors_origins: list[str] = Field(default_factory=list)
+    # Public site (share and poll pages, App Links host); links we hand out point here.
+    public_web_url: str = Field(default="http://localhost:3000", pattern=r"^https?://")
 
     metrics_enabled: bool = True
     otel_enabled: bool = False

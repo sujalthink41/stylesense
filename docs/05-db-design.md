@@ -166,25 +166,25 @@ Indexes: HNSW `(embedding vector_cosine_ops)` (m=16, ef_construction=64); `(cate
 ### LangGraph checkpoint tables
 Created and owned by `langgraph-checkpoint-postgres` (`checkpoints`, `checkpoint_blobs`, `checkpoint_writes`) in a separate schema `lg`. Old threads are pruned after 30 days of inactivity.
 
-## 6. Boards, shares, polls
+## 6. Boards, shares, polls *(built in CP11)*
 
 ### boards
-`id`, `user_id`, `name`, `kind` (`wishlist`/`outfit`), `cover_product_id NULL`, `position`, `deleted_at`. One `wishlist` board per user (partial unique index on `(user_id) WHERE kind='wishlist'`).
+`id`, `user_id` FK (CASCADE), `name`, `kind` (`wishlist`/`outfit`, CHECK), `cover_product_id NULL` (FK, SET NULL), `version int` (optimistic lock, ETag), `created_at`, `updated_at`, `deleted_at` (soft delete). One live wishlist per user: partial unique index `(user_id) WHERE kind='wishlist' AND deleted_at IS NULL`. Index `(user_id, created_at)`.
 
 ### board_items
-`id`, `board_id`, `product_id`, `preferred_offer_id NULL`, `position`, `note NULL`, `UNIQUE(board_id, product_id)`.
+`id`, `board_id` FK (CASCADE), `product_id` FK (CASCADE), `position`, `note NULL`, `added_at`, `UNIQUE(board_id, product_id)`.
 
 ### shares
-`id`, `user_id`, `slug` UNIQUE (short, random), `kind` (`look`/`product`/`board`), `payload jsonb` (product ids, title), `views int`, `created_at`.
+`id`, `user_id` FK (CASCADE), `slug` UNIQUE (8 random base62), `kind` (`look`/`product`/`board`), `payload jsonb` (title, product ids or board id), `content_hash` with `UNIQUE(user_id, content_hash)` (same content → same link), `views int`, `created_at`, `revoked_at NULL`.
 
 ### polls
-`id`, `user_id`, `slug` UNIQUE, `question`, `closes_at`, `status` (`open`/`closed`).
+`id`, `user_id` FK (CASCADE), `slug` UNIQUE, `question`, `closes_at`, `closed_at NULL` (closed early by the owner), `created_at`. Open = not closed and `now < closes_at` (computed, no cron). Index `(user_id, created_at)`.
 
 ### poll_options
-`id`, `poll_id`, `product_id`, `position`.
+`id`, `poll_id` FK (CASCADE), `product_id` FK (CASCADE), `position`, `UNIQUE(poll_id, product_id)`.
 
 ### poll_votes
-`id`, `poll_id`, `option_id`, `voter_fingerprint` (hash of device cookie), `ip_hash`, `created_at`, `UNIQUE(poll_id, voter_fingerprint)`.
+`id`, `poll_id` FK (CASCADE), `option_id` FK (CASCADE), `voter_hash` (HMAC of the voter token), `ip_hash` (HMAC of the IP), `created_at`, `UNIQUE(poll_id, voter_hash)`. Index `(option_id)`.
 
 ## 7. Uploads & try-on
 

@@ -26,6 +26,7 @@ from stylesense.integrations.llm.openai_provider import OpenAIProvider
 from stylesense.modules.auth.ports import IdentityVerifier
 from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
+from stylesense.modules.boards.service import BoardsService
 from stylesense.modules.catalog.ports import Embedder
 from stylesense.modules.catalog.service import CatalogService
 from stylesense.modules.looks.service import LookService
@@ -33,6 +34,8 @@ from stylesense.modules.personalization.service import (
     PersonalizationMetrics,
     PersonalizationService,
 )
+from stylesense.modules.polls.service import PollsService
+from stylesense.modules.sharing.service import SharingService
 from stylesense.modules.stylist.flows.demo import DemoFlow
 from stylesense.modules.stylist.flows.style_dna import StyleDnaFlow
 from stylesense.modules.stylist.flows.stylist import StylistFlow
@@ -41,6 +44,7 @@ from stylesense.modules.users.service import UsersService
 from stylesense.platform.clock import Clock, SystemClock
 from stylesense.platform.config import Settings
 from stylesense.platform.health import HealthCheck
+from stylesense.platform.slugs import Pseudonymizer
 
 _MICRO_USD_PER_USD = 1_000_000
 # Adapters that exist in code (whether or not a key is configured yet).
@@ -80,6 +84,9 @@ class Container:
     catalog: CatalogService
     personalization: PersonalizationService
     looks: LookService
+    boards: BoardsService
+    sharing: SharingService
+    polls: PollsService
     stylist: StylistService
     closers: tuple[Closer, ...] = ()
     closed: bool = field(default=False, init=False)
@@ -180,6 +187,18 @@ def build_container(
         metrics=PersonalizationMetrics(telemetry.registry) if telemetry.registry else None,
     )
     looks = LookService(catalog, gateway)
+    boards = BoardsService(uow, catalog=catalog, clock=clock)
+    sharing = SharingService(
+        uow, catalog=catalog, boards=boards, clock=clock, public_url=settings.public_web_url
+    )
+    polls = PollsService(
+        uow,
+        catalog=catalog,
+        limiter=rate_limiter,
+        hasher=Pseudonymizer.derive(settings.jwt_secret.get_secret_value(), "poll-voters"),
+        clock=clock,
+        public_url=settings.public_web_url,
+    )
     stylist = StylistService(
         uow,
         flows={
@@ -219,6 +238,9 @@ def build_container(
         catalog=catalog,
         personalization=personalization,
         looks=looks,
+        boards=boards,
+        sharing=sharing,
+        polls=polls,
         stylist=stylist,
         # In-flight stylist turns finish (and persist) before connections close.
         closers=(stylist.wait_for_turns, *closers),
