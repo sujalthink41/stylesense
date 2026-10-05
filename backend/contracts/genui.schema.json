@@ -257,7 +257,7 @@
     "title": "ActionRequest",
     "type": "object"
   },
-  "catalog_version": 1,
+  "catalog_version": 2,
   "envelope": {
     "$defs": {
       "Back": {
@@ -1071,6 +1071,221 @@
         "title": "ProductCardProps",
         "type": "object"
       },
+      "ProductCarousel": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductCarouselProps"
+          },
+          "type": {
+            "const": "product_carousel",
+            "default": "product_carousel",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductCarousel",
+        "type": "object"
+      },
+      "ProductCarouselProps": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ProductCardProps"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "items"
+        ],
+        "title": "ProductCarouselProps",
+        "type": "object"
+      },
+      "ProductDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductDetailProps"
+          },
+          "type": {
+            "const": "product_detail",
+            "default": "product_detail",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductDetail",
+        "type": "object"
+      },
+      "ProductDetailProps": {
+        "additionalProperties": false,
+        "properties": {
+          "brand": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "colors": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Colors",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Facts",
+            "type": "array"
+          },
+          "images": {
+            "items": {
+              "maxLength": 500,
+              "pattern": "^https://",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Images",
+            "type": "array"
+          },
+          "mrp_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mrp Paise"
+          },
+          "price_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rating"
+          },
+          "rating_count": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sizes": {
+            "items": {
+              "maxLength": 10,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Sizes",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "brand",
+          "price_paise"
+        ],
+        "title": "ProductDetailProps",
+        "type": "object"
+      },
       "ProductSwipeDeck": {
         "additionalProperties": false,
         "properties": {
@@ -1508,6 +1723,8 @@
               "info_banner": "#/$defs/InfoBanner",
               "loading_skeleton": "#/$defs/LoadingSkeleton",
               "product_card": "#/$defs/ProductCard",
+              "product_carousel": "#/$defs/ProductCarousel",
+              "product_detail": "#/$defs/ProductDetail",
               "product_swipe_deck": "#/$defs/ProductSwipeDeck",
               "store_comparison": "#/$defs/StoreComparison",
               "suggestion_bar": "#/$defs/SuggestionBar",
@@ -1536,6 +1753,12 @@
             },
             {
               "$ref": "#/$defs/CompleteTheLook"
+            },
+            {
+              "$ref": "#/$defs/ProductDetail"
+            },
+            {
+              "$ref": "#/$defs/ProductCarousel"
             },
             {
               "$ref": "#/$defs/SuggestionBar"
@@ -2267,6 +2490,8 @@
                   "info_banner": "#/$defs/InfoBanner",
                   "loading_skeleton": "#/$defs/LoadingSkeleton",
                   "product_card": "#/$defs/ProductCard",
+                  "product_carousel": "#/$defs/ProductCarousel",
+                  "product_detail": "#/$defs/ProductDetail",
                   "product_swipe_deck": "#/$defs/ProductSwipeDeck",
                   "store_comparison": "#/$defs/StoreComparison",
                   "suggestion_bar": "#/$defs/SuggestionBar",
@@ -2295,6 +2520,12 @@
                 },
                 {
                   "$ref": "#/$defs/CompleteTheLook"
+                },
+                {
+                  "$ref": "#/$defs/ProductDetail"
+                },
+                {
+                  "$ref": "#/$defs/ProductCarousel"
                 },
                 {
                   "$ref": "#/$defs/SuggestionBar"
@@ -2521,6 +2752,221 @@
           "price_paise"
         ],
         "title": "ProductCardProps",
+        "type": "object"
+      },
+      "ProductCarousel": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductCarouselProps"
+          },
+          "type": {
+            "const": "product_carousel",
+            "default": "product_carousel",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductCarousel",
+        "type": "object"
+      },
+      "ProductCarouselProps": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ProductCardProps"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "items"
+        ],
+        "title": "ProductCarouselProps",
+        "type": "object"
+      },
+      "ProductDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "props": {
+            "$ref": "#/$defs/ProductDetailProps"
+          },
+          "type": {
+            "const": "product_detail",
+            "default": "product_detail",
+            "title": "Type",
+            "type": "string"
+          },
+          "v": {
+            "const": 1,
+            "default": 1,
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "props"
+        ],
+        "title": "ProductDetail",
+        "type": "object"
+      },
+      "ProductDetailProps": {
+        "additionalProperties": false,
+        "properties": {
+          "brand": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "colors": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Colors",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Facts",
+            "type": "array"
+          },
+          "images": {
+            "items": {
+              "maxLength": 500,
+              "pattern": "^https://",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Images",
+            "type": "array"
+          },
+          "mrp_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mrp Paise"
+          },
+          "price_paise": {
+            "anyOf": [
+              {
+                "maximum": 100000000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rating"
+          },
+          "rating_count": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sizes": {
+            "items": {
+              "maxLength": 10,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Sizes",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "title",
+          "brand",
+          "price_paise"
+        ],
+        "title": "ProductDetailProps",
         "type": "object"
       },
       "ProductSwipeDeck": {
@@ -2978,6 +3424,8 @@
                   "info_banner": "#/$defs/InfoBanner",
                   "loading_skeleton": "#/$defs/LoadingSkeleton",
                   "product_card": "#/$defs/ProductCard",
+                  "product_carousel": "#/$defs/ProductCarousel",
+                  "product_detail": "#/$defs/ProductDetail",
                   "product_swipe_deck": "#/$defs/ProductSwipeDeck",
                   "store_comparison": "#/$defs/StoreComparison",
                   "suggestion_bar": "#/$defs/SuggestionBar",
@@ -3006,6 +3454,12 @@
                 },
                 {
                   "$ref": "#/$defs/CompleteTheLook"
+                },
+                {
+                  "$ref": "#/$defs/ProductDetail"
+                },
+                {
+                  "$ref": "#/$defs/ProductCarousel"
                 },
                 {
                   "$ref": "#/$defs/SuggestionBar"

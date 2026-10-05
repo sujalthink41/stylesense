@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP9 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. All AI access goes through a provider-agnostic gateway with routing, fallbacks, breakers, budgets and metering; The generative-UI protocol is live: sessions stream typed UI components turn by turn. The AI stylist drives them: it understands requests with rules (the LLM only fills gaps), asks at most one tappable question per missing slot, and returns ranked, in-budget products with reasons, and it keeps working with no AI key at all. It learns from swipes: a taste vector and tag affinities reshape every deck, Style DNA onboarding (taps only) prefills gender and size, and decks refill between turns. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP10 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. All AI access goes through a provider-agnostic gateway with routing, fallbacks, breakers, budgets and metering; The generative-UI protocol is live: sessions stream typed UI components turn by turn. The AI stylist drives them: it understands requests with rules (the LLM only fills gaps), asks at most one tappable question per missing slot, and returns ranked, in-budget products with reasons, and it keeps working with no AI key at all. It learns from swipes: a taste vector and tag affinities reshape every deck, Style DNA onboarding (taps only) prefills gender and size, and decks refill between turns. Opening a card shows the full product, every store's price (best one flagged), similar picks when few stores stock it, and a complete look that stays within a whole-look budget. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -196,7 +196,7 @@ GET …/sessions/{id} ──► last screen (resume)
 
 | Piece | Where | Notes |
 |---|---|---|
-| Component catalog | `genui/components.py` | 12 typed components, strict limits (ids, lengths, counts); `CATALOG_VERSION`; buy links must be `/v1/out/…` |
+| Component catalog | `genui/components.py` | 14 typed components, strict limits (ids, lengths, counts); `CATALOG_VERSION` = 2 (`product_detail`, `product_carousel`); buy links must be `/v1/out/…` |
 | Actions | `genui/actions.py` | 8 action types; `validate_action` checks them against the rendered screen |
 | Versioning | `genui/versioning.py` | `X-GenUI-Version`; newer components become an "update the app" banner in the same slot; too-old apps get 426 |
 | Contract | `contracts/genui.schema.json` | JSON Schema the mobile types are generated from; a test fails if it drifts (`make contracts`) |
@@ -228,6 +228,15 @@ Code: `modules/personalization/` (`taste.py` maths, `styles.py` vocabulary, `ser
 - **Style DNA:** `POST /v1/stylist/sessions {entry: "onboarding"}` runs the `style_dna` flow (fit → styles image grid → sizes; skip/back everywhere; saved once at the end, session ends). Also `GET/PUT /v1/me/style-profile` and `/options`. New picks blend into an existing taste (50%) instead of replacing it; an embedding outage still saves the answers.
 - **Prefill:** fit preference answers the gender question (the request still wins: "dress for my wife" stays women); the saved size filters the deck, falling back to all sizes when nothing is left.
 - **Observe:** `swipes_total{direction,outcome}`; dashboard panels "Swipes by direction" and "Swipe p95 latency".
+
+## 2m. Detail, comparison and complete the look *(built)*
+
+Code: `modules/catalog/rules.py` (`best_offer`, `needs_alternatives`, `pick_alternatives`, `TYPICAL_PRICE_PAISE`), `CatalogService.alternatives`, `modules/looks/` (`rules.py` pure outfit logic, `service.py`, `tasks.py`), the stylist's `_detail` node. ADR 0014.
+
+- **Detail screen** (after `card_open`): `product_detail` → `store_comparison` → `product_carousel` "Similar picks" (only when < 2 stores have it in stock) → `complete_the_look` → `budget_slider` `q_look_budget` → back/restart. Opening a look or similar item pushes history, so Back walks back item by item. Setting the look budget re-renders the same screen.
+- **Best price:** one rule everywhere: cheapest in-stock offer, ties to the better rating, then store code. `is_best` is on exactly one offer when anything is in stock.
+- **Complete the look:** slots per anchor category (`COMPLEMENTS`), a layer only for cold occasions. Candidates per category come from catalog search (same gender, capped price). Score = colour harmony + occasion fit + rating; casual/dressy clashes are excluded. The combination is chosen exactly over a small shortlist under the budget. Without a look budget, pieces are capped at typical category prices; with one, the whole look (anchor included) stays within it.
+- **AI:** `look.complete` only renames and rewords, in signed-in sessions when AI is configured; the REST endpoints are rules-only and cacheable.
 
 ## 3. Request lifecycle: a stylist turn *(built)*
 
@@ -296,6 +305,7 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Tune ranking | Weights and diversity penalty in `modules/stylist/ranking.py`; the property test guards the budget |
 | Tune taste learning | Rates and caps in `modules/personalization/taste.py`; the exit test in `tests/integration/stylist/test_personal_flow.py` measures the shift |
 | Add a Style DNA look | Add a `Style` (label, catalog tags, colour) to `modules/personalization/styles.py` |
+| Change what goes with what | `COMPLEMENTS`, colour and occasion rules in `modules/looks/rules.py`; the property tests guard budget and clashes |
 | Make a write endpoint safe to retry | Take `IdempotencyKey` as a dependency and wrap the use case in `run_idempotent(...)` |
 | Trigger a side effect after a write | `container.outbox.add(uow.session, topic, payload)` in the same Unit of Work; register a handler for `topic` |
 | Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
@@ -324,3 +334,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP7 | 2026-10-05 | GenUI protocol: typed component catalog v1 + actions + versioning + JSON Schema contract; stylist sessions with turn compare-and-swap, action-scoped SSE (ADR 0011), background turns that survive disconnects, failure fallback, session event log (90-day pruning); scripted demo flow over the real catalog; `dev-token` CLI; migration 0006. |
 | CP8 | 2026-10-05 | AI stylist: LangGraph graph run per turn without a checkpointer (ADR 0012); rules-first request understanding (Hinglish budgets) with LLM gap filling; template questions; catalog hybrid search (SQL filters + pgvector); code ranking with diversity; rule reasons + optional batched LLM explain; degraded mode; golden eval set + `eval-understand` CLI; stylist is the default flow. |
 | CP9 | 2026-10-05 | Personalization: `style_profiles` + `swipes` (migration 0007); idempotent swipe endpoint with synchronous taste learning (EMA vector + tag affinity, row lock; ADR 0013); taste-aware ranking and "Your style" reasons; deck refill endpoint; Style DNA onboarding flow + `/me/style-profile` API with taste seeding; gender/size prefill; `swipes.per_user` bucket, `api.per_ip` 60 → 600/min; swipe dashboard panels. |
+| CP10 | 2026-10-05 | Detail screen: GenUI catalog v2 (`product_detail`, `product_carousel`), store comparison with a similar-items fallback (`/products/{id}/alternatives`), complete-the-look rules (slots, colour harmony, occasion register, exact budgeted assembly) with optional `look.complete` wording, whole-look budget slider, `/products/{id}/complete-look` (rules only, ETag); one best-offer rule for ingest and display; property tests for best price and look budgets; ADR 0014. |

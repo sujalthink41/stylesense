@@ -234,7 +234,7 @@ def test_free_text_is_accepted_when_the_screen_offers_it() -> None:
 # ---------- versioning ----------
 
 
-@pytest.mark.parametrize(("raw", "expected"), [(None, 1), ("1", 1), (" 1 ", 1), ("7", 1)])
+@pytest.mark.parametrize(("raw", "expected"), [(None, 1), ("1", 1), (" 1 ", 1), ("2", 2), ("7", 2)])
 def test_negotiates_a_renderable_version(raw: str | None, expected: int) -> None:
     assert negotiate(raw) == expected
 

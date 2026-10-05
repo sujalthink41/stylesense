@@ -17,3 +17,4 @@ One file per significant decision: `NNNN-title.md` with **Context**, **Decision*
 | [0011](0011-action-scoped-sse-and-turn-cas.md) | Action-scoped SSE streams and turn compare-and-swap | Accepted |
 | [0012](0012-stylist-graph-rules-first.md) | Stylist graph: LangGraph without a checkpointer, rules first, LLM fills gaps | Accepted |
 | [0013](0013-swipes-outside-the-turn-protocol.md) | Swipes outside the turn protocol, learned synchronously | Accepted |
+| [0014](0014-detail-comparison-and-looks.md) | Detail, comparison fallback and complete-the-look: rules decide, catalog v2 | Accepted |

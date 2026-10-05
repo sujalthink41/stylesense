@@ -32,6 +32,7 @@ from stylesense.modules.catalog.rules import (
     discount_percent,
     embedding_hash,
     is_allowed_store_url,
+    pick_alternatives,
     product_text,
 )
 from stylesense.modules.catalog.schemas import (
@@ -212,6 +213,30 @@ class CatalogService:
                 SearchHit(product=_summary(p), similarity=s, taste_similarity=t) for p, s, t in rows
             ]
 
+    async def alternatives(
+        self, product_id: uuid.UUID, *, max_price_paise: int | None = None, limit: int = 6
+    ) -> list[ProductSummary]:
+        """Same kind of item, most similar first, buyable now and within budget: the fallback
+        when too few stores stock the exact product."""
+        async with self._uow() as uow:
+            repo = CatalogRepository(uow.session)
+            product = await repo.get_product(product_id)
+            if product is None:
+                raise ProductNotFoundError
+            query = SearchQuery(
+                category=product.category,
+                gender=product.gender,
+                max_price_paise=max_price_paise,
+                exclude_ids=[product.id],
+                limit=min(4 * limit, 200),
+            )
+            embedding = list(product.embedding) if product.embedding is not None else None
+            rows = await repo.search(query, embedding)
+            summaries = [_summary(p) for p, _, _ in rows]
+        return pick_alternatives(
+            product_id, summaries, max_price_paise=max_price_paise, limit=limit
+        )
+
     async def similar(self, product_id: uuid.UUID, *, limit: int = 10) -> list[ProductSummary]:
         async with self._uow() as uow:
             repo = CatalogRepository(uow.session)
@@ -355,10 +380,10 @@ def _summary(p: Product) -> ProductSummary:
 
 
 def _best(offers: Sequence[Offer]) -> Offer | None:
-    in_stock = [o for o in offers if o.in_stock]
-    if not in_stock:
-        return None
-    return min(in_stock, key=lambda o: (o.price_paise, -(o.rating or 0), o.store.code))
+    """The same rule ingest uses for min_price (rules.best_offer), keyed by store code."""
+    by_view = {OfferView(o.store.code, o.price_paise, o.in_stock, o.rating): o for o in offers}
+    best = best_offer(list(by_view))
+    return by_view[best] if best is not None else None
 
 
 def _detail(p: Product) -> ProductDetail:

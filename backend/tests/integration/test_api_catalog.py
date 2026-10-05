@@ -232,3 +232,66 @@ def test_tampered_store_url_is_never_redirected(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert "evil.example" not in response.text
+
+
+# ---------- alternatives & complete the look (CP10) ----------
+
+
+def test_alternatives_stay_in_category_and_under_the_price_cap(client: TestClient) -> None:
+    product = _first_product(client, category="tshirt")
+
+    response = client.get(
+        f"/v1/products/{product['id']}/alternatives", params={"max_price_paise": 90_000}
+    )
+
+    assert response.status_code == 200
+    items = response.json()
+    assert items
+    assert all(i["category"] == "tshirt" for i in items)
+    assert all(i["min_price_paise"] <= 90_000 for i in items)
+    assert product["id"] not in {i["id"] for i in items}
+
+
+def test_complete_look_keeps_the_whole_look_within_budget(client: TestClient) -> None:
+    product = _first_product(client, category="tshirt", gender="men")
+    budget = product["min_price_paise"] + 200_000
+
+    response = client.get(
+        f"/v1/products/{product['id']}/complete-look", params={"budget_paise": budget}
+    )
+
+    assert response.status_code == 200
+    look = response.json()
+    assert look["items"]
+    assert look["total_paise"] <= budget
+    assert look["remaining_paise"] == budget - look["total_paise"]
+    assert look["total_paise"] == product["min_price_paise"] + sum(
+        i["product"]["min_price_paise"] for i in look["items"]
+    )
+
+
+def test_complete_look_supports_conditional_requests(client: TestClient) -> None:
+    product = _first_product(client, category="jeans")
+    path = f"/v1/products/{product['id']}/complete-look"
+    etag = client.get(path).headers["etag"]
+
+    assert client.get(path, headers={"If-None-Match": etag}).status_code == 304
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{"budget_paise": -1}, {"gender": "kids"}, {"occasion": "DROP TABLE"}, {"budget_paise": "x"}],
+)
+def test_complete_look_validates_its_query(client: TestClient, params: dict[str, Any]) -> None:
+    product = _first_product(client)
+
+    response = client.get(f"/v1/products/{product['id']}/complete-look", params=params)
+
+    assert response.status_code == 422
+
+
+def test_complete_look_and_alternatives_of_unknown_products_are_404(client: TestClient) -> None:
+    missing = "01a10000-0000-7000-8000-000000000000"
+
+    assert client.get(f"/v1/products/{missing}/complete-look").status_code == 404
+    assert client.get(f"/v1/products/{missing}/alternatives").status_code == 404

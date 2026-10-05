@@ -44,6 +44,15 @@ docker compose ... exec api python -m stylesense.cli llm-route diagnostics.echo 
     openai:<chat-model> anthropic:<backup-model> --max-output 100
 ```
 
+Tasks the app uses (route the ones you want; unrouted tasks fall back to rules):
+
+| Task | What it does | Without it |
+|---|---|---|
+| `diagnostics.echo` | Smoke test for `llm-check` | — |
+| `stylist.understand` | Fills request details the rules missed | Rules only |
+| `stylist.explain` | Rewords "why this pick" chips | Rule reasons |
+| `look.complete` | Names a look and rewords its reasons | Rule title and reasons |
+
 Options: `--max-input` (token cap), `--max-output`, `--timeout` (seconds), `--cache-ttl` (seconds; 0 = no caching), `--temperature`, `--disable` (switch a task off instantly; callers degrade gracefully).
 
 Changes apply to **every running instance within one request**; no restart needed. The admin equivalent is `PUT /v1/admin/ai/tasks/{task}`.
