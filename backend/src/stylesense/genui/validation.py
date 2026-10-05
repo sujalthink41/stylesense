@@ -20,6 +20,7 @@ from stylesense.genui.components import (
     EmptyState,
     ImageChoiceGrid,
     ProductCard,
+    ProductCarousel,
     ProductSwipeDeck,
     SuggestionBar,
     TextInputBar,
@@ -95,7 +96,7 @@ def _products_in(envelope: UiEnvelope, component_id: str) -> list[Any]:
             return [c.product_id for c in component.props.cards]
         case ProductCard():
             return [component.props.product_id]
-        case CompleteTheLook():
+        case CompleteTheLook() | ProductCarousel():
             return [i.product_id for i in component.props.items]
     raise InvalidActionError(f"'{component_id}' has no products to open")
 

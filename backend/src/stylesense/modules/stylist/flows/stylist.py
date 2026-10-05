@@ -11,6 +11,7 @@ Personal when a TasteSource is wired (CP9): Style DNA prefills gender and size, 
 recorded and reshape ranking, and `deck()` refills the swipe deck without a turn.
 """
 
+import asyncio
 import contextlib
 import copy
 import uuid
@@ -46,6 +47,8 @@ from stylesense.genui.components import (
     ChipQuestion,
     ChipQuestionProps,
     ComparedOffer,
+    CompleteTheLook,
+    CompleteTheLookProps,
     Component,
     EmptyState,
     EmptyStateProps,
@@ -54,6 +57,10 @@ from stylesense.genui.components import (
     LoadingSkeleton,
     LoadingSkeletonProps,
     ProductCardProps,
+    ProductCarousel,
+    ProductCarouselProps,
+    ProductDetail,
+    ProductDetailProps,
     ProductSwipeDeck,
     ProductSwipeDeckProps,
     StoreComparison,
@@ -66,8 +73,17 @@ from stylesense.genui.components import (
 )
 from stylesense.genui.envelope import UiEnvelope
 from stylesense.modules.catalog.exceptions import ProductNotFoundError
-from stylesense.modules.catalog.schemas import SearchHit, SearchQuery
+from stylesense.modules.catalog.rules import (
+    DEFAULT_TYPICAL_PRICE_PAISE,
+    TYPICAL_PRICE_PAISE,
+    OfferView,
+    needs_alternatives,
+)
+from stylesense.modules.catalog.schemas import ProductDetail as Detail
+from stylesense.modules.catalog.schemas import ProductSummary, SearchHit, SearchQuery
 from stylesense.modules.catalog.service import CatalogService
+from stylesense.modules.looks.schemas import Look
+from stylesense.modules.looks.service import LookService
 from stylesense.modules.personalization.schemas import SwipeInput, Taste
 from stylesense.modules.personalization.styles import SIZE_KIND
 from stylesense.modules.stylist.explain import clean, rule_reasons, rupees
@@ -92,19 +108,8 @@ DECK_SIZE = 10
 CANDIDATES = 60
 MAX_HISTORY = 10
 SLIDER_MAX_PAISE = 500_000
-TYPICAL_BUDGET_PAISE = {
-    "tshirt": 100_000,
-    "shirt": 150_000,
-    "jeans": 200_000,
-    "trousers": 150_000,
-    "kurta": 200_000,
-    "dress": 250_000,
-    "top": 100_000,
-    "shorts": 100_000,
-    "sneakers": 300_000,
-    "jacket": 300_000,
-    "hoodie": 150_000,
-}
+LOOK_SLIDER_MAX_PAISE = 1_000_000
+ALTERNATIVES = 6
 _GENDER_OPTIONS = [
     ("men", "Men"),
     ("women", "Women"),
@@ -159,11 +164,16 @@ class StylistFlow:
     name = "stylist"
 
     def __init__(
-        self, catalog: CatalogService, ai: Assistant | None, taste: TasteSource | None = None
+        self,
+        catalog: CatalogService,
+        ai: Assistant | None,
+        taste: TasteSource | None = None,
+        looks: LookService | None = None,
     ) -> None:
         self._catalog = catalog
         self._ai = ai
         self._taste = taste
+        self._looks = looks
         graph = StateGraph(_State)
         for node in (
             "ingest",
@@ -246,7 +256,7 @@ class StylistFlow:
         slots = Slots.model_validate(p["slots"])
         text, notice = None, None
         action = s.get("action")
-        if p["step"] == "detail" and not isinstance(action, CardOpen | Back):
+        if p["step"] == "detail" and not _stays_on_detail(action):
             p["step"], p["detail"] = "results", None  # any other action leaves the detail screen
         if entry := s.get("entry"):
             slots, text, notice = _apply_entry(entry, slots)
@@ -408,33 +418,65 @@ class StylistFlow:
                     ),
                 ],
             }
-        offers = [
-            ComparedOffer(
-                offer_id=o.id,
-                store=o.store,
-                store_name=o.store_name,
-                price_paise=o.price_paise,
-                mrp_paise=o.mrp_paise,
-                discount_percent=o.discount_percent,
-                in_stock=o.in_stock,
-                is_best=o.is_best,
-                buy_path=o.buy_path,
-            )
-            for o in detail.offers
-        ]
-        back = Suggestion(id="back", label="Back to picks", action=Back())
-        return {
-            "persisted": p,
-            "components": [
-                StoreComparison(
-                    id="compare",
-                    props=StoreComparisonProps(
-                        product_id=detail.id, title=detail.title, offers=offers
+        slots = Slots.model_validate(p["slots"])
+        alternatives, look = await asyncio.gather(
+            self._alternatives(detail, slots), self._look(s, detail, slots)
+        )
+        components: list[Component] = [ProductDetail(id="detail", props=_detail_props(detail))]
+        if detail.offers:
+            components.append(_comparison(detail))
+        if alternatives:
+            title = "Similar, in stock now" if detail.min_price_paise is None else "Similar picks"
+            components.append(
+                ProductCarousel(
+                    id="similar",
+                    props=ProductCarouselProps(
+                        title=title, items=[_summary_card(a, []) for a in alternatives]
                     ),
-                ),
-                SuggestionBar(id="next", props=SuggestionBarProps(suggestions=[back, _RESTART])),
-            ],
-        }
+                )
+            )
+        if look is not None and look.items:
+            components.append(
+                CompleteTheLook(
+                    id="look",
+                    props=CompleteTheLookProps(
+                        title=look.title[:120],
+                        anchor_product_id=detail.id,
+                        items=[_summary_card(i.product, i.reasons) for i in look.items],
+                        remaining_budget_paise=look.remaining_paise,
+                    ),
+                )
+            )
+        if look is not None and (look.items or look.budget_paise is not None):
+            components.append(_look_slider(look))
+        back = Suggestion(id="back", label="Back to picks", action=Back())
+        components.append(
+            SuggestionBar(id="next", props=SuggestionBarProps(suggestions=[back, _RESTART]))
+        )
+        return {"persisted": p, "components": components}
+
+    async def _alternatives(self, detail: Detail, slots: Slots) -> list[ProductSummary]:
+        offers = [OfferView(o.store, o.price_paise, o.in_stock, o.rating) for o in detail.offers]
+        if not needs_alternatives(offers):
+            return []
+        # The request's budget applies only to what was asked for.
+        budget = slots.budget_max_paise if slots.category == detail.category else None
+        return await self._catalog.alternatives(
+            detail.id, max_price_paise=budget, limit=ALTERNATIVES
+        )
+
+    async def _look(self, s: _State, detail: Detail, slots: Slots) -> Look | None:
+        if self._looks is None:
+            return None
+        p = s["persisted"]
+        return await self._looks.complete(
+            detail.id,
+            budget_paise=p.get("look_budget"),
+            gender=slots.gender,
+            occasion=slots.occasion,
+            user_id=s.get("user_id"),
+            polish=self._ai is not None,
+        )
 
     # ---------- retrieval & personalization ----------
 
@@ -543,6 +585,105 @@ def _fill_gaps(base: Slots, ai: Slots) -> Slots:
     return base.model_copy(update=gaps)
 
 
+def _stays_on_detail(action: Action | None) -> bool:
+    """Opening another item, going back or setting the look budget keep the detail screen."""
+    return isinstance(action, CardOpen | Back) or (
+        isinstance(action, SliderSet) and action.component_id == "q_look_budget"
+    )
+
+
+def _detail_props(d: Detail) -> ProductDetailProps:
+    best = next((o for o in d.offers if o.is_best), None)
+    return ProductDetailProps(
+        product_id=d.id,
+        title=d.title[:160],
+        brand=d.brand[:40],
+        images=[i for i in d.images if i.startswith("https://")][:8],
+        price_paise=d.min_price_paise,
+        mrp_paise=best.mrp_paise if best else None,
+        rating=d.rating,
+        rating_count=d.rating_count,
+        colors=[c[:40] for c in d.colors][:10],
+        sizes=[z[:10] for z in d.sizes_available][:20],
+        facts=_facts(d.attributes),
+    )
+
+
+_FACT_SUFFIX = {
+    "fit": "fit",
+    "sleeve": "sleeve",
+    "rise": "rise",
+    "wash": "wash",
+    "length": "length",
+}
+
+
+def _facts(attributes: Mapping[str, str]) -> list[str]:
+    """Attribute values as short chips: "Cotton", "Slim fit", "Half sleeve"."""
+    facts = []
+    for key, value in sorted(attributes.items()):
+        if key == "occasion" or not value:
+            continue
+        suffix = _FACT_SUFFIX.get(key)
+        facts.append((f"{value} {suffix}" if suffix else value).capitalize()[:40])
+    return facts[:8]
+
+
+def _comparison(d: Detail) -> StoreComparison:
+    offers = [
+        ComparedOffer(
+            offer_id=o.id,
+            store=o.store,
+            store_name=o.store_name,
+            price_paise=o.price_paise,
+            mrp_paise=o.mrp_paise,
+            discount_percent=o.discount_percent,
+            in_stock=o.in_stock,
+            is_best=o.is_best,
+            buy_path=o.buy_path,
+        )
+        for o in d.offers
+    ]
+    return StoreComparison(
+        id="compare",
+        props=StoreComparisonProps(product_id=d.id, title=d.title[:160], offers=offers[:10]),
+    )
+
+
+def _look_slider(look: Look) -> BudgetSlider:
+    step = 10_000
+    if look.budget_paise is not None:
+        default = look.budget_paise  # show exactly what's applied
+    else:
+        default = -(-look.total_paise // step) * step  # suggest: this look, rounded up
+    default = min(LOOK_SLIDER_MAX_PAISE, default)
+    return BudgetSlider(
+        id="q_look_budget",
+        props=BudgetSliderProps(
+            label="Budget for the whole look",
+            min_paise=0,
+            max_paise=LOOK_SLIDER_MAX_PAISE,
+            step_paise=step,
+            default_min_paise=0,
+            default_max_paise=default,
+        ),
+    )
+
+
+def _summary_card(p: ProductSummary, reasons: list[str]) -> ProductCardProps:
+    return ProductCardProps(
+        product_id=p.id,
+        title=p.title[:160],
+        brand=p.brand[:40],
+        image_url=p.primary_image_url,
+        price_paise=p.min_price_paise,
+        best_store=p.best_store,
+        rating=p.rating,
+        rating_count=p.rating_count,
+        reasons=reasons[:3],
+    )
+
+
 def _prefill(slots: Slots, taste: Taste | None) -> Slots:
     """Style DNA answers the gender question up front; the request itself always wins."""
     if taste is None or taste.fit_preference is None or slots.gender is not None:
@@ -595,7 +736,7 @@ def _chips(
 
 
 def _budget_slider(slots: Slots) -> BudgetSlider:
-    typical = TYPICAL_BUDGET_PAISE.get(slots.category or "", 150_000)
+    typical = TYPICAL_PRICE_PAISE.get(slots.category or "", DEFAULT_TYPICAL_PRICE_PAISE)
     return BudgetSlider(
         id="q_budget",
         props=BudgetSliderProps(
@@ -682,6 +823,8 @@ def _apply_action(
         case CardOpen() as opened:
             _push(p)
             p["step"], p["detail"] = "detail", str(opened.product_id)
+        case SliderSet(component_id="q_look_budget") as look_budget:
+            p["look_budget"] = look_budget.max_paise or None  # 0 clears it
         case Shortcut(value="more"):
             p["page"] += 1
         case Shortcut(value="change_budget"):

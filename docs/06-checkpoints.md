@@ -23,7 +23,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP7 | GenUI protocol (backend) | S4 | ✅ |
 | CP8 | AI Stylist graph v1 | S5 | ✅ |
 | CP9 | Swipes, taste learning, Style DNA | S6, S7 | ✅ |
-| CP10 | Detail, store comparison, complete the look | S8 | ⬜ |
+| CP10 | Detail, store comparison, complete the look | S8 | ✅ |
 | CP11 | Boards, shares, polls | S9, S10, S13 | ⬜ |
 | CP12 | Uploads, shop from photo, virtual try-on | S11, S12 | ⬜ |
 | CP13 | Feed, notifications, price-drop alerts | S14, S15 | ⬜ |

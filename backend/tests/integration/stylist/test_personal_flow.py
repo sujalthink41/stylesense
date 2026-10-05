@@ -8,8 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stylesense.genui.actions import (
-    Action,
-    ActionRequest,
     Back,
     ChipSelect,
     Shortcut,
@@ -19,9 +17,7 @@ from stylesense.genui.components import (
     ChipQuestion,
     ImageChoiceGrid,
     InfoBanner,
-    ProductSwipeDeck,
 )
-from stylesense.genui.envelope import RenderEvent, UiEnvelope
 from stylesense.genui.validation import InvalidActionError
 from stylesense.infra.database import UnitOfWork
 from stylesense.integrations.embeddings.hashing import HashingEmbedder
@@ -35,85 +31,14 @@ from stylesense.modules.personalization.schemas import (
     SwipeReceipt,
     Taste,
 )
-from stylesense.modules.personalization.service import PersonalizationService
 from stylesense.modules.stylist.exceptions import DeckUnavailableError, SessionNotFoundError
-from stylesense.modules.stylist.flows.style_dna import StyleDnaFlow
 from stylesense.modules.stylist.flows.stylist import StylistFlow
-from stylesense.modules.stylist.schemas import SessionCreate
 from stylesense.modules.stylist.service import StylistService
-from stylesense.modules.users.models import User
 from tests.fakes.clock import FixedClock
+from tests.integration.stylist.driver import App, new_user
 
 REQUEST = "t-shirt for men under 1500"
 STYLE_TAG = "sports"  # ~19 tees: enough to like 10 and still have some left to rank
-
-
-class App:
-    """Plays the mobile app against a fully wired stylist (personalization on)."""
-
-    def __init__(self, sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID) -> None:
-        def uow() -> UnitOfWork:
-            return UnitOfWork(sessions)
-
-        self.personal = PersonalizationService(uow, embedder=HashingEmbedder(), clock=FixedClock())
-        catalog = CatalogService(uow, clock=FixedClock(), embedder=HashingEmbedder())
-        self.service = StylistService(
-            uow,
-            flows={
-                "stylist": StylistFlow(catalog, None, self.personal),
-                "style_dna": StyleDnaFlow(self.personal),
-            },
-            default_flow="stylist",
-            entry_flows={"onboarding": "style_dna"},
-            clock=FixedClock(),
-        )
-        self.user_id = user_id
-        self.screen: UiEnvelope | None = None
-        self.status = "active"
-
-    async def start(self, entry: str, value: str | None = None) -> UiEnvelope:
-        view = await self.service.start(
-            self.user_id, SessionCreate(entry=entry, value=value), client_version=1
-        )
-        self.screen = view.ui
-        return view.ui
-
-    async def send(self, action: Action) -> UiEnvelope:
-        assert self.screen is not None
-        stream = await self.service.act(
-            self.screen.session_id,
-            self.user_id,
-            ActionRequest(turn_id=self.screen.turn_id, action=action),
-            client_version=1,
-        )
-        renders = [e for e in [event async for event in stream] if isinstance(e, RenderEvent)]
-        self.screen = renders[-1].envelope
-        return self.screen
-
-    @property
-    def session_id(self) -> uuid.UUID:
-        assert self.screen is not None
-        return self.screen.session_id
-
-    def component(self, component_id: str) -> Any:
-        assert self.screen is not None
-        return next(c for c in self.screen.components if c.id == component_id)
-
-    def deck(self) -> ProductSwipeDeck:
-        assert self.screen is not None
-        return next(c for c in self.screen.components if isinstance(c, ProductSwipeDeck))
-
-    async def refill(self, *, exclude: list[uuid.UUID] | None = None, limit: int = 10) -> Any:
-        return await self.service.deck(
-            self.session_id, self.user_id, exclude=exclude or [], limit=limit
-        )
-
-
-async def _new_user(sessions: async_sessionmaker[AsyncSession]) -> uuid.UUID:
-    async with sessions() as s, s.begin():
-        user = User(email=f"{uuid.uuid4().hex}@example.com")
-        s.add(user)
-    return user.id
 
 
 async def _tags(
@@ -158,11 +83,11 @@ async def test_ten_right_swipes_on_one_style_shift_the_next_deck_towards_it(
     swiped = liked + skipped
 
     # Baseline: a user with no taste, same request, same items already out of the deck.
-    stranger = App(catalog_sessions, await _new_user(catalog_sessions))
+    stranger = App(catalog_sessions, await new_user(catalog_sessions), version=1)
     await _any_tshirt(stranger)
     before = await stranger.refill(exclude=swiped)
 
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await _any_tshirt(app)
     for product_id in liked:
         await app.personal.record_swipe(
@@ -194,7 +119,7 @@ async def test_ten_right_swipes_on_one_style_shift_the_next_deck_towards_it(
 async def test_swipe_actions_are_recorded_and_leave_the_deck(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.start("search", REQUEST)
     card = app.deck().props.cards[0]
 
@@ -212,7 +137,7 @@ async def test_swipe_actions_are_recorded_and_leave_the_deck(
 async def test_refill_skips_cards_the_app_already_holds(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.start("search", REQUEST)
     held = [c.product_id for c in app.deck().props.cards]
 
@@ -227,7 +152,7 @@ async def test_refill_skips_cards_the_app_already_holds(
 async def test_refill_is_unavailable_while_the_stylist_is_still_asking(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.start("occasion_tile", "party")
 
     with pytest.raises(DeckUnavailableError):
@@ -237,9 +162,9 @@ async def test_refill_is_unavailable_while_the_stylist_is_still_asking(
 async def test_refill_of_someone_elses_session_looks_missing(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.start("search", REQUEST)
-    intruder = await _new_user(catalog_sessions)
+    intruder = await new_user(catalog_sessions)
 
     with pytest.raises(SessionNotFoundError):
         await app.service.deck(app.session_id, intruder, exclude=[], limit=5)
@@ -251,7 +176,7 @@ async def test_refill_of_someone_elses_session_looks_missing(
 async def test_style_dna_answers_the_gender_question_up_front(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.personal.update_profile(user_id, StyleProfileUpdate(fit_preference="men"))
 
     await app.start("search", "summer t-shirt under 500")
@@ -262,7 +187,7 @@ async def test_style_dna_answers_the_gender_question_up_front(
 async def test_the_request_beats_style_dna(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.personal.update_profile(user_id, StyleProfileUpdate(fit_preference="men"))
 
     await app.start("search", "dress for my wife under 3000")
@@ -273,7 +198,7 @@ async def test_the_request_beats_style_dna(
 async def test_saved_size_filters_the_deck(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.personal.update_profile(
         user_id, StyleProfileUpdate(fit_preference="men", sizes=Sizes(top="XXL"))
     )
@@ -303,7 +228,7 @@ class SoldOutTaste:
 async def test_a_sold_out_size_falls_back_to_all_sizes(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     catalog = CatalogService(
         lambda: UnitOfWork(catalog_sessions), clock=FixedClock(), embedder=HashingEmbedder()
     )
@@ -325,7 +250,7 @@ async def test_a_sold_out_size_falls_back_to_all_sizes(
 async def test_onboarding_with_taps_only_saves_style_dna(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
 
     await app.start("onboarding")
     assert isinstance(app.component("q_fit"), ChipQuestion)
@@ -353,7 +278,7 @@ async def test_onboarding_with_taps_only_saves_style_dna(
 async def test_onboarding_back_undoes_the_last_answer(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.start("onboarding")
     await app.send(ChipSelect(component_id="q_fit", option_ids=["men"]))
 
@@ -368,7 +293,7 @@ async def test_onboarding_back_undoes_the_last_answer(
 async def test_onboarding_rejects_styles_that_were_not_offered_or_too_many(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.start("onboarding")
     await app.send(Shortcut(value="skip"))
 
@@ -380,7 +305,7 @@ async def test_onboarding_rejects_styles_that_were_not_offered_or_too_many(
 async def test_abandoned_onboarding_saves_nothing(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
-    app = App(catalog_sessions, user_id)
+    app = App(catalog_sessions, user_id, version=1)
     await app.start("onboarding")
     await app.send(ChipSelect(component_id="q_fit", option_ids=["men"]))
 

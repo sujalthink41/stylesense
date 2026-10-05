@@ -1,11 +1,30 @@
 """Pure catalog rules: no I/O, so they're cheap to test exhaustively."""
 
 import hashlib
+import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Protocol
 from urllib.parse import urlsplit
 
 _MAX_DISCOUNT = 99
+MIN_STORES_TO_COMPARE = 2  # fewer in-stock stores than this: also show similar items
+
+# What a category usually costs (paise): slider defaults and per-piece caps for looks.
+TYPICAL_PRICE_PAISE: dict[str, int] = {
+    "tshirt": 100_000,
+    "shirt": 150_000,
+    "jeans": 200_000,
+    "trousers": 150_000,
+    "kurta": 200_000,
+    "dress": 250_000,
+    "top": 100_000,
+    "shorts": 100_000,
+    "sneakers": 300_000,
+    "jacket": 300_000,
+    "hoodie": 150_000,
+}
+DEFAULT_TYPICAL_PRICE_PAISE = 150_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +55,39 @@ def best_offer[O: OfferView](offers: Sequence[O]) -> O | None:
     if not in_stock:
         return None
     return min(in_stock, key=lambda o: (o.price_paise, -(o.rating or 0), o.store))
+
+
+def needs_alternatives(offers: Sequence[OfferView]) -> bool:
+    """Exact comparison is enough only when several stores have it in stock."""
+    return sum(o.in_stock for o in offers) < MIN_STORES_TO_COMPARE
+
+
+class Priced(Protocol):
+    @property
+    def id(self) -> uuid.UUID: ...
+
+    @property
+    def min_price_paise(self) -> int | None: ...
+
+
+def pick_alternatives[P: Priced](
+    anchor_id: uuid.UUID, candidates: Sequence[P], *, max_price_paise: int | None, limit: int
+) -> list[P]:
+    """Similar items (in similarity order) that can be bought now, within budget, never the
+    item itself, each at most once."""
+    picked: list[P] = []
+    seen = {anchor_id}
+    for candidate in candidates:
+        price = candidate.min_price_paise
+        if candidate.id in seen or price is None:
+            continue
+        if max_price_paise is not None and price > max_price_paise:
+            continue
+        picked.append(candidate)
+        seen.add(candidate.id)
+        if len(picked) == limit:
+            break
+    return picked
 
 
 def discount_percent(price_paise: int, mrp_paise: int | None) -> int:

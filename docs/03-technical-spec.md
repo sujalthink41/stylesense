@@ -171,7 +171,7 @@ Action types: `chip_select`, `slider_set`, `swipe` (`left`/`right`/`super`), `ca
 - **Actions are validated against the rendered screen** before the turn runs (`422 invalid_action`).
 - **`GET /v1/stylist/sessions/{id}`** returns the latest screen, the resume point after a dropped stream.
 
-### 5.4 Component catalog v1
+### 5.4 Component catalog (v2 since CP10)
 
 | Type | Purpose |
 |---|---|
@@ -180,11 +180,11 @@ Action types: `chip_select`, `slider_set`, `swipe` (`left`/`right`/`super`), `ca
 | `image_choice_grid` | Pick styles visually (Style DNA, "which vibe?") |
 | `product_swipe_deck` | Stack of product cards for swiping (cards carry `reasons` = why this pick) |
 | `product_card` | Single product with price, store, rating, why-this-pick |
-| `product_detail` | Full detail: images, sizes, offers, actions |
+| `product_detail` *(v2)* | Full detail: images, price/MRP, rating, colours, sizes, fact chips |
+| `product_carousel` *(v2)* | Titled rail of product cards (e.g. "Similar picks" when few stores stock an item) |
 | `store_comparison` | Offers across stores, best price highlighted |
-| `why_this_pick` | Attribute-based reason chips |
-| `complete_the_look` | Horizontal rail of matching items with a budget meter |
-| `tryon_result`, `poll_card`, `share_card` | Added in CP12/CP11 as catalog v2 |
+| `complete_the_look` | Matching pieces for an anchor item, with the look budget left |
+| `tryon_result`, `poll_card`, `share_card` | Added in CP11/CP12 (catalog v3) |
 | `loading_skeleton` | Placeholder shown while a turn is computed |
 | `suggestion_bar` | Next-step quick actions |
 | `info_banner` | Small notice (e.g. "Showing similar items, exact match not found") |
@@ -237,7 +237,9 @@ Required slots (v1): `category`, `gender`, `budget`, asked in that order. Option
 
 **Evals:** `stylist/evals/understand_golden.jsonl` (~50 intents); `python -m stylesense.cli eval-understand --engine rules|llm`. Bar: ≥ 90% field accuracy.
 
-Other graphs: `photo_search` (vision → attributes → retrieve), `complete_the_look`, `trending_curation` (offline, cron).
+Other graphs: `photo_search` (vision → attributes → retrieve), `trending_curation` (offline, cron).
+
+**Detail screen** *(CP10, ADR 0014)*: `card_open` → `product_detail` + `store_comparison` (exact product, one best offer) + `product_carousel` "Similar picks" when < 2 stores stock it + `complete_the_look` + a whole-look `budget_slider` (`q_look_budget`). Complete-the-look is rules: slots per category, colour harmony, occasion fit (casual/dressy never mix), exact best combination within budget; `look.complete` only words it.
 
 ### 6.2 LLM Gateway (provider-agnostic)
 
@@ -260,7 +262,7 @@ result = await gateway.run(
 | `stylist.smart_options` | OpenAI small model | rare |
 | `stylist.explain` | OpenAI small model | batched |
 | `photo.understand` | OpenAI vision-capable model | image → attributes |
-| `look.complete` | OpenAI mid model | outfit reasoning |
+| `look.complete` | OpenAI small model | words a rule-built look (title + reasons); never picks pieces |
 | `embed.text` | OpenAI embeddings model | catalog + queries |
 
 Each task config holds: `targets[]` (`provider:model`, primary first, then fallbacks), `temperature`, `max_input_tokens`, `max_output_tokens`, `timeout_s`, `cache_ttl_s`, `enabled`. Prompts and `prompt_version` live in code (`TaskSpec`); prices live in `llm_models` and are required (ADR 0009).
@@ -352,7 +354,7 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 | Auth | `POST /auth/google` (ID token → access+refresh), `POST /auth/refresh`, `POST /auth/logout` |
 | Me | `GET/PATCH /me`, `GET/PUT /me/style-profile`, `GET /me/style-profile/options`, `POST /me/swipes`, `PUT /me/devices/{installation_id}`, `POST /me/export`, `DELETE /me` |
 | Stylist | `POST /stylist/sessions`, `GET /stylist/sessions/{id}`, `POST /stylist/sessions/{id}/actions` (SSE response, ADR 0011), `GET /stylist/sessions/{id}/deck` (refill) |
-| Catalog | `GET /products/{id}`, `GET /products/{id}/offers`, `GET /products/{id}/complete-look` |
+| Catalog | `GET /products`, `GET /products/{id}` (offers included, ETag), `GET /products/{id}/similar`, `GET /products/{id}/alternatives`, `GET /products/{id}/complete-look?budget_paise=` (rules only, ETag), `GET /out/{offer_id}` |
 | Photo | `POST /uploads` (presigned), `POST /photo-search` |
 | Try-on | `POST /tryon`, `GET /tryon/{id}` |
 | Boards | `GET/POST /boards`, `PATCH/DELETE /boards/{id}`, `POST/DELETE /boards/{id}/items` |

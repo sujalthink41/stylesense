@@ -28,6 +28,7 @@ from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
 from stylesense.modules.catalog.ports import Embedder
 from stylesense.modules.catalog.service import CatalogService
+from stylesense.modules.looks.service import LookService
 from stylesense.modules.personalization.service import (
     PersonalizationMetrics,
     PersonalizationService,
@@ -78,6 +79,7 @@ class Container:
     llm_providers: tuple[str, ...]
     catalog: CatalogService
     personalization: PersonalizationService
+    looks: LookService
     stylist: StylistService
     closers: tuple[Closer, ...] = ()
     closed: bool = field(default=False, init=False)
@@ -177,10 +179,11 @@ def build_container(
         clock=clock,
         metrics=PersonalizationMetrics(telemetry.registry) if telemetry.registry else None,
     )
+    looks = LookService(catalog, gateway)
     stylist = StylistService(
         uow,
         flows={
-            "stylist": StylistFlow(catalog, gateway, personalization),
+            "stylist": StylistFlow(catalog, gateway, personalization, looks),
             "style_dna": StyleDnaFlow(personalization),
             # Kept so sessions started on it keep working.
             "demo": DemoFlow(catalog),
@@ -215,6 +218,7 @@ def build_container(
         llm_providers=tuple(sorted(chat)),
         catalog=catalog,
         personalization=personalization,
+        looks=looks,
         stylist=stylist,
         # In-flight stylist turns finish (and persist) before connections close.
         closers=(stylist.wait_for_turns, *closers),

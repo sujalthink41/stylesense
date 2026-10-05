@@ -218,7 +218,8 @@ async def test_opening_a_card_shows_store_prices_and_back_returns(
     product = app.deck().props.cards[0].product_id
 
     await app.send(CardOpen(component_id="deck", product_id=product))
-    assert app.types()[0] == "store_comparison"
+    # A v1 app can't draw product_detail (v2): it gets an update banner in that slot.
+    assert app.types()[:2] == ["info_banner", "store_comparison"]
 
     await app.send(Back())
     assert "product_swipe_deck" in app.types()

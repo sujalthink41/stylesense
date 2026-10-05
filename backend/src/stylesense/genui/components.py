@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from stylesense.genui.actions import Action
 
-CATALOG_VERSION = 1
+CATALOG_VERSION = 2  # v2 (CP10): product_detail, product_carousel
 
 ComponentId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,39}$")]
 OptionId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,39}$")]
@@ -92,6 +92,30 @@ class ProductSwipeDeckProps(_Props):
     title: ShortText | None = None
     cards: list[ProductCardProps] = Field(min_length=1, max_length=20)
     has_more: bool = False
+
+
+class ProductDetailProps(_Props):
+    product_id: uuid.UUID
+    title: Annotated[str, Field(min_length=1, max_length=160)]
+    brand: Label
+    images: list[Annotated[str, Field(pattern=r"^https://", max_length=500)]] = Field(
+        default_factory=list, max_length=8
+    )
+    price_paise: Paise | None  # best in-stock price; None = out of stock everywhere
+    mrp_paise: Paise | None = None
+    rating: float | None = Field(default=None, ge=0, le=5)
+    rating_count: int = Field(default=0, ge=0)
+    colors: list[Label] = Field(default_factory=list, max_length=10)
+    sizes: list[Annotated[str, Field(min_length=1, max_length=10)]] = Field(
+        default_factory=list, max_length=20
+    )
+    facts: list[Label] = Field(default_factory=list, max_length=8)  # "Cotton", "Slim fit"
+    reasons: list[Label] = Field(default_factory=list, max_length=3)
+
+
+class ProductCarouselProps(_Props):
+    title: ShortText
+    items: list[ProductCardProps] = Field(min_length=1, max_length=10)
 
 
 class ComparedOffer(_Props):
@@ -185,6 +209,16 @@ class ProductSwipeDeck(_Component):
     props: ProductSwipeDeckProps
 
 
+class ProductDetail(_Component):
+    type: Literal["product_detail"] = "product_detail"
+    props: ProductDetailProps
+
+
+class ProductCarousel(_Component):
+    type: Literal["product_carousel"] = "product_carousel"
+    props: ProductCarouselProps
+
+
 class StoreComparison(_Component):
     type: Literal["store_comparison"] = "store_comparison"
     props: StoreComparisonProps
@@ -228,6 +262,8 @@ Component = Annotated[
     | ProductSwipeDeck
     | StoreComparison
     | CompleteTheLook
+    | ProductDetail
+    | ProductCarousel
     | SuggestionBar
     | InfoBanner
     | EmptyState
@@ -254,3 +290,4 @@ INTRODUCED_IN: dict[str, int] = dict.fromkeys(
     ),
     1,
 )
+INTRODUCED_IN |= {"product_detail": 2, "product_carousel": 2}

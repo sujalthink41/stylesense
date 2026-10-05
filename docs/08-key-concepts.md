@@ -377,3 +377,18 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 96. Soft filters with a fallback
 **What:** the saved size is a SQL filter, but if it leaves nothing, the search runs again without it. **Why:** an empty screen is worse than a near miss.
+
+## 97. Property-based testing
+**What:** instead of a few hand-picked examples, state a rule ("a look never costs more than the budget") and let Hypothesis generate hundreds of random catalogs and budgets trying to break it; when one does, it shrinks it to the smallest failing case. **Why:** money and budget promises must hold for inputs nobody thought of.
+
+## 98. Constrained search (a tiny knapsack)
+**What:** choose at most one piece per slot to maximise the total score without exceeding the budget. With a shortlist of ~9 per slot and ≤ 3 slots, trying every combination (~1,000) is instant and exact. **Why:** greedy "best piece first" can blow the budget on one item and leave the others empty.
+
+## 99. Fallback content
+**What:** when the exact thing can't be offered (only one store stocks it, or it's sold out), show the next best thing (similar items in stock) instead of a dead end. **Why:** every screen should give the user a next step.
+
+## 100. Schema evolution with version negotiation
+**What:** new components ship as catalog v2; the server swaps them for an "update the app" banner for v1 apps, in the same slot, so old apps keep working. **Why:** mobile users update slowly; the backend must serve several app versions at once.
+
+## 101. LLM as copywriter, not decider
+**What:** code chooses products and prices; the model may only rename and rephrase, and its output can't introduce new ids. **Why:** a hallucinated price or product is a broken promise; wording is low-risk.
