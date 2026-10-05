@@ -42,6 +42,16 @@ class CatalogRepository:
         )
         return product
 
+    async def products_by_ids(self, ids: Sequence[uuid.UUID]) -> list[Product]:
+        if not ids:
+            return []
+        stmt = (
+            select(Product)
+            .where(Product.id.in_(ids), Product.active)
+            .options(selectinload(Product.offers).selectinload(Offer.store))
+        )
+        return list((await self._s.scalars(stmt)).all())
+
     async def list_products(self, f: ProductFilters, after: uuid.UUID | None) -> list[Product]:
         stmt = (
             select(Product)

@@ -392,3 +392,21 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 101. LLM as copywriter, not decider
 **What:** code chooses products and prices; the model may only rename and rephrase, and its output can't introduce new ids. **Why:** a hallucinated price or product is a broken promise; wording is low-risk.
+
+## 102. Optimistic locking (ETag / If-Match)
+**What:** every board carries a version. Reads return it as `ETag`; edits send it back as `If-Match`. If someone changed the board in between, the edit is refused with 412 and the current version, instead of silently overwriting. **Why:** a phone and a tablet editing the same board shouldn't lose each other's changes, and locking rows across a user's think time is impossible.
+
+## 103. Lost update
+**What:** two writers read version 3, both write, and the second erases the first. Optimistic locking (check the version at write time) or pessimistic locking (`FOR UPDATE` during the write) prevents it; boards use both: the row lock serialises writes and the version catches edits based on stale reads.
+
+## 104. Client-generated ids for idempotent creates
+**What:** the app picks the new board's or poll's UUID itself. Retrying the same create finds the existing row instead of making a second one. **Why:** offline-first apps queue writes and replay them; the id is the idempotency key for free.
+
+## 105. Unguessable public links
+**What:** share and poll links use 8 random characters from 62 (≈ 2·10¹⁴ possibilities), so links can't be enumerated. **Why:** the link is the only access control for content shared on WhatsApp.
+
+## 106. Pseudonymisation with HMAC
+**What:** store `HMAC(key, ip)` instead of the IP. Equal inputs still match (to spot duplicates), but without the server key the table reveals nothing, and unlike a plain hash it can't be brute-forced over the small space of IPv4 addresses. **Why:** collect only what anti-abuse needs (data minimisation).
+
+## 107. Layered anti-abuse
+**What:** a unique key (one vote per device), a per-poll-per-network cap and per-IP rate limits each stop a different kind of abuse; none alone is enough. **Why:** cheap defences in depth beat one expensive one (CAPTCHAs) for low-stakes features.

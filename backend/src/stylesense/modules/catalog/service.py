@@ -189,6 +189,17 @@ class CatalogService:
                 raise ProductNotFoundError
             return _detail(product)
 
+    async def summaries(self, ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, ProductSummary]:
+        """Active products by id (one query); missing or inactive ids are simply absent."""
+        async with self._uow() as uow:
+            products = await CatalogRepository(uow.session).products_by_ids(
+                list(dict.fromkeys(ids))
+            )
+            return {p.id: _summary(p) for p in products}
+
+    async def exists(self, product_id: uuid.UUID) -> bool:
+        return bool(await self.summaries([product_id]))
+
     async def list_products(self, filters: ProductFilters) -> ProductPage:
         after = _decode_cursor(filters.cursor) if filters.cursor else None
         async with self._uow() as uow:

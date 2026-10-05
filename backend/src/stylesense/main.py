@@ -81,8 +81,17 @@ def create_app(
             CORSMiddleware,
             allow_origins=settings.cors_origins,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-            allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
-            expose_headers=["X-Request-ID", "Retry-After"],
+            allow_headers=[
+                "Authorization",
+                "Content-Type",
+                "Idempotency-Key",
+                "If-Match",
+                "If-None-Match",
+                "X-Request-ID",
+                "X-GenUI-Version",
+                "X-Voter-Token",
+            ],
+            expose_headers=["X-Request-ID", "Retry-After", "ETag", "X-RateLimit-Remaining"],
         )
     # Probes stay exempt: a busy instance is still alive and must not be restarted.
     app.add_middleware(

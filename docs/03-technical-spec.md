@@ -303,7 +303,8 @@ Providers are registered adapters (`openai`, `anthropic`, `google`, `ollama`, �
 | Per user AI actions | 30/hour, 150/day | token bucket |
 | Per user photo searches | 10/day | fixed daily counter |
 | Per user try-ons | 3/day free | fixed daily counter |
-| Poll votes | 1 per device per poll, 30/min per IP | unique + sliding window |
+| Public pages (share, poll) | 120/min per IP | sliding window |
+| Poll votes | 1 per device token per poll; 25 new votes per IP per poll per day; 30/min per IP | unique + sliding windows (ADR 0015) |
 | **Global AI budget** | Daily USD cap (e.g. $X) | Running cost sum in Redis. At 80%: alert. At 100%: switch every task to its cheapest fallback or degraded mode; try-on paused. |
 
 Responses include `X-RateLimit-Remaining` / `Retry-After`. The client renders a friendly `info_banner`, never a raw error.
@@ -342,8 +343,9 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 - **Style DNA** *(built, CP9)*: a tap-only onboarding flow (`entry: onboarding`): fit preference → up to 3 style images → top / waist / shoe size, every step skippable, saved once at the end. Picks seed the taste vector (embedding of the style's description) and tag affinity; fit preference prefills the stylist's gender question and the saved size filters decks (falls back to all sizes when nothing is left).
 - **Shop from photo:** upload → MinIO (private) → moderation → `photo.understand` (vision → attributes JSON) → embedding → retrieve + rank → UI.
 - **Virtual try-on:** `POST /v1/tryon` → job row + outbox message → worker → `TryOnProvider` adapter → result to MinIO → push + SSE patch. Selfies and results are deleted after 24 h (cron). Signed URLs expire in 15 min.
-- **Polls:** create from 2–4 items → public URL `https://<domain>/p/{slug}` → web vote page (Next.js, no login; device cookie + rate limit). The owner sees live results in the app.
-- **Share a look:** rendered on device with view-shot. Deep link `https://<domain>/l/{slug}` (Android App Links; falls back to the web page + Play Store link).
+- **Polls** *(built, CP11)*: create from 2–4 items → public URL `https://<domain>/p/{slug}` → web vote page (Next.js, no login). The page keeps a random voter token and sends `X-Voter-Token` (no cross-site cookies); one vote per token per poll, per-IP caps; tokens and IPs stored as HMAC pseudonyms. Results are hidden until you vote; the owner sees live results. ADR 0015.
+- **Share a look** *(API built, CP11)*: the card image is rendered on device (view-shot); the link `https://<domain>/l/{slug}` (Android App Links; falls back to the web page + Play Store link) comes from `POST /shares`, idempotent by content. The public page shows products with live prices, nothing about the owner; revoked → 410.
+- **Boards** *(built, CP11)*: one wishlist per user (alias `wishlist`, created on first use) + up to 50 outfit boards of ≤ 200 items. Optimistic locking: `ETag`/`If-Match` on renames and reorders (428 without, 412 if stale); saves and removes are idempotent.
 - **Trending feed:** a nightly cron builds curated collections (rules + an optional LLM title). The admin can pin or curate.
 - **Price-drop alerts:** `price_snapshots` written on every offer refresh. A cron compares wishlisted offers; a drop ≥ threshold → notification + push. In v1 mock prices are changed from the admin to simulate drops.
 
@@ -357,8 +359,9 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 | Catalog | `GET /products`, `GET /products/{id}` (offers included, ETag), `GET /products/{id}/similar`, `GET /products/{id}/alternatives`, `GET /products/{id}/complete-look?budget_paise=` (rules only, ETag), `GET /out/{offer_id}` |
 | Photo | `POST /uploads` (presigned), `POST /photo-search` |
 | Try-on | `POST /tryon`, `GET /tryon/{id}` |
-| Boards | `GET/POST /boards`, `PATCH/DELETE /boards/{id}`, `POST/DELETE /boards/{id}/items` |
-| Polls | `POST /polls`, `GET /polls/{id}`, public: `GET /public/polls/{slug}`, `POST /public/polls/{slug}/vote` |
+| Boards | `GET/POST /boards`, `GET/PATCH/DELETE /boards/{id\|wishlist}`, `PUT/DELETE /boards/{id}/items/{product_id}`, `PUT /boards/{id}/order` |
+| Shares | `POST/GET /shares`, `DELETE /shares/{slug}`, public: `GET /public/shares/{slug}` |
+| Polls | `POST/GET /polls`, `GET /polls/{id}`, `POST /polls/{id}/close`, public: `GET /public/polls/{slug}`, `POST /public/polls/{slug}/votes` (`X-Voter-Token`) |
 | Feed | `GET /feed` |
 | Alerts | `GET /notifications`, `POST /notifications/read`, `PUT /price-alerts/{offer_id}` |
 | Outbound | `GET /out/{offer_id}` |
