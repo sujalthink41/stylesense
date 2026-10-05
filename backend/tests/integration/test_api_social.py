@@ -273,3 +273,44 @@ def test_public_pages_are_rate_limited_per_ip(client: TestClient) -> None:
 
     assert statuses[:limit] == [200] * limit
     assert statuses[limit] == 429
+
+
+# ---------- public web pages ----------
+
+
+def test_share_page_renders_products_with_tracked_store_links(client: TestClient) -> None:
+    headers = _auth(client)
+    ids = _products(client, 2)
+    share = client.post(
+        "/v1/shares",
+        json={"kind": "look", "title": "Date <night>", "product_ids": ids},
+        headers=headers,
+    ).json()
+
+    page = client.get(f"/l/{share['slug']}")
+
+    assert page.status_code == 200
+    assert page.headers["content-type"].startswith("text/html")
+    assert "Date &lt;night&gt;" in page.text  # escaped, never raw
+    assert 'property="og:title"' in page.text
+    assert page.text.count('class="card"') == 2
+    assert "/v1/out/" in page.text
+    assert "src=share" in page.text
+    assert "meera" not in page.text
+
+    client.delete(f"/v1/shares/{share['slug']}", headers=headers)
+    gone = client.get(f"/l/{share['slug']}")
+    assert gone.status_code == 410
+    assert "expired" in gone.text
+
+
+def test_poll_page_lists_options_and_ships_the_vote_script(client: TestClient) -> None:
+    poll = _poll(client, _auth(client))
+
+    page = client.get(f"/p/{poll['slug']}")
+
+    assert page.status_code == 200
+    assert page.text.count('class="option"') == 3
+    assert "X-Voter-Token" in page.text
+    assert client.get("/p/NoSuchPoll1").status_code == 404
+    assert client.get("/p/bad slug").status_code in {404, 422}

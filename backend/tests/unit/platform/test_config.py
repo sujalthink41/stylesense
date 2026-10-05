@@ -151,3 +151,14 @@ def test_media_needs_all_three_cloudinary_values_and_blanks_mean_unset() -> None
     assert make_settings(**full).media_configured is True
     assert make_settings(**{**full, "cloudinary_api_secret": "  "}).media_configured is False
     assert make_settings().media_configured is False
+
+
+def test_openai_try_on_needs_a_key_and_a_configured_model() -> None:
+    with pytest.raises(ValidationError, match="tryon_openai_model"):
+        make_settings(tryon_provider="openai", openai_api_key="sk-test")
+    with pytest.raises(ValidationError, match="openai_api_key"):
+        make_settings(tryon_provider="openai", tryon_openai_model="image-model")
+    ok = make_settings(
+        tryon_provider="openai", openai_api_key="sk-test", tryon_openai_model="image-model"
+    )
+    assert ok.tryon_openai_quality == "medium"

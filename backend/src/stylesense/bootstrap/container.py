@@ -26,6 +26,7 @@ from stylesense.integrations.llm.anthropic_provider import AnthropicProvider
 from stylesense.integrations.llm.openai_provider import OpenAIProvider
 from stylesense.integrations.media.cloudinary import CloudinaryStore
 from stylesense.integrations.tryon.fake import FakeTryOnProvider
+from stylesense.integrations.tryon.openai_images import OpenAIImageTryOn
 from stylesense.modules.auth.ports import IdentityVerifier
 from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
@@ -300,7 +301,20 @@ def _media_store(settings: Settings) -> MediaStore | None:
 
 
 def _tryon_provider(settings: Settings) -> TryOnProvider | None:
-    return FakeTryOnProvider() if settings.tryon_provider == "fake" else None
+    if settings.tryon_provider == "fake":
+        return FakeTryOnProvider()
+    if (
+        settings.tryon_provider == "openai"
+        and settings.openai_api_key
+        and settings.tryon_openai_model
+    ):
+        return OpenAIImageTryOn(
+            api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.tryon_openai_model,
+            quality=settings.tryon_openai_quality,
+            cost_micro_usd=settings.tryon_cost_micro_usd,
+        )
+    return None
 
 
 def _llm_providers(

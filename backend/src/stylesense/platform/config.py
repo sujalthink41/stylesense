@@ -112,8 +112,12 @@ class Settings(BaseSettings):
     media_ttl_hours: int = Field(default=24, ge=1, le=168)  # user photos are deleted after this
     upload_daily_limit: int = Field(default=30, ge=1, le=1_000)  # per user
     photo_search_daily_limit: int = Field(default=10, ge=1, le=1_000)  # per user
-    # Virtual try-on. "fake" returns the garment image (local testing only); "none" = off.
-    tryon_provider: Literal["none", "fake"] = "none"
+    # Virtual try-on. "fake" returns the garment image (local testing only); "none" = off;
+    # "openai" = image editing with the OpenAI key (model and per-image cost from settings).
+    tryon_provider: Literal["none", "fake", "openai"] = "none"
+    tryon_openai_model: str | None = None
+    tryon_openai_quality: Literal["low", "medium", "high"] = "medium"
+    tryon_cost_micro_usd: int = Field(default=0, ge=0)  # per image, for the spend ledger
     tryon_daily_limit: int = Field(default=3, ge=0, le=100)  # per user
     tryon_global_daily_limit: int = Field(default=200, ge=0, le=100_000)  # paid: hard cap
 
@@ -152,6 +156,10 @@ class Settings(BaseSettings):
             raise ValueError("developer sign-in must never be enabled in production")
         if self.env is Environment.PRODUCTION and self.tryon_provider == "fake":
             raise ValueError("the fake try-on provider must never serve real users")
+        if self.tryon_provider == "openai" and not (
+            self.openai_api_key and self.tryon_openai_model
+        ):
+            raise ValueError("tryon_provider=openai needs openai_api_key and tryon_openai_model")
         return self
 
     @property
