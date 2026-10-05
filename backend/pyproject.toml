@@ -116,6 +116,7 @@ layers = [
   "stylesense.bootstrap",
   "(stylesense.integrations)",
   "(stylesense.modules)",
+  "(stylesense.genui)",
   "(stylesense.ai)",
   "(stylesense.guards)",
   "stylesense.infra",

@@ -20,7 +20,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP4 | Auth & accounts | S1 | ✅ |
 | CP5 | Catalog & mock data | S2 | ✅ |
 | CP6 | LLM gateway & AI guardrails | S3 | ✅ |
-| CP7 | GenUI protocol (backend) | S4 | ⬜ |
+| CP7 | GenUI protocol (backend) | S4 | ✅ |
 | CP8 | AI Stylist graph v1 | S5 | ⬜ |
 | CP9 | Swipes, taste learning, Style DNA | S6, S7 | ⬜ |
 | CP10 | Detail, store comparison, complete the look | S8 | ⬜ |

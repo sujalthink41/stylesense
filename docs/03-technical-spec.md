@@ -155,17 +155,21 @@ The server decides **what UI to show next**. The client is a **renderer** of a f
 
 SSE event types: `ui.render`, `ui.patch` (update one component's props, e.g. a loading → loaded card), `ui.loading` (skeleton placeholders), `session.state`, `error`, `done`.
 
-### 5.3 Client → server: action
+### 5.3 Client → server: action *(built, ADR 0011)*
 
 ```json
 POST /v1/stylist/sessions/{session_id}/actions
-{ "turn_id": 7, "idempotency_key": "uuid", "action": {"type": "chip_select", "component_id": "c_budget", "value": ["lt500"]} }
+Accept: text/event-stream          (or application/json for a single final response)
+X-GenUI-Version: 1
+{ "turn_id": 7, "action": {"type": "chip_select", "component_id": "c_budget", "option_ids": ["lt500"]} }
 ```
 
-Action types: `chip_select`, `slider_set`, `swipe` (`left`/`right`/`super`), `card_open`, `text_input`, `photo_input`, `shortcut`, `back`, `restart`.
+Action types: `chip_select`, `slider_set`, `swipe` (`left`/`right`/`super`), `card_open`, `text_input`, `shortcut`, `back`, `restart`.
 
-- `turn_id` guards against stale taps (an action on an old turn is rejected with `409`).
-- `idempotency_key` makes retries safe on flaky mobile networks.
+- **The response is the turn's SSE stream:** `ui.loading` (skeletons) → `ui.render` (the new screen) → `done`, or `error` + a safe fallback screen.
+- **`turn_id` compare-and-swap** guards against stale taps and double submits: exactly one request advances a turn; others get `409 stale_turn`/`session_busy` with `current_turn`.
+- **Actions are validated against the rendered screen** before the turn runs (`422 invalid_action`).
+- **`GET /v1/stylist/sessions/{id}`** returns the latest screen, the resume point after a dropped stream.
 
 ### 5.4 Component catalog v1
 
@@ -174,15 +178,14 @@ Action types: `chip_select`, `slider_set`, `swipe` (`left`/`right`/`super`), `ca
 | `chip_question` | Single/multi choice chips, optional custom text |
 | `budget_slider` | Min–max ₹ range |
 | `image_choice_grid` | Pick styles visually (Style DNA, "which vibe?") |
-| `product_swipe_deck` | Stack of product cards for swiping |
+| `product_swipe_deck` | Stack of product cards for swiping (cards carry `reasons` = why this pick) |
 | `product_card` | Single product with price, store, rating, why-this-pick |
 | `product_detail` | Full detail: images, sizes, offers, actions |
 | `store_comparison` | Offers across stores, best price highlighted |
 | `why_this_pick` | Attribute-based reason chips |
 | `complete_the_look` | Horizontal rail of matching items with a budget meter |
-| `tryon_result` | Try-on image + status (pending/done/failed) |
-| `poll_card` | Create or view a friend poll |
-| `share_card` | Outfit card for sharing |
+| `tryon_result`, `poll_card`, `share_card` | Added in CP12/CP11 as catalog v2 |
+| `loading_skeleton` | Placeholder shown while a turn is computed |
 | `suggestion_bar` | Next-step quick actions |
 | `info_banner` | Small notice (e.g. "Showing similar items, exact match not found") |
 | `empty_state` | Nothing found + recovery chips |

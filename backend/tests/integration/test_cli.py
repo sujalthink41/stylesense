@@ -4,7 +4,8 @@ import json
 import pytest
 from sqlalchemy import text
 
-from stylesense.cli import main, seed_catalog
+from stylesense.bootstrap.container import build_container
+from stylesense.cli import dev_token, main, seed_catalog
 from stylesense.infra.database import create_engine
 from stylesense.platform.config import Settings
 
@@ -83,3 +84,25 @@ def _json_chunks(out: str) -> list[str]:
             if depth == 0:
                 chunks.append(out[start : i + 1])
     return chunks
+
+
+async def test_dev_token_issues_working_tokens_for_a_local_user(
+    settings: Settings, migrated: None
+) -> None:
+    result = await dev_token(settings, email="Dev@Example.com")
+
+    container = build_container(settings)
+    try:
+        claims = container.token_codec.decode(result["access_token"])
+        profile = await container.users.get_active(claims.user_id)
+        assert profile.email == "dev@example.com"
+        assert await container.auth.refresh(result["refresh_token"])  # a real, rotatable session
+    finally:
+        await container.aclose()
+    again = await dev_token(settings, email="dev@example.com")
+    assert again["user_id"] == result["user_id"]  # same user on repeat
+
+
+async def test_dev_token_refuses_production(settings: Settings) -> None:
+    with pytest.raises(SystemExit, match="production"):
+        await dev_token(settings.model_copy(update={"env": "production"}), email="x@example.com")

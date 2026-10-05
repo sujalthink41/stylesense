@@ -155,7 +155,7 @@ main → api → bootstrap → modules → guards → infra → platform
 ### 6.1 Where idempotency is required
 | Operation | Mechanism |
 |---|---|
-| Stylist actions (`POST …/actions`) | `Idempotency-Key` header → stored response in Redis (10 min) + `turn_id` stale guard |
+| Stylist actions (`POST …/actions`) | `turn_id` compare-and-swap on the session row (ADR 0011); duplicates get 409 + snapshot |
 | Create stylist session, poll, share, try-on, upload completion | `Idempotency-Key` header (24 h) |
 | Add item to board | Natural key `UNIQUE(board_id, product_id)` → upsert |
 | Poll vote | Natural key `UNIQUE(poll_id, voter_fingerprint)` |
