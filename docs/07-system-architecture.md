@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP8 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. All AI access goes through a provider-agnostic gateway with routing, fallbacks, breakers, budgets and metering; The generative-UI protocol is live: sessions stream typed UI components turn by turn. The AI stylist drives them: it understands requests with rules (the LLM only fills gaps), asks at most one tappable question per missing slot, and returns ranked, in-budget products with reasons, and it keeps working with no AI key at all. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP9 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. All AI access goes through a provider-agnostic gateway with routing, fallbacks, breakers, budgets and metering; The generative-UI protocol is live: sessions stream typed UI components turn by turn. The AI stylist drives them: it understands requests with rules (the LLM only fills gaps), asks at most one tappable question per missing slot, and returns ranked, in-budget products with reasons, and it keeps working with no AI key at all. It learns from swipes: a taste vector and tag affinities reshape every deck, Style DNA onboarding (taps only) prefills gender and size, and decks refill between turns. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -94,7 +94,7 @@ request ──▶ RequestContextMiddleware ──▶ OTel server span ──▶ 
 | Guard | Problem it prevents | How | Failure mode |
 |---|---|---|---|
 | **Idempotency** (`guards/idempotency.py`, `api/idempotency.py`) | A retry or double tap creating two orders/try-ons | `Idempotency-Key` header → Redis record: claim (`SET NX`) → run once → store result (24 h). Same key + same request → replay with `Idempotent-Replayed: true`; same key + different request → 422; still running → 409 + `Retry-After` | **Fails closed** (503): we never run a side effect we can't deduplicate |
-| **Rate limiting** (`guards/rate_limit.py`, `api/rate_limit.py`) | Abuse, bots, runaway clients | Atomic Lua in Redis: exact **sliding-window log** or **token bucket**. Every `/v1` route inherits `api.per_ip` (60/min). 429 problem + `Retry-After`, `X-RateLimit-*` headers | **Fails open**: a Redis outage shouldn't take the API down |
+| **Rate limiting** (`guards/rate_limit.py`, `api/rate_limit.py`) | Abuse, bots, runaway clients | Atomic Lua in Redis: exact **sliding-window log** or **token bucket**. Every `/v1` route inherits `api.per_ip` (600/min: a flood guard, since mobile carriers share IPs); swipes have their own `swipes.per_user` bucket. 429 problem + `Retry-After`, `X-RateLimit-*` headers | **Fails open**: a Redis outage shouldn't take the API down |
 | **Load shedding** (`api/middleware.py`) | Overload turning into timeouts for everyone | Bulkhead caps in-flight requests per instance (`APP_MAX_IN_FLIGHT`, small queue); excess gets 503 + `Retry-After` immediately. Probes exempt | — |
 | **Distributed locks** (`guards/locks.py`) | Two workers running the same cron job | Redis `SET NX PX` + owner token; release/extend only by the owner (Lua) | Lock expires if the holder dies |
 | **Single-flight** (`guards/singleflight.py`) | Paying twice for identical concurrent LLM/embedding calls | Concurrent callers with the same key share one in-flight task (per process) | Errors reach every waiter; nothing is cached |
@@ -218,13 +218,24 @@ Code: `modules/stylist/flows/stylist.py` (graph), `understanding.py` (rules), `r
 - **Evals:** `python -m stylesense.cli eval-understand` (rules, offline) or `--engine llm` (needs a key). The golden set isn't held-out yet; see ADR 0012.
 - The scripted `demo` flow stays registered so sessions started on it keep working.
 
+## 2l. Personalization: swipes, taste, Style DNA *(built)*
+
+Code: `modules/personalization/` (`taste.py` maths, `styles.py` vocabulary, `service.py`), `modules/stylist/flows/style_dna.py` (onboarding), `modules/stylist/ports.py` (`TasteSource`, what the stylist needs).
+
+- **Swipe** (`POST /v1/me/swipes`, or the `swipe` GenUI action): one transaction inserts the swipe (unique per user/product/session, replays return `recorded: false`), locks the profile row, updates the taste vector (EMA) and tag affinity, commits. Category/gender tags are excluded: they're hard filters already. ADR 0013.
+- **Ranking with taste:** `rank(..., affinity=)` switches to `0.30 match + 0.25 similarity + 0.25 taste + 0.20 rating`, where taste = mean(taste-vector similarity from SQL, tag affinity score). With no taste, the CP8 weights apply unchanged. When the request has no text, SQL orders candidates by taste-vector distance.
+- **Deck refill** (`GET /v1/stylist/sessions/{id}/deck?exclude=…&limit=…`): read-only, no turn; excludes swiped and held cards; rule reasons only (cheap prefetch). 409 `no_deck` while the stylist is still asking.
+- **Style DNA:** `POST /v1/stylist/sessions {entry: "onboarding"}` runs the `style_dna` flow (fit → styles image grid → sizes; skip/back everywhere; saved once at the end, session ends). Also `GET/PUT /v1/me/style-profile` and `/options`. New picks blend into an existing taste (50%) instead of replacing it; an embedding outage still saves the answers.
+- **Prefill:** fit preference answers the gender question (the request still wins: "dress for my wife" stays women); the saved size filters the deck, falling back to all sizes when nothing is left.
+- **Observe:** `swipes_total{direction,outcome}`; dashboard panels "Swipes by direction" and "Swipe p95 latency".
+
 ## 3. Request lifecycle: a stylist turn *(built)*
 
 1. The user types **"summer t-shirt under 500"** → `POST /v1/stylist/sessions {entry: "search", value: …}`.
 2. Graph: `ingest → understand` (rules: category tshirt, occasion summer, budget ≤ ₹500) → `decide`: gender missing → `ask` builds a `chip_question` → screen saved with `turn_id = 1` and returned.
 3. The user taps **"Men"** → `POST …/actions {turn_id: 1, action: chip_select}` with `Accept: text/event-stream`. CAS claims the turn (ADR 0011).
 4. Graph: `ingest` (gender = men) → `search` streams a `ui.loading` skeleton → SQL filters + pgvector → `rank` → `explain` → `compose` → `ui.render` (a `product_swipe_deck`) → `done`.
-5. Swipes are recorded in state (dismissed/liked) and refill the deck. Taste learning arrives in CP9.
+5. Swipes go to `POST /v1/me/swipes` (fast, idempotent); they update taste immediately, and the app prefetches more cards from `GET …/deck` before the deck runs out.
 6. "Buy" → `GET /v1/out/{offer_id}` → click logged → 302 to the store.
 
 ## 4. LLM call lifecycle *(built)*
@@ -283,6 +294,8 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Add a stylist flow | Implement `Flow` (`start`, `act` yielding `Progress`… then one `Rendered`); register it in `bootstrap/container.py` |
 | Teach the stylist a new phrase | Add the term to the tables in `modules/stylist/understanding.py`, add a line to `evals/understand_golden.jsonl`, run `eval-understand` |
 | Tune ranking | Weights and diversity penalty in `modules/stylist/ranking.py`; the property test guards the budget |
+| Tune taste learning | Rates and caps in `modules/personalization/taste.py`; the exit test in `tests/integration/stylist/test_personal_flow.py` measures the shift |
+| Add a Style DNA look | Add a `Style` (label, catalog tags, colour) to `modules/personalization/styles.py` |
 | Make a write endpoint safe to retry | Take `IdempotencyKey` as a dependency and wrap the use case in `run_idempotent(...)` |
 | Trigger a side effect after a write | `container.outbox.add(uow.session, topic, payload)` in the same Unit of Work; register a handler for `topic` |
 | Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
@@ -310,3 +323,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP6 | 2026-10-05 | AI gateway: OpenAI + Anthropic adapters, DB routing + prices hot-reloaded via Redis, fallbacks, Redis-shared circuit breaker, retries with Retry-After, input cap, response cache + single-flight, per-user quota, daily budget, bulkheads, JSON validation + repair, `llm_usage` ledger, Prometheus + OTel GenAI telemetry, admin AI API + CLI, gateway-backed embedder; migration 0005; ADRs 0009–0010. |
 | CP7 | 2026-10-05 | GenUI protocol: typed component catalog v1 + actions + versioning + JSON Schema contract; stylist sessions with turn compare-and-swap, action-scoped SSE (ADR 0011), background turns that survive disconnects, failure fallback, session event log (90-day pruning); scripted demo flow over the real catalog; `dev-token` CLI; migration 0006. |
 | CP8 | 2026-10-05 | AI stylist: LangGraph graph run per turn without a checkpointer (ADR 0012); rules-first request understanding (Hinglish budgets) with LLM gap filling; template questions; catalog hybrid search (SQL filters + pgvector); code ranking with diversity; rule reasons + optional batched LLM explain; degraded mode; golden eval set + `eval-understand` CLI; stylist is the default flow. |
+| CP9 | 2026-10-05 | Personalization: `style_profiles` + `swipes` (migration 0007); idempotent swipe endpoint with synchronous taste learning (EMA vector + tag affinity, row lock; ADR 0013); taste-aware ranking and "Your style" reasons; deck refill endpoint; Style DNA onboarding flow + `/me/style-profile` API with taste seeding; gender/size prefill; `swipes.per_user` bucket, `api.per_ip` 60 → 600/min; swipe dashboard panels. |

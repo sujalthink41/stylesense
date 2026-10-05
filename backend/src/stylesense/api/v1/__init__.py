@@ -8,6 +8,7 @@ from stylesense.api.v1 import admin_ai, app_config, auth, catalog, me, stylist
 router = APIRouter(prefix="/v1", dependencies=[Depends(rate_limited("api.per_ip"))])
 router.include_router(auth.router)
 router.include_router(me.router)
+router.include_router(me.swipes_router)
 router.include_router(app_config.router)
 router.include_router(catalog.router)
 router.include_router(stylist.router)

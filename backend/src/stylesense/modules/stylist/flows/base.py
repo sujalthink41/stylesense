@@ -1,10 +1,10 @@
 import uuid
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from stylesense.genui.actions import Action
-from stylesense.genui.components import Component
+from stylesense.genui.components import Component, ProductCardProps
 from stylesense.genui.envelope import UiEnvelope
 
 
@@ -46,4 +46,21 @@ class Flow(Protocol):
         self, ctx: TurnContext, state: Mapping[str, Any], screen: UiEnvelope, action: Action
     ) -> AsyncIterator[Progress | Rendered]:
         """Yield any Progress, then exactly one Rendered as the last item."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class DeckPage:
+    cards: list[ProductCardProps]
+    has_more: bool
+
+
+@runtime_checkable
+class Refillable(Protocol):
+    """A flow whose swipe deck can be topped up between turns (prefetch)."""
+
+    async def deck(
+        self, ctx: TurnContext, state: Mapping[str, Any], *, exclude: list[uuid.UUID], limit: int
+    ) -> DeckPage | None:
+        """None when the session isn't showing results."""
         ...

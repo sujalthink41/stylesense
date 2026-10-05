@@ -76,26 +76,26 @@ Indexes: `(family_id)`, `(user_id) WHERE revoked_at IS NULL`. Rows expired > 7 d
 ### account_deletions
 `id`, `user_id`, `requested_via` (`app`/`web`), `requested_at`, `purge_after` (= +30 days), `purged_at`.
 
-## 3. Style & personalization
+## 3. Style & personalization *(built in CP9)*
 
 ### style_profiles (1:1 with users)
 | Column | Type | Notes |
 |---|---|---|
-| user_id | uuid PK FK | |
-| fit_preference | text | `men` \| `women` \| `unisex` \| `any` |
-| body_type | text NULL | |
-| skin_tone | text NULL | coarse buckets only |
-| sizes | jsonb | `{"top":"M","bottom":"32","shoe":"9"}` |
-| styles | text[] | e.g. `{streetwear,minimal}` |
-| default_budget | int4range NULL | paise |
-| taste_vector | vector(D) NULL | EMA of liked/skipped product embeddings |
-| tag_affinity | jsonb | `{"oversized": 4, "neon": -2}` |
+| user_id | uuid PK FK → users (CASCADE) | |
+| fit_preference | text NULL | `men` \| `women` \| `unisex` \| `any` (CHECK); prefills the stylist's gender question |
+| styles | text[] | Style DNA picks, e.g. `{streetwear,minimal}` (≤ 3, vocabulary in code) |
+| sizes | jsonb | `{"top":"M","bottom":"32","shoe":"UK9"}` |
+| taste_vector | vector(1536) NULL | unit EMA of liked product embeddings, seeded by style picks |
+| tag_affinity | jsonb | `{"oversized": 4, "neon": -2}`; ±20 cap, ≤ 200 tags |
+| swipe_count | int | |
 | onboarding_done | bool | |
 | updated_at | timestamptz | |
 
+Deferred: `body_type`, `skin_tone` (sensitive; only when a feature needs them), `default_budget`.
+
 ### swipes
-`id`, `user_id`, `product_id`, `session_id NULL`, `direction` (`left`/`right`/`super`), `created_at`.
-Index: `(user_id, created_at DESC)`; `UNIQUE(user_id, product_id, session_id)`.
+`id`, `user_id` FK (CASCADE), `product_id` FK (CASCADE), `session_id NULL` (dedupe scope, deliberately **not** a FK: ADR 0013), `direction` (`left`/`right`/`super`, CHECK), `created_at`.
+Index: `(user_id, created_at DESC)`; `UNIQUE NULLS NOT DISTINCT (user_id, product_id, session_id)`: replays are no-ops.
 
 ## 4. Catalog *(built in CP5)*
 

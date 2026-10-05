@@ -32,15 +32,23 @@ from stylesense.genui.validation import validate_action
 from stylesense.genui.versioning import adapt
 from stylesense.infra.database import UnitOfWork
 from stylesense.modules.stylist.exceptions import (
+    DeckUnavailableError,
     SessionBusyError,
     SessionEndedError,
     SessionNotFoundError,
     StaleTurnError,
 )
-from stylesense.modules.stylist.flows.base import Entry, Flow, Progress, Rendered, TurnContext
+from stylesense.modules.stylist.flows.base import (
+    Entry,
+    Flow,
+    Progress,
+    Refillable,
+    Rendered,
+    TurnContext,
+)
 from stylesense.modules.stylist.models import SessionEvent, StylistSession
 from stylesense.modules.stylist.repository import StylistRepository
-from stylesense.modules.stylist.schemas import SessionCreate, SessionView
+from stylesense.modules.stylist.schemas import DeckRefill, SessionCreate, SessionView
 from stylesense.platform.clock import Clock
 from stylesense.platform.ids import new_id
 
@@ -62,17 +70,19 @@ class StylistService:
         flows: Mapping[str, Flow],
         default_flow: str,
         clock: Clock,
+        entry_flows: Mapping[str, str] | None = None,
     ) -> None:
         self._uow = uow
         self._flows = flows
         self._default_flow = default_flow
+        self._entry_flows = dict(entry_flows or {})  # e.g. onboarding -> style_dna
         self._clock = clock
         self._turns: set[asyncio.Task[None]] = set()
 
     async def start(
         self, user_id: uuid.UUID, request: SessionCreate, *, client_version: int
     ) -> SessionView:
-        flow = self._flows[self._default_flow]
+        flow = self._flows[self._entry_flows.get(request.entry, self._default_flow)]
         session_id = new_id()
         rendered = await flow.start(
             TurnContext(session_id, user_id, turn_id=1), Entry(request.entry, request.value)
@@ -151,6 +161,25 @@ class StylistService:
         self._turns.add(task)
         task.add_done_callback(self._turns.discard)
         return _drain(events)
+
+    async def deck(
+        self,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        exclude: list[uuid.UUID],
+        limit: int,
+    ) -> DeckRefill:
+        """Top up the swipe deck without a turn: read-only, so no CAS and safe to repeat."""
+        session = await self._load(session_id, user_id)
+        flow = self._flows[session.flow]
+        if session.status == "ended" or not isinstance(flow, Refillable):
+            raise DeckUnavailableError
+        ctx = TurnContext(session_id, user_id, turn_id=session.turn_id)
+        page = await flow.deck(ctx, session.state, exclude=exclude, limit=limit)
+        if page is None:
+            raise DeckUnavailableError
+        return DeckRefill(cards=page.cards, has_more=page.has_more)
 
     async def prune_events(self, *, older_than: timedelta) -> int:
         async with self._uow() as uow:

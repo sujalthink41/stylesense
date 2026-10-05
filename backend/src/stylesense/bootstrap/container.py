@@ -28,7 +28,12 @@ from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
 from stylesense.modules.catalog.ports import Embedder
 from stylesense.modules.catalog.service import CatalogService
+from stylesense.modules.personalization.service import (
+    PersonalizationMetrics,
+    PersonalizationService,
+)
 from stylesense.modules.stylist.flows.demo import DemoFlow
+from stylesense.modules.stylist.flows.style_dna import StyleDnaFlow
 from stylesense.modules.stylist.flows.stylist import StylistFlow
 from stylesense.modules.stylist.service import StylistService
 from stylesense.modules.users.service import UsersService
@@ -72,6 +77,7 @@ class Container:
     llm_admin: LlmAdmin
     llm_providers: tuple[str, ...]
     catalog: CatalogService
+    personalization: PersonalizationService
     stylist: StylistService
     closers: tuple[Closer, ...] = ()
     closed: bool = field(default=False, init=False)
@@ -165,11 +171,22 @@ def build_container(
     )
 
     catalog = CatalogService(uow, clock=clock, embedder=embedder)
+    personalization = PersonalizationService(
+        uow,
+        embedder=embedder,
+        clock=clock,
+        metrics=PersonalizationMetrics(telemetry.registry) if telemetry.registry else None,
+    )
     stylist = StylistService(
         uow,
-        # "demo" stays registered so sessions started on it keep working.
-        flows={"stylist": StylistFlow(catalog, gateway), "demo": DemoFlow(catalog)},
+        flows={
+            "stylist": StylistFlow(catalog, gateway, personalization),
+            "style_dna": StyleDnaFlow(personalization),
+            # Kept so sessions started on it keep working.
+            "demo": DemoFlow(catalog),
+        },
         default_flow="stylist",
+        entry_flows={"onboarding": "style_dna"},
         clock=clock,
     )
 
@@ -197,6 +214,7 @@ def build_container(
         ),
         llm_providers=tuple(sorted(chat)),
         catalog=catalog,
+        personalization=personalization,
         stylist=stylist,
         # In-flight stylist turns finish (and persist) before connections close.
         closers=(stylist.wait_for_turns, *closers),

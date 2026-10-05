@@ -591,6 +591,72 @@
           "legendFormat": "{{model}}"
         }
       ]
+    },
+    {
+      "id": 16,
+      "title": "Swipes by direction",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (direction, outcome) (rate(swipes_total{job=\"stylesense-api\"}[5m]))",
+          "legendFormat": "{{direction}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Swipe p95 latency (target < 50 ms)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"stylesense-api\",route=~\".*/me/swipes\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
     }
   ]
 }

@@ -77,6 +77,8 @@ class SearchQuery(BaseModel):
     max_price_paise: int | None = Field(default=None, ge=0)
     text: str | None = Field(default=None, max_length=500)
     exclude_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
+    size: str | None = Field(default=None, max_length=10)  # only items stocked in this size
+    taste: list[float] | None = None  # user's taste vector: scored, and the order without text
     limit: int = Field(default=50, ge=1, le=200)
 
 
@@ -84,6 +86,7 @@ class SearchQuery(BaseModel):
 class SearchHit:
     product: ProductSummary
     similarity: float | None  # cosine similarity to the request text, when it was embedded
+    taste_similarity: float | None = None  # cosine similarity to the user's taste vector
 
 
 @dataclass(slots=True)

@@ -11,8 +11,12 @@ from stylesense.api.dependencies import ContainerDep
 from stylesense.api.idempotency import IdempotencyKey, run_idempotent
 from stylesense.api.rate_limit import rate_limited
 from stylesense.api.v1 import router as v1_router
+from stylesense.guards.rate_limit import DEFAULT_POLICIES
 from stylesense.main import create_app
 from stylesense.platform.config import Settings
+
+POLICY = "auth.per_ip"  # the tightest per-IP policy keeps these tests short
+LIMIT = DEFAULT_POLICIES[POLICY].limit
 
 
 class OrderIn(BaseModel):
@@ -41,7 +45,7 @@ def client(settings: Settings, ledger: Ledger) -> Iterator[TestClient]:
         await redis.flushdb()
         await redis.aclose()
 
-    router = APIRouter(dependencies=[Depends(rate_limited("api.per_ip"))])
+    router = APIRouter(dependencies=[Depends(rate_limited(POLICY))])
 
     @router.get("/ping")
     async def ping() -> dict[str, str]:
@@ -85,12 +89,12 @@ def test_v1_router_is_rate_limited_per_ip() -> None:
 def test_rate_limit_headers_on_success(client: TestClient) -> None:
     response = client.get("/t/ping")
 
-    assert response.headers["x-ratelimit-limit"] == "60"
-    assert response.headers["x-ratelimit-remaining"] == "59"
+    assert response.headers["x-ratelimit-limit"] == str(LIMIT)
+    assert response.headers["x-ratelimit-remaining"] == str(LIMIT - 1)
 
 
 def test_exceeding_the_limit_returns_429_problem(client: TestClient) -> None:
-    for _ in range(60):
+    for _ in range(LIMIT):
         assert client.get("/t/ping").status_code == 200
 
     response = client.get("/t/ping")

@@ -208,7 +208,9 @@ class CatalogService:
                 logger.info("catalog_search_without_embedding", reason=str(exc))
         async with self._uow() as uow:
             rows = await CatalogRepository(uow.session).search(query, embedding)
-            return [SearchHit(product=_summary(p), similarity=s) for p, s in rows]
+            return [
+                SearchHit(product=_summary(p), similarity=s, taste_similarity=t) for p, s, t in rows
+            ]
 
     async def similar(self, product_id: uuid.UUID, *, limit: int = 10) -> list[ProductSummary]:
         async with self._uow() as uow:
