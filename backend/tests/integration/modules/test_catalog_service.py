@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from stylesense.ai.gateway.exceptions import AIUnavailableError
 from stylesense.infra.database import UnitOfWork, create_session_factory
 from stylesense.integrations.embeddings.hashing import HashingEmbedder
 from stylesense.integrations.sources.mock import MockSource
@@ -374,3 +375,17 @@ async def test_tampered_offer_url_is_never_redirected_to(
     with pytest.raises(OfferNotFoundError):
         await seeded.outbound(offer_id, user_id=None, source="feed")
     assert await _count(sessions, OutboundClick) == 0
+
+
+class DownEmbedder(HashingEmbedder):
+    async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        raise AIUnavailableError("provider down")
+
+
+async def test_embedding_outage_defers_work_without_losing_it(
+    sessions: async_sessionmaker[AsyncSession], clock: FixedClock
+) -> None:
+    await _service(sessions, clock).ingest(ListSource([TEE]))
+
+    assert await _service(sessions, clock, embedder=DownEmbedder()).embed_pending() == 0
+    assert await _service(sessions, clock).embed_pending() == 1  # still pending, picked up later

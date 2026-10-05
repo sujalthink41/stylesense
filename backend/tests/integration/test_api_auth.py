@@ -51,7 +51,8 @@ def client(
         return {"ok": "admin"}
 
     app = create_app(
-        app_settings, container_factory=lambda s: build_container(s, verifier=verifier)
+        app_settings,
+        container_factory=lambda s, **kw: build_container(s, verifier=verifier, **kw),
     )
     app.include_router(admin_only, prefix="/t")
     with TestClient(app) as c:

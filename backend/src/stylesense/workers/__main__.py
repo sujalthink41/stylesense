@@ -6,7 +6,7 @@ import signal
 import structlog
 from prometheus_client import CollectorRegistry, ProcessCollector, start_http_server
 
-from stylesense.bootstrap.container import build_container
+from stylesense.bootstrap.container import Telemetry, build_container
 from stylesense.platform.config import Environment, get_settings
 from stylesense.platform.logging import configure_logging
 from stylesense.platform.observability.error_reporting import configure_error_reporting
@@ -24,7 +24,7 @@ async def main(stop: asyncio.Event | None = None) -> None:
     ProcessCollector(registry=registry)
     metrics_server, _ = start_http_server(settings.worker_metrics_port, registry=registry)
 
-    container = build_container(settings)
+    container = build_container(settings, telemetry=Telemetry(registry=registry))
     worker = build_worker(container, handlers=default_handlers(container), registry=registry)
     if stop is None:
         stop = asyncio.Event()

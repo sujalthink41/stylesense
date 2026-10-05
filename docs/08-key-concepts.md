@@ -291,3 +291,29 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 ## 70. Batched inserts and where ids come from
 **What happened:** with database-generated ids, the ORM had to insert rows one at a time to learn each id (1,945 statements for one ingest). Generating time-ordered UUIDv7 ids in Python let it batch: 37 statements (ADR 0008).
 **Lesson:** measure before optimising: the embedder looked suspicious, but profiling showed the database round trips were the real cost.
+
+## 71. Fallback chains
+**What:** each AI task lists models in order: primary first, then fallbacks (ideally on a *different* provider). If the primary is down, rate-limited, refusing or returning garbage, the next one answers.
+**Why:** a single provider outage shouldn't take the stylist down.
+
+## 72. Retryable vs non-retryable errors
+**Retry:** rate limits (429), server errors (5xx), timeouts, connection drops: the same request may succeed in a moment.
+**Don't retry:** bad request, auth failure, unknown model, refusal (4xx): repeating it just wastes money. Move on to the fallback instead.
+**`Retry-After`:** when a provider says "wait 2 s", we wait 2 s; if it says "wait 2 minutes", we fail over immediately.
+
+## 73. Structured output + repair
+**What:** we ask the model for JSON matching a schema (using the provider's native structured-output mode), then **validate** it with Pydantic. If it's invalid, we send the errors back once ("that was invalid because…") and validate again.
+**Why:** an LLM is not a reliable function; our code only ever sees validated objects.
+
+## 74. Prompt injection: instructions vs data
+**What:** user text can contain "ignore your rules and…". We keep instructions in the system message, wrap user data as JSON inside `<input>` tags, tell the model never to follow instructions found there, and constrain output to a schema. Links and prices never come from the model.
+
+## 75. Hot-reloading config with a version counter
+**What:** config lives in Postgres; each instance caches it. On every change an admin bumps a counter in Redis; each request does one cheap `GET` of that counter and reloads only when it moved.
+**Why:** instant, consistent config changes across all instances without restarts or polling the database.
+
+## 76. Money in micro-dollars
+**What:** AI costs are tiny fractions of a cent, so we store integer **micro-USD** (1 USD = 1,000,000), and round *up* so budgets never undercount. Prices are "USD per million tokens", which conveniently equals micro-USD per token.
+
+## 77. GenAI semantic conventions
+**What:** OpenTelemetry defines standard attribute names for AI calls (`gen_ai.request.model`, `gen_ai.usage.input_tokens`, …). Using them means any compatible tool (Tempo, Langfuse, vendor APMs) understands our traces without custom glue.

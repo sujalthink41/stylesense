@@ -3,7 +3,7 @@
 > **Audience:** any developer joining the project.
 > **Rule:** updated at the end of **every checkpoint** to describe the system **as it exists now**. Planned parts are marked *(planned)*.
 
-**Current state:** CP5 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. The AI stylist comes next. Parts marked *(planned)* arrive in later checkpoints.
+**Current state:** CP6 complete. The backend skeleton runs in Docker with Postgres + pgvector and Redis, exposes liveness/readiness probes, renders all errors as problem+json, and runs migrations on deploy. Every request is observable end to end: request id, PII-safe JSON logs, RED metrics, OpenTelemetry traces (API, DB, Redis) and error reports to GlitchTip. Reliability guards are in place (idempotency, rate limits, load shedding, distributed locks, single-flight, bulkheads) and a worker process delivers outbox messages. Users can sign in with Google, manage their profile, devices and consents, and delete their account. A 300-product mock catalog across Amazon, Flipkart and Myntra is browsable, with store price comparison, similar-item search and tracked Buy redirects. All AI access goes through a provider-agnostic gateway with routing, fallbacks, breakers, budgets and metering; the AI stylist (CP8) builds on it. Parts marked *(planned)* arrive in later checkpoints.
 
 ---
 
@@ -167,6 +167,21 @@ worker "catalog.embed" (every 60 s) ─► Embedder port (hashing now, model in 
 - **Seed:** `make seed` (refuses `APP_ENV=production`). The mock catalog is deterministic: fictional brands, placeholder images, real store *search* links.
 - **Performance:** client-side UUIDv7 ids + no eager defaults (ADR 0008) batch inserts: a full ingest is ~37 statements.
 
+## 2i. AI gateway *(built)*
+
+| Piece | Where | Notes |
+|---|---|---|
+| Gateway | `ai/gateway/gateway.py` | `run(TaskSpec, input, user_id=…)` → validated Pydantic output; `embed(ref, texts)` |
+| Tasks | `ai/gateway/tasks.py` | Instructions + input/output schemas + `prompt_version`, in code. User data is sent as JSON inside `<input>` tags and the system prompt forbids following instructions inside it |
+| Routing & prices | `llm_task_configs`, `llm_models` | Hot-reloaded on every instance via a Redis version counter; a model with no price is never called |
+| Providers | `integrations/llm/` | OpenAI (chat + embeddings), Anthropic (chat); enabled only when their key is set; SDK retries off |
+| Guards | gateway + `guards/circuit_breaker.py` | Input cap → per-user quota (30/h) → cache → single-flight → daily budget → per-target breaker + bulkhead → timeout + retries (backoff, Retry-After ≤ 5 s) → JSON validation + one repair → next target |
+| Ledger & telemetry | `llm_usage`, `ai/gateway/metrics.py` | One row per attempt with cost in micro-USD; Prometheus `llm_*` metrics; OTel GenAI spans |
+| Admin | `/v1/admin/ai/*`, CLI `llm-price`, `llm-route`, `llm-check` | See `docs/guides/ai-setup.md` |
+| Embeddings | `integrations/embeddings/gateway.py` | `APP_EMBEDDING_MODEL=provider:model` switches the catalog from hashing to a real model (auto re-embed) |
+
+**Degraded mode:** the gateway raises `AIUnavailableError` (not configured, disabled, budget exhausted, or every target failed); callers catch it and fall back to rule-based behaviour. The catalog already does: embedding is deferred, never lost.
+
 ## 3. Request lifecycle: a stylist turn *(planned)*
 
 1. The user taps **"Party"** on the home screen → `POST /v1/stylist/sessions {entry: "occasion_tile", value: "party"}` → the backend creates `stylist_sessions` row and LangGraph thread.
@@ -177,7 +192,7 @@ worker "catalog.embed" (every 60 s) ─► Embedder port (hashing now, model in 
 6. Swipes are sent as actions; they update the taste vector in code (no LLM) and refill the deck.
 7. "Buy" → `GET /v1/out/{offer_id}` → click logged → 302 to the store.
 
-## 4. LLM call lifecycle *(planned)*
+## 4. LLM call lifecycle *(built)*
 
 ```
 graph node → gateway.run(task, …)
@@ -227,6 +242,8 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | Add a product source | Implement `ProductSource` (`modules/catalog/ports.py`) in `integrations/sources/`; ingest it with `CatalogService.ingest` |
 | Swap the embedder | Implement `Embedder`; wire it in `bootstrap/container.py`; the worker re-embeds automatically |
 | Return cacheable reads | `api/http_cache.etag_response(request, model, max_age_s=…)` |
+| Add an AI task | Define a `TaskSpec` (instructions, schemas, `prompt_version`); route it with `llm-route`; catch `AIUnavailableError` and degrade |
+| Add an AI provider | Implement `ChatProvider` (and/or `EmbeddingProvider`) in `integrations/llm/`; register it in `bootstrap/container.py` and `KNOWN_LLM_PROVIDERS` |
 | Make a write endpoint safe to retry | Take `IdempotencyKey` as a dependency and wrap the use case in `run_idempotent(...)` |
 | Trigger a side effect after a write | `container.outbox.add(uow.session, topic, payload)` in the same Unit of Work; register a handler for `topic` |
 | Add a cron job | `PeriodicTask(..., exclusive=True)` in `workers/app.py` |
@@ -251,3 +268,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP3 | 2026-10-04 | Reliability guards: Redis idempotency (fail-closed), exact sliding-window + token-bucket rate limits on `/v1` (fail-open), load shedding, distributed locks, single-flight, bulkheads; transactional outbox (`SKIP LOCKED`) + worker process with heartbeat, metrics and graceful shutdown; model registry + migration drift test; exception logs no longer include stack-frame locals. |
 | CP4 | 2026-10-05 | Auth & accounts: Google ID-token verification, own HS256 access JWT + rotating hashed refresh tokens with reuse detection and grace window, one session per install, roles + admin allow-list, `/v1/auth/*`, `/v1/me` (profile, devices, consents, deletion with 30-day outbox purge), `/v1/app/config`, per-user and auth rate limits, token pruning task; migration 0003. |
 | CP5 | 2026-10-05 | Catalog: stores (with redirect allow-lists), canonical products + offers, price snapshots, outbound clicks; deterministic 300-product mock source; idempotent ingest; Embedder port + hashing embedder and pgvector HNSW similarity; `/v1/products`, `/v1/products/{id}` (ETag), `/similar`, `/v1/out/{offer_id}`; `make seed` CLI; worker embedding task; client-side UUIDv7 ids + batched inserts; migration 0004. |
+| CP6 | 2026-10-05 | AI gateway: OpenAI + Anthropic adapters, DB routing + prices hot-reloaded via Redis, fallbacks, Redis-shared circuit breaker, retries with Retry-After, input cap, response cache + single-flight, per-user quota, daily budget, bulkheads, JSON validation + repair, `llm_usage` ledger, Prometheus + OTel GenAI telemetry, admin AI API + CLI, gateway-backed embedder; migration 0005; ADRs 0009–0010. |

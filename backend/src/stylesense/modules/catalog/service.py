@@ -7,6 +7,7 @@ from dataclasses import asdict
 
 import structlog
 
+from stylesense.ai.gateway.exceptions import AIUnavailableError
 from stylesense.infra.database import UnitOfWork
 from stylesense.modules.catalog.exceptions import (
     InvalidCursorError,
@@ -162,7 +163,12 @@ class CatalogService:
             )
             if not stale:
                 return 0
-            vectors = await self._embedder.embed([_text_of(p) for p in stale])
+            try:
+                vectors = await self._embedder.embed([_text_of(p) for p in stale])
+            except AIUnavailableError as exc:
+                # Nothing lost: rows stay stale and the worker retries on its next tick.
+                logger.warning("catalog_embedding_deferred", reason=str(exc), pending=len(stale))
+                return 0
             for product, vector in zip(stale, vectors, strict=True):
                 product.embedding = vector
                 product.embedding_hash = embedding_hash(
