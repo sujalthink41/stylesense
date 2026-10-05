@@ -66,6 +66,8 @@ class Slots(BaseModel):
     colors: list[str] = Field(default_factory=list)
     fit: str | None = None
     fabric: str | None = None
+    # Shop-from-a-photo shows matches straight away; budget becomes a refinement, not a gate.
+    budget_optional: bool = False
 
     def missing(self) -> list[str]:
         """Required slots still unknown, in the order the stylist asks for them."""
@@ -74,7 +76,7 @@ class Slots(BaseModel):
             needed.append("category")
         if self.gender is None:
             needed.append("gender")
-        if self.budget_max_paise is None:
+        if self.budget_max_paise is None and not self.budget_optional:
             needed.append("budget")
         return needed
 

@@ -117,7 +117,7 @@ DECK_SIZE = 10
 PHOTO_UNAVAILABLE = "Photo search is unavailable right now. Tell me what you're after instead."
 CANDIDATES = 60
 UNPRICED_LIMIT = 10
-LIVE_MIN_HITS = 12  # fewer matches than this: top the catalog up from live store search
+LIVE_WAIT_BELOW = 20  # fewer catalog matches: wait for the live search; more: refresh behind
 LIVE_TIMEOUT_S = 15  # the shopper is waiting; a slow search engine must not stall the turn
 MAX_HISTORY = 10
 SLIDER_MAX_PAISE = 500_000
@@ -189,6 +189,7 @@ class StylistFlow:
     ) -> None:
         self._catalog = catalog
         self._live = live
+        self._background: set[asyncio.Task[bool]] = set()
         self._ai = ai
         self._taste = taste
         self._looks = looks
@@ -529,8 +530,13 @@ class StylistFlow:
             limit=CANDIDATES,
         )
         hits = await self._catalog.search(query)
-        if len(hits) < LIVE_MIN_HITS and await self._top_up(slots):
-            hits = await self._catalog.search(query)
+        # Every new request searches the stores live (repeats within the cache window reuse the
+        # last search), so results reflect what's on sale now, not only what we stored before.
+        if not p.get("page"):
+            if len(hits) >= LIVE_WAIT_BELOW:
+                self._refresh_later(slots)  # a full deck already: show it now, refresh behind
+            elif await self._top_up(slots):
+                hits = await self._catalog.search(query)
         if not hits and size:  # nothing left in their size: showing other sizes beats nothing
             hits = await self._catalog.search(query.model_copy(update={"size": None}))
         return hits, taste
@@ -549,8 +555,15 @@ class StylistFlow:
         )
         return await self._catalog.search(query)
 
+    def _refresh_later(self, slots: Slots) -> None:
+        if self._live is None or not slots.category:
+            return
+        task = asyncio.create_task(self._top_up(slots))
+        self._background.add(task)  # keep a reference until done (asyncio holds tasks weakly)
+        task.add_done_callback(self._background.discard)
+
     async def _top_up(self, slots: Slots) -> bool:
-        """Too few matches: search the stores live, once per request shape (cached)."""
+        """Search the stores live for this request (once per request shape per cache window)."""
         if self._live is None or not slots.category:
             return False
         try:
@@ -598,7 +611,7 @@ class StylistFlow:
             return slots, "I couldn't read the photo just now. Tell me what you're after instead."
         if not seen.usable:
             return slots, "I can't find clothes to match in that photo. Try another one?"
-        return _fill_gaps(slots, seen.to_slots()), None
+        return _fill_gaps(slots, seen.to_slots()).model_copy(update={"budget_optional": True}), None
 
     # ---------- AI (optional; every failure degrades to rules) ----------
 
@@ -952,7 +965,13 @@ def _apply_action(
             p["page"] += 1
         case Shortcut(value="change_budget"):
             _push(p)
-            slots = slots.model_copy(update={"budget_min_paise": None, "budget_max_paise": None})
+            slots = slots.model_copy(
+                update={
+                    "budget_min_paise": None,
+                    "budget_max_paise": None,
+                    "budget_optional": False,
+                }
+            )
         case TextInput() as typed:
             _push(p)
             text = typed.text

@@ -8,9 +8,11 @@ from stylesense.integrations.sources.web_search import (
     WebCatalog,
     WebQuery,
     WebSearchFinder,
+    amazon_facts,
     brand_of,
     clean_title,
     flipkart_product,
+    myntra_facts,
     product_id,
 )
 
@@ -225,3 +227,45 @@ async def test_each_request_shape_is_searched_once_per_ttl() -> None:
     later = await live.refresh("women kurta", category="kurta", gender="women")
 
     assert (first, again, later, finder.calls) == (2, 0, 2, 2)
+
+
+def test_myntra_and_amazon_pages_give_real_prices() -> None:
+    myntra = (
+        "<script>window.__myx = "
+        + json.dumps(
+            {
+                "pdpData": {
+                    "name": "Roadster Men Black Jeans",
+                    "brand": {"name": "Roadster"},
+                    "price": {"mrp": 2699, "discounted": 1349},
+                    "ratings": {"averageRating": 4.21, "totalCount": 950},
+                    "flags": {"outOfStock": False},
+                    "media": {
+                        "albums": [{"images": [{"imageURL": "http://assets.myntassets.com/a.jpg"}]}]
+                    },
+                }
+            }
+        )
+        + "</script>"
+    )
+    m = myntra_facts(myntra)
+    assert m is not None
+    assert (m.price_paise, m.mrp_paise, m.rating, m.rating_count, m.in_stock) == (
+        134_900,
+        269_900,
+        4.2,
+        950,
+        True,
+    )
+    assert m.image == "https://assets.myntassets.com/a.jpg"
+
+    amazon = (
+        '<span id="productTitle"> KLOSIA Women Kurta </span>{"priceAmount":626.00}'
+        '<div id="availability"><span> In stock </span></div>'
+    )
+    a = amazon_facts(amazon)
+    assert a is not None
+    assert (a.title, a.price_paise, a.in_stock) == ("KLOSIA Women Kurta", 62_600, True)
+
+    assert myntra_facts("<html></html>") is None
+    assert amazon_facts("<html></html>") is None

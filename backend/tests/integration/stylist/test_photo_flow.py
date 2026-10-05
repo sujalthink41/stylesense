@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stylesense.ai.gateway.exceptions import AIUnavailableError
 from stylesense.ai.gateway.tasks import TaskSpec
-from stylesense.genui.actions import ActionRequest, SliderSet
+from stylesense.genui.actions import ActionRequest, Shortcut, SliderSet
 from stylesense.genui.components import ChipQuestion, InfoBanner, ProductSwipeDeck
 from stylesense.genui.envelope import RenderEvent, UiEnvelope
 from stylesense.guards.rate_limit import RateLimiter
@@ -96,7 +96,7 @@ def _banner(ui: UiEnvelope) -> str | None:
 SEEN = PhotoOutput(usable=True, category="tshirt", gender="men", colors=["navy"], occasion="casual")
 
 
-async def test_a_photo_becomes_a_request_and_only_the_budget_is_asked(
+async def test_a_photo_goes_straight_to_matches_with_budget_as_a_refinement(
     catalog_sessions: async_sessionmaker[AsyncSession], redis: Redis, user_id: uuid.UUID
 ) -> None:
     ai = VisionAI(SEEN)
@@ -105,7 +105,11 @@ async def test_a_photo_becomes_a_request_and_only_the_budget_is_asked(
     ui = await app.start(str(await app.photo()))
 
     assert _banner(ui) is None
-    assert ui.components[0].id == "q_budget"  # category, gender, colour came from the photo
+    ids = [c.id for c in ui.components]
+    assert ids[0] == "deck"  # category, gender, colour came from the photo: no questions
+    assert "q_budget" not in ids
+    bar = next(c for c in ui.components if c.id == "next")
+    assert "change_budget" in [s.id for s in bar.props.suggestions]  # type: ignore[union-attr]
     [payload] = ai.inputs
     assert isinstance(payload, PhotoInput)
     assert payload.image_urls[0].endswith("side=768&sig=ok")  # downscaled, signed
@@ -178,15 +182,14 @@ async def test_a_photo_with_a_budget_reaches_a_deck(
     app = PhotoApp(catalog_sessions, redis, user_id, VisionAI(SEEN))
     ui = await app.start(str(await app.photo()))
 
-    stream = await app.service.act(
-        ui.session_id,
-        user_id,
-        ActionRequest(
-            turn_id=1, action=SliderSet(component_id="q_budget", min_paise=0, max_paise=150_000)
-        ),
-        client_version=2,
-    )
-    renders = [e for e in [x async for x in stream] if isinstance(e, RenderEvent)]
+    async def act(turn: int, action: Any) -> list[RenderEvent]:
+        stream = await app.service.act(
+            ui.session_id, user_id, ActionRequest(turn_id=turn, action=action), client_version=2
+        )
+        return [e for e in [x async for x in stream] if isinstance(e, RenderEvent)]
+
+    await act(1, Shortcut(value="change_budget"))  # budget is a refinement after a photo
+    renders = await act(2, SliderSet(component_id="q_budget", min_paise=0, max_paise=150_000))
 
     deck = next(c for c in renders[-1].envelope.components if isinstance(c, ProductSwipeDeck))
     assert len(deck.props.cards) >= 5  # S11: an outfit photo returns ≥ 5 in-budget items
