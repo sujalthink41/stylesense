@@ -27,12 +27,29 @@ _CATEGORY_TERMS: list[tuple[str, str]] = [
 ]
 _GENDER_TERMS: list[tuple[str, str]] = [
     (r"unisex", "unisex"),
-    (r"women'?s?|woman|female|girls?|ladies|lady|her|wife", "women"),
-    (r"men'?s?|man|male|boys?|guys?|gents|him|husband", "men"),
+    (
+        r"women'?s?|woman|female|girls?|ladies|lady|her|wife|girlfriend|gf|sister|mom|mother"
+        r"|mummy|daughter|bhabhi|didi",
+        "women",
+    ),
+    (
+        r"men'?s?|man|male|boys?|guys?|gents|him|husband|boyfriend|bf|brother|dad|father|papa"
+        r"|son|bhai|bhaiya",
+        "men",
+    ),
+]
+# Garments that say who they're cut for, when the text doesn't (checked after _GENDER_TERMS).
+_IMPLIED_GENDER: list[tuple[str, str]] = [
+    (r"kurtis?|sarees?|sari|lehengas?|salwar|anarkali|blouses?|gowns?|frocks?|leggings", "women"),
+    (r"sherwanis?|bandhgala|kurta[\s-]?pyjamas?|kurta[\s-]?pajamas?", "men"),
 ]
 _OCCASION_TERMS: list[tuple[str, str]] = [
     (r"date night|date", "date night"),
-    (r"wedding guest|wedding|shaadi|marriage|sangeet|reception", "wedding"),
+    (
+        r"wedding guest|wedding|shaadi|marriage|sangeet|reception|mehe?n?di|haldi|engagement"
+        r"|cocktail|baraat",
+        "wedding",
+    ),
     (r"diwali|festive|festival|eid|navratri|puja|pooja", "festive"),
     (r"party|partywear", "party"),
     (r"office|formal|work(?:wear)?", "office"),
@@ -103,7 +120,7 @@ def parse_request(text: str) -> Slots:
     low, high = _budget(lowered)
     return Slots(
         category=_first(lowered, _CATEGORY_TERMS),
-        gender=_first(lowered, _GENDER_TERMS),
+        gender=_first(lowered, _GENDER_TERMS) or _first(lowered, _IMPLIED_GENDER),
         occasion=_first(lowered, _OCCASION_TERMS),
         colors=_all(lowered, _COLOR_TERMS),
         fit=_first(lowered, _FIT_TERMS),

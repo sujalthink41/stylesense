@@ -50,3 +50,6 @@
 {"text": "party top for women below 800", "expect": {"category": "top", "gender": "women", "occasion": "party", "budget_max_paise": 80000}}
 {"text": "light blue jeans", "expect": {"category": "jeans", "colors": ["sky blue"]}}
 {"text": "beige trousers 1000-2000", "expect": {"category": "trousers", "colors": ["beige"], "budget_min_paise": 100000, "budget_max_paise": 200000}}
+{"text": "comfy kurti for office not too flashy under 1200", "expect": {"category": "kurta", "gender": "women", "occasion": "office", "budget_max_paise": 120000}}
+{"text": "need something to wear to my friend's mehendi, budget around 2.5k, i'm a guy", "expect": {"gender": "men", "occasion": "wedding", "budget_min_paise": 175000, "budget_max_paise": 300000}}
+{"text": "sherwani for my brother's baraat", "expect": {"gender": "men", "occasion": "wedding"}}

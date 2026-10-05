@@ -52,6 +52,7 @@ FABRICS = ("cotton", "linen", "denim", "silk", "rayon", "polyester", "khadi", "g
 
 Gender = Literal["men", "women", "unisex", "any"]  # "any" = asked, no preference
 MAX_BUDGET_PAISE = 10_000_000  # ₹1,00,000: anything above is a parsing mistake
+COLOR_WEIGHT, FABRIC_WEIGHT, FIT_WEIGHT, OCCASION_WEIGHT = 1.5, 1.5, 1.0, 0.6
 
 
 class Slots(BaseModel):
@@ -86,5 +87,19 @@ class Slots(BaseModel):
 
     def preferences(self) -> set[str]:
         """Soft attributes to boost in ranking (never filters)."""
-        wanted = {*self.colors, self.fit, self.fabric, self.occasion}
-        return {w for w in wanted if w}
+        return set(self.preference_weights())
+
+    def preference_weights(self) -> dict[str, float]:
+        """How much each wanted attribute counts: what you can see (colour, fabric) matters
+        more than a broad occasion tag, so a photographed blue denim jacket ranks over a
+        white windcheater that only shares "casual"."""
+        weights: dict[str, float] = {}
+        for tag, weight in (
+            *((c, COLOR_WEIGHT) for c in self.colors),
+            (self.fabric, FABRIC_WEIGHT),
+            (self.fit, FIT_WEIGHT),
+            (self.occasion, OCCASION_WEIGHT),
+        ):
+            if tag:
+                weights[tag] = max(weights.get(tag, 0.0), weight)
+        return weights

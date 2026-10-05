@@ -312,6 +312,7 @@ def _tryon_provider(settings: Settings) -> TryOnProvider | None:
             api_key=settings.openai_api_key.get_secret_value(),
             model=settings.tryon_openai_model,
             quality=settings.tryon_openai_quality,
+            input_fidelity=settings.tryon_openai_input_fidelity,
             cost_micro_usd=settings.tryon_cost_micro_usd,
         )
     return None

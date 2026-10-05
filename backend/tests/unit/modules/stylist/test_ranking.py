@@ -180,3 +180,15 @@ def test_vague_tags_are_learned_from_but_never_shown_as_a_reason() -> None:
 
     assert item.liked == ("half", "olive")
     assert rule_reasons(item, Slots()) == ["Your style: olive"]
+
+
+def test_what_you_can_see_outranks_a_shared_occasion() -> None:
+    # A photographed sky-blue denim jacket: the denim one beats a casual windcheater.
+    wanted = Slots(category="jacket", occasion="casual", colors=["sky blue"], fabric="denim")
+    windcheater = _hit(tags=("jacket", "casual"), brand="A")
+    denim = _hit(tags=("jacket", "denim", "sky blue"), brand="B")
+
+    ranked = rank([windcheater, denim], wanted, limit=2)
+
+    assert ranked[0].hit is denim
+    assert set(ranked[0].matched) == {"denim", "sky blue"}

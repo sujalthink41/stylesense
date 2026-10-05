@@ -162,3 +162,8 @@ def test_openai_try_on_needs_a_key_and_a_configured_model() -> None:
         tryon_provider="openai", openai_api_key="sk-test", tryon_openai_model="image-model"
     )
     assert ok.tryon_openai_quality == "medium"
+
+
+def test_blank_try_on_settings_from_compose_mean_unset() -> None:
+    s = make_settings(tryon_openai_model="", tryon_openai_input_fidelity="")
+    assert (s.tryon_openai_model, s.tryon_openai_input_fidelity) == (None, None)

@@ -581,7 +581,7 @@ class StylistFlow:
             )
             for r in s["page"]
         ]
-        request = " ".join(f"{k}={v}" for k, v in slots.model_dump(exclude_defaults=True).items())
+        request = _describe_for_ai(slots)
         result = await self._ask_ai(
             s, STYLIST_EXPLAIN, ExplainInput(request=request, products=products)
         )
@@ -607,6 +607,15 @@ class StylistFlow:
 
 
 # ---------- helpers ----------
+
+
+def _describe_for_ai(slots: Slots) -> str:
+    """The request as plain fields, budgets in rupees (models misread paise)."""
+    fields = slots.model_dump(exclude_defaults=True)
+    for key in ("budget_min_paise", "budget_max_paise"):
+        if key in fields:
+            fields[key.replace("_paise", "_rupees")] = fields.pop(key) // 100
+    return " ".join(f"{k}={v}" for k, v in fields.items())
 
 
 def _fill_gaps(base: Slots, ai: Slots) -> Slots:

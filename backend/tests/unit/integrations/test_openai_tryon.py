@@ -76,7 +76,7 @@ async def test_sends_both_photos_with_the_configured_model_and_returns_a_data_ur
     call = images.calls[0]
     assert call["model"] == "configured-image-model"
     assert [f[0] for f in call["image"]] == ["person.jpeg", "garment.png"]
-    assert call["input_fidelity"] == "high"
+    assert call["input_fidelity"] is openai.omit  # only sent when the model supports it
     assert call["user"] == "job-1"
     assert result.image_url == "data:image/png;base64,QUJD"  # type: ignore[attr-defined]
     assert result.cost_micro_usd == 42_000  # type: ignore[attr-defined]

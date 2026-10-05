@@ -117,6 +117,8 @@ class Settings(BaseSettings):
     tryon_provider: Literal["none", "fake", "openai"] = "none"
     tryon_openai_model: str | None = None
     tryon_openai_quality: Literal["low", "medium", "high"] = "medium"
+    # Only some image models accept input_fidelity; leave unset for those that don't.
+    tryon_openai_input_fidelity: Literal["low", "high"] | None = None
     tryon_cost_micro_usd: int = Field(default=0, ge=0)  # per image, for the spend ledger
     tryon_daily_limit: int = Field(default=3, ge=0, le=100)  # per user
     tryon_global_daily_limit: int = Field(default=200, ge=0, le=100_000)  # paid: hard cap
@@ -134,6 +136,8 @@ class Settings(BaseSettings):
         "cloudinary_cloud_name",
         "cloudinary_api_key",
         "cloudinary_api_secret",
+        "tryon_openai_model",
+        "tryon_openai_input_fidelity",
         mode="before",
     )
     @classmethod

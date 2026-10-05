@@ -9,7 +9,7 @@ from typing import Literal
 
 import httpx2 as httpx
 import openai
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, omit
 
 from stylesense.modules.tryon.ports import TryOnRejectedError, TryOnResult, TryOnRetryableError
 
@@ -31,6 +31,7 @@ class OpenAIImageTryOn:
         api_key: str,
         model: str,
         quality: Literal["low", "medium", "high"],
+        input_fidelity: Literal["low", "high"] | None = None,
         cost_micro_usd: int,
         timeout_s: float = 150,
         http: httpx.AsyncClient | None = None,
@@ -40,6 +41,7 @@ class OpenAIImageTryOn:
         self._http = http or httpx.AsyncClient(timeout=20, follow_redirects=True)
         self._model = model
         self._quality = quality
+        self._fidelity = input_fidelity
         self._cost = cost_micro_usd
         self._timeout = timeout_s
 
@@ -55,7 +57,7 @@ class OpenAIImageTryOn:
                 prompt=PROMPT,
                 size="1024x1536",
                 quality=self._quality,
-                input_fidelity="high",  # keep the person's face and body
+                input_fidelity=self._fidelity or omit,  # only some models accept it
                 n=1,
                 stream=False,
                 user=idempotency_key,  # lets abuse monitoring group a job's calls

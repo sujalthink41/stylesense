@@ -118,6 +118,7 @@ class OutboxRelay:
         base_backoff_s: float = 5,
         max_backoff_s: float = 3_600,
         handler_timeout_s: float = 30,
+        topic_timeouts_s: Mapping[str, float] | None = None,
         jitter: Callable[[], float] = random.random,
     ) -> None:
         self._sessions = session_factory
@@ -128,6 +129,9 @@ class OutboxRelay:
         self._base_backoff_s = base_backoff_s
         self._max_backoff_s = max_backoff_s
         self._handler_timeout_s = handler_timeout_s
+        # Slow paid work (AI images) needs longer than the default, or it is killed mid-call
+        # and retried, paying again.
+        self._topic_timeouts_s = dict(topic_timeouts_s or {})
         self._jitter = jitter
 
     async def run_batch(self) -> int:
@@ -170,7 +174,8 @@ class OutboxRelay:
         msg.attempts += 1
         envelope = OutboxEnvelope(msg.id, msg.topic, msg.payload, msg.attempts)
         try:
-            async with asyncio.timeout(self._handler_timeout_s):
+            timeout = self._topic_timeouts_s.get(msg.topic, self._handler_timeout_s)
+            async with asyncio.timeout(timeout):
                 await handler(envelope)
         except Exception as exc:  # any handler failure → retry or dead-letter
             msg.last_error = _describe(exc)

@@ -119,12 +119,15 @@ PHOTO_UNDERSTAND = TaskSpec(
 
 STYLIST_UNDERSTAND = TaskSpec(
     name="stylist.understand",
-    prompt_version="2026-10-05",
+    prompt_version="2026-10-05.2",
     instructions=(
         "You extract a fashion shopping request for Indian shoppers into structured fields. "
-        "The text may mix English and Hindi (Hinglish). Fill only fields the user actually "
-        "expressed; leave others null. `known` holds what we already know: do not repeat it. "
-        "Budgets are in rupees ('1.5k' = 1500)."
+        "The text may mix English and Hindi (Hinglish). Fill fields the user expressed or "
+        "clearly implied, and leave the rest null. Implied means near-certain from Indian "
+        "context: a kurti, saree or lehenga is cut for women, a sherwani for men; mehendi, "
+        "haldi and sangeet are wedding functions; 'for my wife' means women. Don't guess "
+        "beyond that. `known` holds what we already know: do not repeat it. Budgets are in "
+        "rupees ('1.5k' = 1500, '2.5k' = 2500)."
     ),
     input_type=UnderstandInput,
     output_type=UnderstandOutput,
@@ -154,11 +157,15 @@ class ExplainOutput(BaseModel):
 
 STYLIST_EXPLAIN = TaskSpec(
     name="stylist.explain",
-    prompt_version="2026-10-05",
+    prompt_version="2026-10-05.2",
     instructions=(
-        "For each product, give up to 3 very short reasons (max 5 words each) why it suits the "
-        "request, like chips on a shopping card. Use only the facts given (title, price, tags): "
-        "never invent materials, discounts, ratings or prices."
+        "For each product, give 2 or 3 short reasons (2 to 5 words, sentence case) why it suits "
+        "this shopper's request, shown as chips on a shopping card. Each reason must add "
+        "something the title doesn't already say: how it fits the occasion, what the fabric or "
+        "fit does for them, the colour they asked for, or budget headroom. Never restate the "
+        "category, gender or the words 'within budget'. Good: 'Breathable for summer', "
+        "'Matches your sky blue', 'Easy office-to-dinner', '₹700 under budget'. Use only the "
+        "facts given (title, price, tags): never invent materials, discounts or ratings."
     ),
     input_type=ExplainInput,
     output_type=ExplainOutput,
