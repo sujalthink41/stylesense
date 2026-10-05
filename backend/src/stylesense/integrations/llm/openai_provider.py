@@ -8,6 +8,7 @@ from openai import AsyncOpenAI
 from stylesense.ai.gateway.types import (
     ChatCall,
     ChatOutput,
+    Message,
     ProviderRateLimitedError,
     ProviderRejectedError,
     ProviderUnavailableError,
@@ -37,7 +38,7 @@ class OpenAIProvider:
     async def chat(self, model: str, call: ChatCall) -> ChatOutput:
         kwargs: dict[str, Any] = {
             "model": model,
-            "messages": [{"role": m.role, "content": m.content} for m in call.messages],
+            "messages": [_message(m) for m in call.messages],
             "max_completion_tokens": call.max_output_tokens,
             "timeout": call.timeout_s,
         }
@@ -96,3 +97,12 @@ class OpenAIProvider:
             if is_retryable_status(exc.status_code):
                 raise ProviderUnavailableError(f"HTTP {exc.status_code}") from exc
             raise ProviderRejectedError(f"HTTP {exc.status_code}") from exc
+
+
+def _message(m: Message) -> dict[str, Any]:
+    if not m.images:
+        return {"role": m.role, "content": m.content}
+    parts: list[dict[str, Any]] = [{"type": "text", "text": m.content}]
+    # Low detail: a fixed small token cost, plenty for "what garment is this?".
+    parts += [{"type": "image_url", "image_url": {"url": u, "detail": "low"}} for u in m.images]
+    return {"role": m.role, "content": parts}

@@ -71,7 +71,7 @@ See the feature list in `01-product-overview.md` §6 (F1–F14).
 | Rate limiting | Redis sliding-window/token-bucket (own middleware; `limits` library) |
 | Resilience | `pybreaker`-style circuit breaker (Redis-shared state) + `tenacity` retries |
 | Auth | Google ID-token verification (`google-auth`) + own JWT (PyJWT) |
-| Storage | MinIO through the S3 API (boto3/aioboto3) |
+| Storage | Cloudinary (private, signed direct uploads; ADR 0016) behind a `MediaStore` port |
 | Embeddings search | pgvector (HNSW indexes) |
 | Observability | structlog (JSON), OpenTelemetry, prometheus-fastapi-instrumentator, Sentry SDK → GlitchTip, Langfuse SDK |
 | Testing | pytest, pytest-asyncio, httpx, testcontainers (real Postgres/Redis) |
@@ -81,7 +81,7 @@ See the feature list in `01-product-overview.md` §6 (F1–F14).
 Next.js (App Router) + TypeScript + shadcn/ui + TanStack Query/Table + Recharts. It holds the admin dashboard (role-protected) and the public pages (poll voting, share landing, account deletion, privacy policy, terms).
 
 ### 3.4 Infrastructure (homelab)
-Docker Compose (separate `dev` and `prod` profiles), Caddy, Cloudflare Tunnel, GitHub Actions CI, GHCR images, nightly `pg_dump` + MinIO mirror to off-site storage, UPS.
+Docker Compose (separate `dev` and `prod` profiles), Caddy, Cloudflare Tunnel, GitHub Actions CI, GHCR images, nightly `pg_dump` , UPS.
 
 ## 4. Repository layout (monorepo)
 
@@ -341,8 +341,8 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 
 - **Swipe learning** *(built, CP9, ADR 0013)*: `POST /me/swipes`, idempotent per (user, product, session). The taste vector is an EMA of liked item embeddings, `normalize((1 − α)·taste + α·item)` with α = 0.20 (right) / 0.35 (super); a skip pushes away weakly (β = 0.05). Tag affinity counts +1/+2/−1 per descriptive tag, capped at ±20. Ranking adds a taste term (vector similarity + affinity); the deck refills via `GET /stylist/sessions/{id}/deck`. No LLM is involved.
 - **Style DNA** *(built, CP9)*: a tap-only onboarding flow (`entry: onboarding`): fit preference → up to 3 style images → top / waist / shoe size, every step skippable, saved once at the end. Picks seed the taste vector (embedding of the style's description) and tag affinity; fit preference prefills the stylist's gender question and the saved size filters decks (falls back to all sizes when nothing is left).
-- **Shop from photo:** upload → MinIO (private) → moderation → `photo.understand` (vision → attributes JSON) → embedding → retrieve + rank → UI.
-- **Virtual try-on:** `POST /v1/tryon` → job row + outbox message → worker → `TryOnProvider` adapter → result to MinIO → push + SSE patch. Selfies and results are deleted after 24 h (cron). Signed URLs expire in 15 min.
+- **Shop from photo** *(built, CP12)*: signed direct upload to Cloudinary → `confirm` (we inspect format/size/shape) → stylist session `entry: photo` → `photo.understand` (vision, 768 px signed URL; also flags unusable/unsafe photos) → slots → the usual ask/search/rank. 10 photo searches per user per day. Without vision AI the stylist explains and asks instead.
+- **Virtual try-on** *(built, CP12, ADR 0017)*: `POST /v1/tryon` (Idempotency-Key) → job row + outbox message → worker → `TryOnProvider` adapter → result copied into Cloudinary → `done`; progress via SSE `GET /v1/tryon/{id}/events`. Double taps reuse the active job; 3 per user per day plus a global cap; retry of failures is free. Selfies and results are deleted after 24 h (worker purge). Delivery URLs are signed; on Cloudinary's free plan they don't expire, so deletion is what ends access.
 - **Polls** *(built, CP11)*: create from 2–4 items → public URL `https://<domain>/p/{slug}` → web vote page (Next.js, no login). The page keeps a random voter token and sends `X-Voter-Token` (no cross-site cookies); one vote per token per poll, per-IP caps; tokens and IPs stored as HMAC pseudonyms. Results are hidden until you vote; the owner sees live results. ADR 0015.
 - **Share a look** *(API built, CP11)*: the card image is rendered on device (view-shot); the link `https://<domain>/l/{slug}` (Android App Links; falls back to the web page + Play Store link) comes from `POST /shares`, idempotent by content. The public page shows products with live prices, nothing about the owner; revoked → 410.
 - **Boards** *(built, CP11)*: one wishlist per user (alias `wishlist`, created on first use) + up to 50 outfit boards of ≤ 200 items. Optimistic locking: `ETag`/`If-Match` on renames and reorders (428 without, 412 if stale); saves and removes are idempotent.
@@ -357,8 +357,9 @@ Every "Buy" goes through `GET /v1/out/{offer_id}` → logged in `outbound_clicks
 | Me | `GET/PATCH /me`, `GET/PUT /me/style-profile`, `GET /me/style-profile/options`, `POST /me/swipes`, `PUT /me/devices/{installation_id}`, `POST /me/export`, `DELETE /me` |
 | Stylist | `POST /stylist/sessions`, `GET /stylist/sessions/{id}`, `POST /stylist/sessions/{id}/actions` (SSE response, ADR 0011), `GET /stylist/sessions/{id}/deck` (refill) |
 | Catalog | `GET /products`, `GET /products/{id}` (offers included, ETag), `GET /products/{id}/similar`, `GET /products/{id}/alternatives`, `GET /products/{id}/complete-look?budget_paise=` (rules only, ETag), `GET /out/{offer_id}` |
-| Photo | `POST /uploads` (presigned), `POST /photo-search` |
-| Try-on | `POST /tryon`, `GET /tryon/{id}` |
+| Photos | `POST /uploads`, `POST /uploads/{id}/confirm`, `GET/DELETE /uploads/{id}`; photo search is a stylist session with `entry: photo, value: <upload id>` |
+| Try-on | `POST /tryon` (Idempotency-Key), `GET /tryon/{id}`, `GET /tryon/{id}/events` (SSE), `POST /tryon/{id}/retry` |
+| Reports | `POST /reports` (try-on, product, share, poll) |
 | Boards | `GET/POST /boards`, `GET/PATCH/DELETE /boards/{id\|wishlist}`, `PUT/DELETE /boards/{id}/items/{product_id}`, `PUT /boards/{id}/order` |
 | Shares | `POST/GET /shares`, `DELETE /shares/{slug}`, public: `GET /public/shares/{slug}` |
 | Polls | `POST/GET /polls`, `GET /polls/{id}`, `POST /polls/{id}/close`, public: `GET /public/polls/{slug}`, `POST /public/polls/{slug}/votes` (`X-Voter-Token`) |
@@ -377,8 +378,8 @@ Conventions: JSON, cursor pagination, RFC 9457 problem+json errors, `Idempotency
 - **Tokens on device:** expo-secure-store only.
 - **Admin:** separate role (`admin`, `curator`), Google login restricted to an allow-list, all admin actions written to `audit_logs`.
 - **Transport:** HTTPS only (Cloudflare). No ports open on the homelab (tunnel). Internal services are not exposed.
-- **Data:** least-privilege DB roles (app vs migrations vs read-only analytics). Private MinIO buckets + short-lived signed URLs.
-- **Input:** Pydantic everywhere, upload type/size checks (≤ 8 MB, JPEG/PNG/WebP), EXIF stripping.
+- **Data:** least-privilege DB roles (app vs migrations vs read-only analytics). Private (authenticated) Cloudinary assets reachable only via signed URLs; everything user-uploaded is deleted after 24 h.
+- **Input:** Pydantic everywhere, upload type/size checks (≤ 8 MB, JPEG/PNG/WebP/HEIC, ≥ 200 px, verified on the stored file), EXIF stripped by the upload preset's re-encode.
 - **Secrets:** `.env` / Docker secrets, never committed. `gitleaks` in CI.
 - **Dependencies:** Dependabot + `pip-audit` + `npm audit` in CI.
 - **Headers/CORS:** strict CORS (admin + public web origins only), security headers via Caddy.
@@ -413,7 +414,7 @@ Conventions: JSON, cursor pagination, RFC 9457 problem+json errors, `Idempotency
 
 ## 14. Backups & disaster recovery
 
-- Nightly `pg_dump` (compressed, encrypted) + MinIO mirror → off-site. 14 daily + 8 weekly kept.
+- Nightly `pg_dump` (compressed, encrypted) → off-site (user photos aren't backed up: they live 24 h by design). 14 daily + 8 weekly kept.
 - **RPO 24 h, RTO 4 h.** A restore drill is run before launch and then monthly.
 - Infra as code (Compose + scripts in git) so the server can be rebuilt from scratch.
 

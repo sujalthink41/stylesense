@@ -261,3 +261,43 @@ def test_retry_after_accepts_http_dates() -> None:
 @pytest.mark.parametrize("headers", [{}, {"retry-after": "soon"}, {"retry-after-ms": "x"}])
 def test_unparseable_retry_after_is_ignored(headers: dict[str, str]) -> None:
     assert retry_after_s(httpx.Response(429, headers=headers)) is None
+
+
+# ---------- images (vision tasks) ----------
+
+VISION = ChatCall(
+    messages=(
+        Message("system", "Describe."),
+        Message("user", "<input>{}</input>", images=("https://img.test/a.jpg",)),
+    ),
+    json_schema=SCHEMA,
+    schema_name="Answer",
+    max_output_tokens=200,
+    temperature=None,
+    timeout_s=5,
+)
+
+
+async def test_openai_sends_images_as_low_detail_parts() -> None:
+    recorder = Recorder(httpx.Response(200, json=OPENAI_OK))
+
+    await _openai(recorder).chat("m", VISION)
+
+    system, user = recorder.body["messages"]
+    assert system == {"role": "system", "content": "Describe."}
+    assert user["content"] == [
+        {"type": "text", "text": "<input>{}</input>"},
+        {"type": "image_url", "image_url": {"url": "https://img.test/a.jpg", "detail": "low"}},
+    ]
+
+
+async def test_anthropic_sends_images_as_url_blocks_before_the_text() -> None:
+    recorder = Recorder(httpx.Response(200, json=ANTHROPIC_OK))
+
+    await _anthropic(recorder).chat("m", VISION)
+
+    [user] = recorder.body["messages"]
+    assert user["content"] == [
+        {"type": "image", "source": {"type": "url", "url": "https://img.test/a.jpg"}},
+        {"type": "text", "text": "<input>{}</input>"},
+    ]

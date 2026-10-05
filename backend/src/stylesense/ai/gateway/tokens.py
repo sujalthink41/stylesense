@@ -11,9 +11,14 @@ from stylesense.ai.gateway.types import Message
 
 _CHARS_PER_TOKEN = 3
 _PER_MESSAGE_OVERHEAD = 4
+# A low-detail image costs ~85 tokens on OpenAI, more on others: stay on the safe side.
+IMAGE_TOKENS = 1_600
 
 
 def estimate_tokens(messages: Iterable[Message]) -> int:
     return sum(
-        math.ceil(len(m.content) / _CHARS_PER_TOKEN) + _PER_MESSAGE_OVERHEAD for m in messages
+        math.ceil(len(m.content) / _CHARS_PER_TOKEN)
+        + _PER_MESSAGE_OVERHEAD
+        + IMAGE_TOKENS * len(m.images)
+        for m in messages
     )

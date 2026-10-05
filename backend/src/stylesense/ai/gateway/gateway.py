@@ -140,6 +140,12 @@ class LLMGateway:
             )
             for name in ("chat", "embed")
         }
+        # Vision calls are slow and heavy: a smaller pool, so they can't starve the stylist chat.
+        self._bulkheads["vision"] = Bulkhead(
+            "llm.vision",
+            max_concurrent=max(1, settings.max_concurrency // 4),
+            max_waiting=settings.max_queued,
+        )
 
     # ---------- chat ----------
 

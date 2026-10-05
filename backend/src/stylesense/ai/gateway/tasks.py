@@ -23,12 +23,23 @@ class TaskSpec[I: BaseModel, O: BaseModel]:
     input_type: type[I]
     output_type: type[O]
     bulkhead: str = "chat"
+    # Vision tasks: the payload field holding image URLs. They're sent as images, not as text.
+    image_field: str | None = None
 
     def messages(self, payload: I) -> tuple[Message, ...]:
+        images: tuple[str, ...] = ()
+        exclude: set[str] = set()
+        if self.image_field is not None:
+            images = tuple(getattr(payload, self.image_field))
+            exclude = {self.image_field}
         # Static system prompt first, so providers can cache the shared prefix.
         return (
             Message("system", f"{self.instructions}\n\n{_SAFETY_RULES}"),
-            Message("user", f"<input>{payload.model_dump_json()}</input>"),
+            Message(
+                "user",
+                f"<input>{payload.model_dump_json(exclude=exclude)}</input>",
+                images=images,
+            ),
         )
 
 

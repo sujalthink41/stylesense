@@ -25,7 +25,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP9 | Swipes, taste learning, Style DNA | S6, S7 | ✅ |
 | CP10 | Detail, store comparison, complete the look | S8 | ✅ |
 | CP11 | Boards, shares, polls | S9, S10, S13 | ✅ |
-| CP12 | Uploads, shop from photo, virtual try-on | S11, S12 | ⬜ |
+| CP12 | Uploads, shop from photo, virtual try-on | S11, S12 | ✅ |
 | CP13 | Feed, notifications, price-drop alerts | S14, S15 | ⬜ |
 | CP14 | Admin API complete | S16 | ⬜ |
 | **Phase 2: Frontend** | | | |

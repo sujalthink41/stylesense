@@ -280,7 +280,7 @@ def _product_offers(
                 rating=round(min(5.0, max(1.0, product_rating + rng.uniform(-0.3, 0.3))), 1),
                 rating_count=rng.randint(12, 4_800),
                 image_urls=(
-                    f"https://placehold.co/600x800/{_COLORS[color]}/ffffff?text={quote_plus(spec.label)}",
+                    f"https://placehold.co/600x800/{_COLORS[color]}/ffffff.png?text={quote_plus(spec.label)}",
                 ),
             )
         )

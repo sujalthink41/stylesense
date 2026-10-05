@@ -91,6 +91,32 @@ class UnderstandOutput(BaseModel):
         )
 
 
+class PhotoInput(BaseModel):
+    image_urls: list[str] = Field(min_length=1, max_length=1)
+
+
+class PhotoOutput(UnderstandOutput):
+    usable: bool  # false: no clothing to match, or the photo is unsafe
+
+
+PHOTO_UNDERSTAND = TaskSpec(
+    name="photo.understand",
+    prompt_version="2026-10-05",
+    instructions=(
+        "You look at a shopper's photo and describe the main clothing item so we can find "
+        "similar products in an Indian online catalog. Set `usable` to false if there is no "
+        "clearly visible clothing or footwear, or if the photo is sexual, violent or otherwise "
+        "unsafe; then leave every other field null. Otherwise fill only what you can see: "
+        "category, gender the item is cut for, up to 3 main colours, fit, fabric and the "
+        "occasion it suits. Never guess a budget."
+    ),
+    input_type=PhotoInput,
+    output_type=PhotoOutput,
+    image_field="image_urls",
+    bulkhead="vision",
+)
+
+
 STYLIST_UNDERSTAND = TaskSpec(
     name="stylist.understand",
     prompt_version="2026-10-05",

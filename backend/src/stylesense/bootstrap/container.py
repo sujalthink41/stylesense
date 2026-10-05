@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import timedelta
 
 from opentelemetry.sdk.trace import TracerProvider
 from prometheus_client import CollectorRegistry
@@ -23,6 +24,8 @@ from stylesense.integrations.embeddings.hashing import HashingEmbedder
 from stylesense.integrations.google_identity import GoogleIdTokenVerifier, google_signing_keys
 from stylesense.integrations.llm.anthropic_provider import AnthropicProvider
 from stylesense.integrations.llm.openai_provider import OpenAIProvider
+from stylesense.integrations.media.cloudinary import CloudinaryStore
+from stylesense.integrations.tryon.fake import FakeTryOnProvider
 from stylesense.modules.auth.ports import IdentityVerifier
 from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
@@ -40,6 +43,10 @@ from stylesense.modules.stylist.flows.demo import DemoFlow
 from stylesense.modules.stylist.flows.style_dna import StyleDnaFlow
 from stylesense.modules.stylist.flows.stylist import StylistFlow
 from stylesense.modules.stylist.service import StylistService
+from stylesense.modules.tryon.ports import TryOnProvider
+from stylesense.modules.tryon.service import MediaMetrics, TryOnService
+from stylesense.modules.uploads.ports import MediaStore
+from stylesense.modules.uploads.service import UploadsService
 from stylesense.modules.users.service import UsersService
 from stylesense.platform.clock import Clock, SystemClock
 from stylesense.platform.config import Settings
@@ -87,6 +94,8 @@ class Container:
     boards: BoardsService
     sharing: SharingService
     polls: PollsService
+    uploads: UploadsService
+    tryon: TryOnService
     stylist: StylistService
     closers: tuple[Closer, ...] = ()
     closed: bool = field(default=False, init=False)
@@ -108,8 +117,11 @@ def build_container(
     *,
     verifier: IdentityVerifier | None = None,
     telemetry: Telemetry | None = None,
+    media_store: MediaStore | None = None,
+    tryon_provider: TryOnProvider | None = None,
 ) -> Container:
-    """`verifier` is injectable so tests can replace Google with a fake."""
+    """External services are injectable so tests can replace them with fakes
+    (Google sign-in, image storage, the try-on vendor)."""
     telemetry = telemetry or Telemetry()
     # Clients are lazy: nothing connects until first use.
     engine = create_engine(settings)
@@ -187,6 +199,31 @@ def build_container(
         metrics=PersonalizationMetrics(telemetry.registry) if telemetry.registry else None,
     )
     looks = LookService(catalog, gateway)
+    store = media_store or _media_store(settings)
+    if isinstance(store, CloudinaryStore):
+        closers.append(store.aclose)
+    uploads = UploadsService(
+        uow,
+        store=store,
+        limiter=rate_limiter,
+        clock=clock,
+        ttl=timedelta(hours=settings.media_ttl_hours),
+        daily_limit=settings.upload_daily_limit,
+        photo_search_daily_limit=settings.photo_search_daily_limit,
+    )
+    tryon = TryOnService(
+        uow,
+        uploads=uploads,
+        catalog=catalog,
+        store=store,
+        provider=tryon_provider or _tryon_provider(settings),
+        outbox=outbox,
+        clock=clock,
+        ttl=timedelta(hours=settings.media_ttl_hours),
+        daily_limit=settings.tryon_daily_limit,
+        global_daily_limit=settings.tryon_global_daily_limit,
+        metrics=MediaMetrics(telemetry.registry) if telemetry.registry else None,
+    )
     boards = BoardsService(uow, catalog=catalog, clock=clock)
     sharing = SharingService(
         uow, catalog=catalog, boards=boards, clock=clock, public_url=settings.public_web_url
@@ -202,7 +239,7 @@ def build_container(
     stylist = StylistService(
         uow,
         flows={
-            "stylist": StylistFlow(catalog, gateway, personalization, looks),
+            "stylist": StylistFlow(catalog, gateway, personalization, looks, uploads),
             "style_dna": StyleDnaFlow(personalization),
             # Kept so sessions started on it keep working.
             "demo": DemoFlow(catalog),
@@ -241,10 +278,29 @@ def build_container(
         boards=boards,
         sharing=sharing,
         polls=polls,
+        uploads=uploads,
+        tryon=tryon,
         stylist=stylist,
         # In-flight stylist turns finish (and persist) before connections close.
         closers=(stylist.wait_for_turns, *closers),
     )
+
+
+def _media_store(settings: Settings) -> MediaStore | None:
+    if not settings.media_configured:
+        return None  # photo search and try-on report "unavailable"; everything else works
+    return CloudinaryStore(
+        cloud_name=settings.cloudinary_cloud_name or "",
+        api_key=settings.cloudinary_api_key or "",
+        api_secret=settings.cloudinary_api_secret.get_secret_value()
+        if settings.cloudinary_api_secret
+        else "",
+        upload_preset=settings.cloudinary_upload_preset,
+    )
+
+
+def _tryon_provider(settings: Settings) -> TryOnProvider | None:
+    return FakeTryOnProvider() if settings.tryon_provider == "fake" else None
 
 
 def _llm_providers(

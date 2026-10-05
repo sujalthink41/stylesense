@@ -410,3 +410,27 @@ Short explanations of the important ideas used in StyleSense: **what** each one 
 
 ## 107. Layered anti-abuse
 **What:** a unique key (one vote per device), a per-poll-per-network cap and per-IP rate limits each stop a different kind of abuse; none alone is enough. **Why:** cheap defences in depth beat one expensive one (CAPTCHAs) for low-stakes features.
+
+## 108. Direct-to-storage uploads with signatures
+**What:** the server signs "you may upload one file named X with these rules", and the app sends the bytes straight to the storage provider. **Why:** our servers never carry large uploads (bandwidth, memory, time), yet nobody can upload without our permission.
+
+## 109. Trust, but verify (uploads)
+**What:** after an upload, the server asks storage what actually arrived (format, size, dimensions) instead of believing the client. **Why:** clients can be modified; storage can't be lied to.
+
+## 110. Data minimisation by expiry
+**What:** user photos live 24 hours; a scheduled job deletes them. Storage first, then the database row, so a failure is retried rather than forgotten. **Why:** the safest personal data is data you no longer have.
+
+## 111. Background jobs for slow, paid work
+**What:** the request only records the job; a worker does the work and the app watches its status. **Why:** a 30-second vendor call shouldn't hold an HTTP request open, and a crash mid-call shouldn't lose the job.
+
+## 112. At-least-once delivery + idempotent handlers
+**What:** the outbox may deliver a message twice (e.g. after a crash), so the handler checks the job's state first and does nothing if it's already done. **Why:** "exactly once" is built from "at least once" plus idempotency.
+
+## 113. Advisory locks
+**What:** `pg_advisory_xact_lock(key)` is a lock on a number, not a row, held until the transaction ends. Locking per user makes "count today's jobs, then insert" safe against concurrent requests. **Why:** some checks span rows that don't exist yet, so there's no row to lock.
+
+## 114. Retryable vs permanent failures (again)
+**What:** a busy vendor or a 503 is worth retrying; "no person in the photo" or a 400 from storage isn't. Classifying errors decides between backoff and a clean, explained failure. **Why:** retrying the impossible wastes money and delays the user's answer.
+
+## 115. CDN caching vs deletion
+**What:** deleting a file at the origin doesn't instantly remove copies cached at CDN edges; invalidation takes time. **Why it matters:** privacy promises must account for caches. Here URLs are unguessable and only given to the owner, which bounds the risk.

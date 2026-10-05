@@ -137,3 +137,17 @@ def test_production_requires_google_client_ids() -> None:
 def test_rejects_malformed_app_versions(version: str) -> None:
     with pytest.raises(ValidationError, match="min_supported_app_version"):
         make_settings(min_supported_app_version=version)
+
+
+def test_the_fake_try_on_provider_is_refused_in_production() -> None:
+    with pytest.raises(ValidationError, match="fake try-on"):
+        make_settings(env="production", google_client_ids=["web"], tryon_provider="fake")
+    assert make_settings(tryon_provider="fake").tryon_provider == "fake"
+
+
+def test_media_needs_all_three_cloudinary_values_and_blanks_mean_unset() -> None:
+    full = {"cloudinary_cloud_name": "c", "cloudinary_api_key": "k", "cloudinary_api_secret": "s"}
+
+    assert make_settings(**full).media_configured is True
+    assert make_settings(**{**full, "cloudinary_api_secret": "  "}).media_configured is False
+    assert make_settings().media_configured is False

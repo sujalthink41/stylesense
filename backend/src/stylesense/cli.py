@@ -132,6 +132,14 @@ async def llm_check(settings: Settings) -> dict[str, Any]:
         return {"ok": result.ok and result.echo == "stylesense", "providers": list(c.llm_providers)}
 
 
+async def purge_media(settings: Settings) -> dict[str, Any]:
+    """Run the expired-photo purge now (the worker also runs it every 15 minutes)."""
+    async with _Session(settings) as c:
+        uploads = await c.uploads.purge_expired()
+        results = await c.tryon.purge_expired()
+    return {"ok": True, "uploads_deleted": uploads, "tryon_results_deleted": results}
+
+
 class _Session:
     """Builds the container for one command and always closes it."""
 
@@ -182,6 +190,8 @@ def _parser() -> argparse.ArgumentParser:
     )
     evals.add_argument("--engine", choices=["rules", "llm"], default="rules")
 
+    commands.add_parser("purge-media", help="delete expired photos and try-on results now")
+
     dev = commands.add_parser("dev-token", help="local-only: tokens for a test user (no Google)")
     dev.add_argument("email")
     return parser
@@ -206,6 +216,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = asyncio.run(eval_understand(settings, engine=args.engine))
         case "dev-token":
             result = asyncio.run(dev_token(settings, email=args.email))
+        case "purge-media":
+            result = asyncio.run(purge_media(settings))
         case _:
             result = asyncio.run(llm_check(settings))
     sys.stdout.write(json.dumps(result, indent=2, default=str) + "\n")

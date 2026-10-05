@@ -7,6 +7,7 @@ from anthropic import AsyncAnthropic
 from stylesense.ai.gateway.types import (
     ChatCall,
     ChatOutput,
+    Message,
     ProviderRateLimitedError,
     ProviderRejectedError,
     ProviderUnavailableError,
@@ -39,9 +40,7 @@ class AnthropicProvider:
         kwargs: dict[str, Any] = {
             "model": model,
             "max_tokens": call.max_output_tokens,
-            "messages": [
-                {"role": m.role, "content": m.content} for m in call.messages if m.role != "system"
-            ],
+            "messages": [_message(m) for m in call.messages if m.role != "system"],
             "timeout": call.timeout_s,
         }
         if system:
@@ -82,3 +81,12 @@ class AnthropicProvider:
                 output_tokens=usage.output_tokens,
             ),
         )
+
+
+def _message(m: Message) -> dict[str, Any]:
+    if not m.images:
+        return {"role": m.role, "content": m.content}
+    blocks: list[dict[str, Any]] = [
+        {"type": "image", "source": {"type": "url", "url": u}} for u in m.images
+    ]
+    return {"role": m.role, "content": [*blocks, {"type": "text", "text": m.content}]}
