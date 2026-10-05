@@ -270,6 +270,17 @@ Code: `mobile/` (Expo SDK 57, expo-router). ADR 0018; product record `PRODUCT.md
 - **GenUI** (`src/genui`, `src/stylist`): the renderer maps each component type to an organism; unknown types show an update prompt. The stylist store keeps one turn in flight and recovers from `stale_turn` / `session_busy`. The swipe deck records swipes over REST and refills itself.
 - **Quality:** Jest (jest-expo + Testing Library), `tsc --strict`, `expo lint`; `mobile-ci` workflow also bundles for Android.
 
+## 2q. Mobile stylist experience *(built)*
+
+Code: `mobile/src/api/sse.ts`, `api/client.ts` (`events`), `stylist/store.ts`, `app/session/[id].tsx`, `genui/navigation.ts`, `boards/wishlist.ts`, `onboarding/`, `app/welcome.tsx`, `lib/perf.ts`. ADR 0019.
+
+- **Streamed turns:** actions are POSTed with `Accept: text/event-stream`; `ui.loading` shows a skeleton of the coming screen (`organisms/Skeleton`), `ui.render` fades the new screen in, `error` keeps the screen and shows a banner. A dropped stream resumes from `GET /v1/stylist/sessions/{id}` (polling while `busy`) and is never resent.
+- **Back:** Android back sends the screen's own Back action; with none, it leaves the session.
+- **Detail:** the save heart (wishlist, optimistic, idempotent PUT/DELETE) sits on the photos; a docked buy bar opens the best in-stock offer through `/v1/out/{offer}?src=detail`.
+- **Swipe deck:** gesture and animation on the UI thread, memoised cards, the next three photos prefetched to the disk cache, `expo-image` recycling.
+- **Onboarding:** a one-time welcome after the first sign-in for anyone without a Style DNA; the Me tab shows the Style DNA card (chosen looks, sizes, learned tags) with Retake.
+- **Measured:** `tap_to_products` (tap → first deck), logged in development (Metro terminal) and sent as a breadcrumb.
+
 ## 3. Request lifecycle: a stylist turn *(built)*
 
 1. The user types **"summer t-shirt under 500"** → `POST /v1/stylist/sessions {entry: "search", value: …}`.
@@ -378,3 +389,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP11 | 2026-10-05 | Boards (wishlist alias + outfit boards) with optimistic locking (ETag/If-Match, 428/412) and idempotent item saves; share links (content-idempotent slugs, public page with live prices, revoke → 410); polls with public token voting (unique per token, per-IP-per-poll cap, `votes.per_ip`, `public.per_ip`, HMAC pseudonyms); client-id idempotent creates; `APP_PUBLIC_WEB_URL`; CORS allows If-Match / X-Voter-Token and exposes ETag; migration 0008; ADR 0015. |
 | CP12 | 2026-10-05 | Photos via Cloudinary (ADR 0016, supersedes 0003): signed direct uploads, server-side verification, authenticated delivery with signed URLs, 24 h purge (storage first, SET NULL user FKs); vision support in the LLM gateway (image parts for OpenAI/Anthropic, vision bulkhead) and `photo.understand`; shop from a photo via the stylist; try-on as outbox jobs (ADR 0017) with double-tap protection, retries, free retry, quotas and a global cap, SSE progress; content reports; `cli purge-media`; metrics + panels; runbook; migration 0009. |
 | CP15 | 2026-10-05 | Mobile foundation (ADR 0018): Expo SDK 57 app with expo-router guards, "Indigo & Block" design system (tokens, Anek Latin, atoms/molecules/organisms), API client with shared refresh and problem errors, SecureStore session, force-update screen, GenUI renderer for all 14 component types + stylist store + swipe deck; generated contract types checked in CI (`mobile-ci`); backend `POST /v1/auth/dev` (non-production) and `python -m stylesense.main openapi`; dev API can bind to the LAN. CP13/CP14 deferred. |
+| CP16 | 2026-10-05 | Mobile stylist (ADR 0019): streamed turns over SSE with shape-aware skeletons and resume-not-resend; Android back follows the server's Back; detail save heart (wishlist) and docked best-price buy bar; swipe deck prefetch + memoised cards; one-time welcome / Style DNA onboarding and a Style DNA card on Me; `tap_to_products` timing. |

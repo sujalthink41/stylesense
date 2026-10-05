@@ -9,11 +9,12 @@ import { Text } from '@/ui/atoms/Text';
 /** Each occasion owns one dye, so the home screen reads as printed cloth, not icon tiles. */
 export type Dye = 'madder' | 'turmeric' | 'indigo' | 'cotton';
 
-const dyes: Record<Dye, { bg: string; title: string; sub: string; motif?: string }> = {
+/** Block-print dyes: ground, text on it, and the buti printed into it. */
+export const dyes: Record<Dye, { bg: string; title: string; sub: string; motif: string }> = {
   madder: { bg: palette.madder, title: palette.white, sub: palette.madderTint, motif: '#C9483F' },
-  turmeric: { bg: palette.turmeric, title: palette.ink, sub: palette.turmericInk },
+  turmeric: { bg: palette.turmeric, title: palette.ink, sub: palette.turmericInk, motif: '#E3B23F' },
   indigo: { bg: palette.indigo, title: palette.white, sub: palette.indigoMist, motif: palette.indigo700 },
-  cotton: { bg: palette.white, title: palette.ink, sub: palette.ink600 },
+  cotton: { bg: palette.white, title: palette.ink, sub: palette.ink600, motif: palette.indigoWash },
 };
 
 export interface OccasionTileProps {

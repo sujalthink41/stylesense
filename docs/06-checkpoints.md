@@ -30,7 +30,7 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | CP14 | Admin API complete | S16 | ⏸ deferred |
 | **Phase 2: Frontend** | | | |
 | CP15 | Mobile foundation + auth + GenUI renderer | S0, S1, S4 | ✅ |
-| CP16 | Mobile stylist, swipe, Style DNA, detail | S5–S8 | ⬜ |
+| CP16 | Mobile stylist, swipe, Style DNA, detail | S5–S8 | ✅ |
 | CP17 | Mobile boards, share, polls, photo, try-on, feed, alerts | S9–S15 | ⬜ |
 | CP18 | Admin dashboard + public web pages | S16 | ⬜ |
 | **Phase 3: Production** | | | |
@@ -115,6 +115,7 @@ Expo app structure, design system, API client (generated types), Google sign-in 
 ## CP16 — Mobile stylist, swipe, Style DNA, detail
 Home tiles, stylist screen, swipe deck (Reanimated, prefetch, haptics), onboarding, detail, comparison, complete the look.
 **Exit:** first products < 5 s on a mid-range Android device; swipe at 60 fps.
+*Verified 2026-10-05 on an Android phone via Expo Go: 488 ms tap → products (`tap_to_products`); swipes smooth.*
 
 ## CP17 — Mobile boards, share, polls, photo, try-on, feed, alerts
 All remaining v1 screens; offline-first boards; view-shot share cards; App Links.

@@ -1,4 +1,5 @@
 import { ApiError, networkError, problemFrom } from './errors';
+import { SSEParser, type SSEEvent } from './sse';
 
 export interface TokenSource {
   /** Current access token, if signed in. */
@@ -55,14 +56,58 @@ export class ApiClient {
   }
 
   async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+    return this.parse<T>(await this.respond(method, path, options));
+  }
+
+  /**
+   * POST that asks for Server-Sent Events and hands each one to `onEvent` as it arrives.
+   * A proxy may buffer and answer plain JSON instead; that body is returned as is.
+   * Once the server has accepted the request, a dropped or silent stream throws `stream_lost`:
+   * the work carries on server-side, so the caller should resume, not resend.
+   */
+  async events<T>(
+    path: string,
+    body: unknown,
+    onEvent: (event: SSEEvent) => void,
+    { idleTimeoutMs = 45_000, ...options }: RequestOptions & { idleTimeoutMs?: number } = {},
+  ): Promise<{ streamed: true } | { streamed: false; body: T }> {
+    const response = await this.respond('POST', path, {
+      ...options,
+      body,
+      headers: { ...options.headers, Accept: 'text/event-stream' },
+    });
+    if (!response.ok || !(response.headers.get('Content-Type') ?? '').includes('text/event-stream')) {
+      return { streamed: false, body: await this.parse<T>(response) };
+    }
+    const parser = new SSEParser();
+    const reader = response.body?.getReader();
+    try {
+      if (!reader) {
+        // No incremental body here: everything arrives at the end, still in order.
+        [...parser.feed(await response.text()), ...parser.flush()].forEach(onEvent);
+        return { streamed: true };
+      }
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await withIdleLimit(reader.read(), idleTimeoutMs, () => void reader.cancel());
+        if (done) break;
+        parser.feed(decoder.decode(value, { stream: true })).forEach(onEvent);
+      }
+      parser.flush().forEach(onEvent);
+      return { streamed: true };
+    } catch (error) {
+      if (error instanceof ApiError && error.code !== 'stream_lost') throw error;
+      throw new ApiError({ status: 0, code: 'stream_lost', title: 'Connection lost' });
+    }
+  }
+
+  private async respond(method: string, path: string, options: RequestOptions): Promise<Response> {
     const auth = options.auth ?? true;
     const first = await this.send(method, path, options, auth);
-    if (first.status === 401 && auth && this.config.tokens.accessToken()) {
-      if (await this.refreshOnce()) {
-        return this.parse<T>(await this.send(method, path, options, auth));
-      }
+    if (first.status === 401 && auth && this.config.tokens.accessToken() && (await this.refreshOnce())) {
+      return this.send(method, path, options, auth);
     }
-    return this.parse<T>(first);
+    return first;
   }
 
   private refreshOnce(): Promise<boolean> {
@@ -119,4 +164,16 @@ export class ApiClient {
     if (!response.ok) throw problemFrom(response.status, body, response.headers.get('Retry-After'));
     return body as T;
   }
+}
+
+/** Rejects with `stream_lost` when `read` takes longer than `ms` (keep-alives arrive every 15 s). */
+function withIdleLimit<T>(read: Promise<T>, ms: number, onTimeout: () => void): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const idle = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      onTimeout();
+      reject(new ApiError({ status: 0, code: 'stream_lost', title: 'Connection lost' }));
+    }, ms);
+  });
+  return Promise.race([read, idle]).finally(() => clearTimeout(timer));
 }

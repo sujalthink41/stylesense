@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { useTheme } from '@/design/theme';
@@ -22,7 +22,7 @@ export interface DetailData {
 }
 
 /** The full product: swipeable photos, the price at its largest, facts as chips. */
-export function ProductDetailView({ detail }: { detail: DetailData }) {
+export function ProductDetailView({ detail, accessory }: { detail: DetailData; accessory?: ReactNode }) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
@@ -54,6 +54,7 @@ export function ProductDetailView({ detail }: { detail: DetailData }) {
             ))}
           </View>
         ) : null}
+        {accessory ? <View style={styles.accessory}>{accessory}</View> : null}
       </View>
       <View style={styles.head}>
         <Text variant="bodySmall" tone="secondary">
@@ -87,6 +88,7 @@ export function ProductDetailView({ detail }: { detail: DetailData }) {
 }
 
 const styles = StyleSheet.create({
+  accessory: { position: 'absolute', top: 14, right: 14 },
   wrap: { gap: 14 },
   photos: { borderRadius: radius.xl, overflow: 'hidden' },
   dots: { position: 'absolute', bottom: 14, right: 14, flexDirection: 'row', gap: 6 },

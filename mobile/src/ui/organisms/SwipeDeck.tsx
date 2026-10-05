@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -56,6 +57,12 @@ export function SwipeDeck({ cards, onSwipe, onOpen, onRunningLow, emptyLabel = "
     if (remaining === 2) onRunningLow?.();
   }, [remaining, onRunningLow]);
 
+  // Photos for the next three cards download while this one is on screen: no blank swipes.
+  useEffect(() => {
+    const upcoming = cards.slice(index + 1, index + 4).flatMap((c) => (c.image_url ? [c.image_url] : []));
+    if (upcoming.length) void Image.prefetch(upcoming, 'memory-disk').catch(() => undefined);
+  }, [cards, index]);
+
   const current = cards[index];
   const next = cards[index + 1];
 
@@ -84,7 +91,7 @@ export function SwipeDeck({ cards, onSwipe, onOpen, onRunningLow, emptyLabel = "
       withTiming(1, { duration: reduced ? 0 : motion.stampSpread }),
     );
     x.value = withSequence(
-      withTiming(x.value, { duration: reduced ? 0 : 420 }),
+      withTiming(x.value, { duration: reduced ? 0 : 320 }), // long enough to see the stamp land
       withTiming(exit, { duration: reduced ? 0 : 240 }, () => scheduleOnRN(advance, direction)),
     );
   };

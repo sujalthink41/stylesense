@@ -1,4 +1,5 @@
 import { ApiClient } from '@/api/client';
+import { timers } from '@/lib/perf';
 
 import { createStylistStore } from '../store';
 
@@ -65,6 +66,16 @@ describe('stylist store', () => {
     expect(store.getState().error).toBeNull();
   });
 
+  it('restarts the products timer on every tap, so reading time never counts', async () => {
+    const started = jest.spyOn(timers, 'start');
+    const { store } = setup((m) => (m === 'POST' ? respond(200, { turn_id: 2, ui: UI(2) }) : respond(200, VIEW(1))));
+    await store.getState().start('search', 'tee');
+    await store.getState().act(tap);
+
+    expect(started.mock.calls).toEqual([['tap_to_products'], ['tap_to_products']]);
+    started.mockRestore();
+  });
+
   it('retries once when the session is busy', async () => {
     let attempts = 0;
     const { store } = setup((_, path) => {
@@ -110,6 +121,71 @@ describe('stylist store', () => {
 
     expect(store.getState().error?.code).toBe('turn_failed');
     expect(store.getState().session?.turn_id).toBe(2);
+  });
+
+  describe('streamed turns', () => {
+    const frames = (...events: [string, unknown][]) =>
+      new Response(events.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join(''), {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
+    const skeleton = { id: 'loading', type: 'loading_skeleton', props: { shape: 'cards', count: 3 } };
+
+    it('shows the server skeleton while working, then the new screen', async () => {
+      const loadingSeen: unknown[] = [];
+      const { store } = setup((_, path) =>
+        path.endsWith('/actions')
+          ? frames(['ui.loading', { turn_id: 2, components: [skeleton] }], ['ui.render', { envelope: UI(2) }], ['done', { turn_id: 2 }])
+          : respond(201, VIEW(1)),
+      );
+      await store.getState().start('search', 'tee');
+      const unsubscribe = store.subscribe((s) => s.loading && loadingSeen.push(s.loading));
+
+      await store.getState().act(tap);
+      unsubscribe();
+
+      expect(loadingSeen).toEqual([[skeleton]]);
+      expect(store.getState()).toMatchObject({ loading: null, phase: 'idle', error: null });
+      expect(store.getState().session?.turn_id).toBe(2);
+    });
+
+    it('keeps the screen and shows the problem from an error event', async () => {
+      const { store } = setup((_, path) =>
+        path.endsWith('/actions')
+          ? frames(['ui.render', { envelope: UI(2) }], ['error', { problem: { status: 503, code: 'ai_unavailable', title: 'Busy' } }])
+          : respond(201, VIEW(1)),
+      );
+      await store.getState().start('search', 'tee');
+
+      await store.getState().act(tap);
+
+      expect(store.getState().session?.turn_id).toBe(2);
+      expect(store.getState().error?.code).toBe('ai_unavailable');
+    });
+
+    it('a dropped stream resumes from the snapshot, waiting while the turn finishes', async () => {
+      let snapshots = 0;
+      const { store, calls } = setup((m, path) => {
+        if (path.endsWith('/actions')) {
+          const body = new ReadableStream({
+            start(c) {
+              c.error(new TypeError('Network request failed'));
+            },
+          });
+          return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+        }
+        if (m === 'GET') return respond(200, ++snapshots < 3 ? { ...VIEW(1), status: 'busy' } : VIEW(2));
+        return respond(201, VIEW(1));
+      });
+      await store.getState().start('search', 'tee');
+
+      await store.getState().act(tap);
+
+      expect(calls.filter((c) => c.path.endsWith('/actions'))).toHaveLength(1); // never resent
+      expect(snapshots).toBe(3);
+      expect(store.getState().session?.turn_id).toBe(2);
+      expect(store.getState().error).toBeNull();
+    });
   });
 
   it('reports a failed start without a session', async () => {
