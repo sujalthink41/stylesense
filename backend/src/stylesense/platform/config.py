@@ -101,6 +101,19 @@ class Settings(BaseSettings):
     # "hashing" (offline) or "provider:model"; changing it re-embeds the whole catalog.
     embedding_model: str = Field(default="hashing", pattern=r"^(hashing|[a-z0-9_-]+:\S+)$")
 
+    # Media (Cloudinary). Photo search and try-on are enabled only when all three are set.
+    cloudinary_cloud_name: str | None = None
+    cloudinary_api_key: str | None = None
+    cloudinary_api_secret: SecretStr | None = None
+    cloudinary_upload_preset: str = "stylesense_user_uploads"
+    media_ttl_hours: int = Field(default=24, ge=1, le=168)  # user photos are deleted after this
+    upload_daily_limit: int = Field(default=30, ge=1, le=1_000)  # per user
+    photo_search_daily_limit: int = Field(default=10, ge=1, le=1_000)  # per user
+    # Virtual try-on. "fake" returns the garment image (local testing only); "none" = off.
+    tryon_provider: Literal["none", "fake"] = "none"
+    tryon_daily_limit: int = Field(default=3, ge=0, le=100)  # per user
+    tryon_global_daily_limit: int = Field(default=200, ge=0, le=100_000)  # paid: hard cap
+
     @field_validator("database_url")
     @classmethod
     def _require_async_driver(cls, url: PostgresDsn) -> PostgresDsn:
@@ -108,7 +121,14 @@ class Settings(BaseSettings):
             raise ValueError("database_url must use the postgresql+asyncpg driver")
         return url
 
-    @field_validator("openai_api_key", "anthropic_api_key", mode="before")
+    @field_validator(
+        "openai_api_key",
+        "anthropic_api_key",
+        "cloudinary_cloud_name",
+        "cloudinary_api_key",
+        "cloudinary_api_secret",
+        mode="before",
+    )
     @classmethod
     def _blank_key_is_unset(cls, value: object) -> object:
         # Compose passes unset variables as "", which must mean "no provider", not a blank key.
@@ -125,7 +145,15 @@ class Settings(BaseSettings):
             raise ValueError("debug must be disabled in production")
         if self.env is Environment.PRODUCTION and not self.google_client_ids:
             raise ValueError("google_client_ids is required in production")
+        if self.env is Environment.PRODUCTION and self.tryon_provider == "fake":
+            raise ValueError("the fake try-on provider must never serve real users")
         return self
+
+    @property
+    def media_configured(self) -> bool:
+        return bool(
+            self.cloudinary_cloud_name and self.cloudinary_api_key and self.cloudinary_api_secret
+        )
 
     @property
     def docs_enabled(self) -> bool:

@@ -52,6 +52,7 @@ Tasks the app uses (route the ones you want; unrouted tasks fall back to rules):
 | `stylist.understand` | Fills request details the rules missed | Rules only |
 | `stylist.explain` | Rewords "why this pick" chips | Rule reasons |
 | `look.complete` | Names a look and rewords its reasons | Rule title and reasons |
+| `photo.understand` | Reads a shopper's photo (needs a vision-capable model) | Photo search explains and asks questions instead |
 
 Options: `--max-input` (token cap), `--max-output`, `--timeout` (seconds), `--cache-ttl` (seconds; 0 = no caching), `--temperature`, `--disable` (switch a task off instantly; callers degrade gracefully).
 

@@ -11,6 +11,7 @@ Role = Literal["system", "user", "assistant"]
 class Message:
     role: Role
     content: str
+    images: tuple[str, ...] = ()  # image URLs the model should look at (vision tasks)
 
 
 @dataclass(frozen=True, slots=True)

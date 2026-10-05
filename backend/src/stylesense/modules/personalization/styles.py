@@ -20,7 +20,7 @@ class Style:
 
     @property
     def image_url(self) -> str:
-        return f"https://placehold.co/400x500/{self.color}/ffffff?text={quote_plus(self.label)}"
+        return f"https://placehold.co/400x500/{self.color}/ffffff.png?text={quote_plus(self.label)}"
 
 
 STYLES: dict[str, Style] = {

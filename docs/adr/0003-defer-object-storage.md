@@ -1,6 +1,6 @@
 # 0003 — Defer choosing the object store until CP12
 
-**Status:** Accepted (2026-10-04)
+**Status:** Superseded by [0016](0016-cloudinary-for-media.md) (2026-10-05)
 
 ## Context
 The spec named MinIO for uploads and try-on images. MinIO's free distribution of prebuilt images has changed recently, and nothing needs object storage before CP12.

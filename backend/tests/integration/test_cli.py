@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import text
 
 from stylesense.bootstrap.container import build_container
-from stylesense.cli import dev_token, eval_understand, main, seed_catalog
+from stylesense.cli import dev_token, eval_understand, main, purge_media, seed_catalog
 from stylesense.infra.database import create_engine
 from stylesense.platform.config import Settings
 
@@ -122,3 +122,13 @@ async def test_eval_understand_llm_reports_unavailable_without_a_key(
 
     assert report["ok"] is False
     assert "stylist.understand" in report["error"]
+
+
+async def test_purge_media_reports_nothing_to_do_without_storage(
+    settings: Settings, migrated: None
+) -> None:
+    assert await purge_media(settings) == {
+        "ok": True,
+        "uploads_deleted": 0,
+        "tryon_results_deleted": 0,
+    }

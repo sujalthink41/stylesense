@@ -186,14 +186,16 @@ Created and owned by `langgraph-checkpoint-postgres` (`checkpoints`, `checkpoint
 ### poll_votes
 `id`, `poll_id` FK (CASCADE), `option_id` FK (CASCADE), `voter_hash` (HMAC of the voter token), `ip_hash` (HMAC of the IP), `created_at`, `UNIQUE(poll_id, voter_hash)`. Index `(option_id)`.
 
-## 7. Uploads & try-on
+## 7. Uploads & try-on *(built in CP12)*
 
 ### uploads
-`id`, `user_id`, `kind` (`photo_search`/`selfie`), `object_key` (MinIO), `mime`, `bytes`, `moderation_status` (`pending`/`ok`/`rejected`), `expires_at` (= +24 h), `deleted_at`.
+`id`, `user_id NULL` (FK, **SET NULL** so rows outlive an account purge and their files still get deleted), `kind` (`photo_search`/`selfie`), `public_id` UNIQUE (Cloudinary id `stylesense/u/<id>`), `status` (`pending`/`ready`/`rejected`/`deleted`), `format`, `bytes`, `width`, `height` (from the stored asset), `reject_reason`, `created_at`, `confirmed_at`, `expires_at` (= +24 h), `deleted_at`. Indexes `(user_id, created_at)` (daily limit), partial `(expires_at) WHERE deleted_at IS NULL` (purge).
 
 ### tryon_jobs
-`id`, `user_id`, `selfie_upload_id`, `product_id`, `provider`, `provider_job_id`, `status` (`queued`/`running`/`done`/`failed`), `result_object_key NULL`, `error NULL`, `cost_usd numeric(10,4)`, `expires_at`, `created_at`, `finished_at`.
-Index `(user_id, created_at DESC)` (also used for the daily quota count).
+`id`, `user_id NULL` (SET NULL), `selfie_upload_id` FK, `product_id` FK, `provider`, `status` (`queued`/`running`/`done`/`failed`), `attempts`, `result_public_id NULL`, `error NULL` (user-facing), `cost_micro_usd`, `reported_at NULL`, `created_at`, `started_at`, `finished_at`, `expires_at`, `result_deleted_at NULL`. Partial unique `(user_id, selfie_upload_id, product_id) WHERE status IN ('queued','running','done')` (a double tap finds the active job); `(user_id, created_at)` (quota); partial `(expires_at)` for the purge.
+
+### content_reports
+`id`, `reporter_user_id NULL` (SET NULL), `target_kind` (`tryon`/`product`/`share`/`poll`), `target_id`, `reason` (`inappropriate`/`offensive`/`wrong_item`/`spam`/`other`), `note NULL`, `status` (`open`/`actioned`/`dismissed`), `created_at`, `resolved_at`. `UNIQUE(reporter_user_id, target_kind, target_id)`; `(status, created_at)` for the review queue.
 
 ## 8. Feed & notifications
 
@@ -236,7 +238,7 @@ One row **per attempt**: `id`, `call_id` (groups attempts of one gateway call), 
 - **feature_flags:** `key` PK, `enabled`, `rules jsonb` (percentage/user allow-list), `updated_at`.
 - **rate_limit_policies:** `key` PK (e.g. `ai.per_user.hour`), `limit`, `window_s`, `updated_at` (cached in Redis; code defaults if missing).
 - **audit_logs:** `id`, `actor_user_id`, `action`, `entity`, `entity_id`, `before jsonb`, `after jsonb`, `ip_hash`, `created_at`. Append-only.
-- **content_reports:** `id`, `reporter_user_id`, `target_kind` (`tryon`/`product`/`share`/`poll`), `target_id`, `reason`, `status` (`open`/`actioned`/`dismissed`), `resolved_by`, `resolved_at`.
+- **content_reports:** built in CP12 (see §7); `resolved_by` arrives with the admin review queue (CP14).
 
 ## 11. Data lifecycle
 

@@ -5,7 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from stylesense.ai.gateway.pricing import ModelPrice
-from stylesense.ai.gateway.tokens import estimate_tokens
+from stylesense.ai.gateway.tokens import IMAGE_TOKENS, estimate_tokens
 from stylesense.ai.gateway.types import Message, ModelRef, Usage
 
 PRICE = ModelPrice(
@@ -70,3 +70,31 @@ def test_token_estimate_grows_with_every_message() -> None:
     two = estimate_tokens([Message("system", "rules"), Message("user", "hi")])
 
     assert two > one
+
+
+def test_images_are_counted_in_the_token_estimate() -> None:
+    text_only = estimate_tokens([Message("user", "hi")])
+    with_image = estimate_tokens([Message("user", "hi", images=("https://img.test/a.jpg",))])
+
+    assert with_image - text_only == IMAGE_TOKENS
+
+
+def test_vision_tasks_send_the_image_field_as_images_not_text() -> None:
+    from pydantic import BaseModel  # noqa: PLC0415
+
+    from stylesense.ai.gateway.tasks import TaskSpec  # noqa: PLC0415
+
+    class In(BaseModel):
+        note: str
+        image_urls: list[str]
+
+    class Out(BaseModel):
+        ok: bool
+
+    spec = TaskSpec("t.vision", "v1", "Look.", In, Out, image_field="image_urls")
+
+    _, user = spec.messages(In(note="hello", image_urls=["https://img.test/a.jpg"]))
+
+    assert user.images == ("https://img.test/a.jpg",)
+    assert "img.test" not in user.content
+    assert "hello" in user.content

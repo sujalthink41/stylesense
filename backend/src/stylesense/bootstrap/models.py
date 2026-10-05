@@ -20,6 +20,8 @@ from stylesense.modules.personalization.models import StyleProfile, Swipe
 from stylesense.modules.polls.models import Poll, PollOption, PollVote
 from stylesense.modules.sharing.models import Share
 from stylesense.modules.stylist.models import SessionEvent, StylistSession
+from stylesense.modules.tryon.models import ContentReport, TryOnJob
+from stylesense.modules.uploads.models import Upload
 from stylesense.modules.users.models import (
     AccountDeletion,
     AuthIdentity,
@@ -35,6 +37,7 @@ __all__ = [
     "Board",
     "BoardItem",
     "Consent",
+    "ContentReport",
     "LlmModel",
     "LlmTaskConfig",
     "LlmUsage",
@@ -54,6 +57,8 @@ __all__ = [
     "StyleProfile",
     "StylistSession",
     "Swipe",
+    "TryOnJob",
+    "Upload",
     "User",
     "UserDevice",
 ]

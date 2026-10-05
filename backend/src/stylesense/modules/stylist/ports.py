@@ -4,6 +4,13 @@ from typing import Protocol
 from stylesense.modules.personalization.schemas import SwipeInput, SwipeReceipt, Taste
 
 
+class PhotoSource(Protocol):
+    """Resolves a user's photo-search upload to a URL a vision model can fetch
+    (implemented by UploadsService; it also spends the user's daily photo-search credit)."""
+
+    async def photo_for_search(self, user_id: uuid.UUID, upload_id: uuid.UUID) -> str: ...
+
+
 class TasteSource(Protocol):
     """What the stylist needs from personalization (implemented by PersonalizationService)."""
 

@@ -88,23 +88,33 @@ from stylesense.modules.personalization.schemas import SwipeInput, Taste
 from stylesense.modules.personalization.styles import SIZE_KIND
 from stylesense.modules.stylist.explain import clean, rule_reasons, rupees
 from stylesense.modules.stylist.flows.base import DeckPage, Entry, Progress, Rendered, TurnContext
-from stylesense.modules.stylist.ports import TasteSource
+from stylesense.modules.stylist.ports import PhotoSource, TasteSource
 from stylesense.modules.stylist.ranking import Ranked, rank
 from stylesense.modules.stylist.slots import CATEGORIES, OCCASIONS, Slots
 from stylesense.modules.stylist.tasks import (
+    PHOTO_UNDERSTAND,
     STYLIST_EXPLAIN,
     STYLIST_UNDERSTAND,
     ExplainInput,
     ExplainOutput,
     ExplainProduct,
+    PhotoInput,
+    PhotoOutput,
     UnderstandInput,
     UnderstandOutput,
 )
 from stylesense.modules.stylist.understanding import parse_request
+from stylesense.modules.uploads.exceptions import (
+    DailyLimitError,
+    UploadNotFoundError,
+    UploadNotReadyError,
+)
+from stylesense.modules.uploads.ports import MediaUnavailableError
 
 logger = structlog.get_logger(__name__)
 
 DECK_SIZE = 10
+PHOTO_UNAVAILABLE = "Photo search is unavailable right now. Tell me what you're after instead."
 CANDIDATES = 60
 MAX_HISTORY = 10
 SLIDER_MAX_PAISE = 500_000
@@ -169,11 +179,13 @@ class StylistFlow:
         ai: Assistant | None,
         taste: TasteSource | None = None,
         looks: LookService | None = None,
+        photos: PhotoSource | None = None,
     ) -> None:
         self._catalog = catalog
         self._ai = ai
         self._taste = taste
         self._looks = looks
+        self._photos = photos
         graph = StateGraph(_State)
         for node in (
             "ingest",
@@ -260,6 +272,8 @@ class StylistFlow:
             p["step"], p["detail"] = "results", None  # any other action leaves the detail screen
         if entry := s.get("entry"):
             slots, text, notice = _apply_entry(entry, slots)
+            if entry.kind == "photo":
+                slots, notice = await self._from_photo(s, entry.value, slots)
             slots = _prefill(slots, await self._load_taste(s["user_id"]))
         if isinstance(action, Swipe):
             await self._record_swipe(s, action)
@@ -527,6 +541,26 @@ class StylistFlow:
                 ),
             )
 
+    # ---------- shop from a photo ----------
+
+    async def _from_photo(
+        self, s: _State, upload_id: str | None, slots: Slots
+    ) -> tuple[Slots, str | None]:
+        """Photo → attributes → the usual slots. Every failure becomes a notice: the session
+        carries on with questions instead of dead-ending."""
+        if self._photos is None or not upload_id:
+            return slots, PHOTO_UNAVAILABLE
+        try:
+            url = await self._photos.photo_for_search(s["user_id"], uuid.UUID(upload_id))
+        except _PHOTO_FAILURES as exc:
+            return slots, _photo_notice(exc)
+        seen = await self._ask_ai(s, PHOTO_UNDERSTAND, PhotoInput(image_urls=[url]))
+        if not isinstance(seen, PhotoOutput):
+            return slots, "I couldn't read the photo just now. Tell me what you're after instead."
+        if not seen.usable:
+            return slots, "I can't find clothes to match in that photo. Try another one?"
+        return _fill_gaps(slots, seen.to_slots()), None
+
     # ---------- AI (optional; every failure degrades to rules) ----------
 
     async def _ai_understand(self, s: _State, text: str, known: Slots) -> Slots | None:
@@ -583,6 +617,23 @@ def _fill_gaps(base: Slots, ai: Slots) -> Slots:
         if v not in (None, []) and getattr(base, k) in (None, [])
     }
     return base.model_copy(update=gaps)
+
+
+_PHOTO_FAILURES = (
+    ValueError,
+    UploadNotFoundError,
+    UploadNotReadyError,
+    DailyLimitError,
+    MediaUnavailableError,
+)
+
+
+def _photo_notice(exc: Exception) -> str:
+    if isinstance(exc, DailyLimitError):
+        return "That's today's photo searches used up. Tell me what you're after instead."
+    if isinstance(exc, MediaUnavailableError):
+        return PHOTO_UNAVAILABLE
+    return "I couldn't open that photo. Try uploading it again?"  # bad id, missing, not ready
 
 
 def _stays_on_detail(action: Action | None) -> bool:
@@ -788,8 +839,6 @@ def _apply_entry(entry: Entry, slots: Slots) -> tuple[Slots, str | None, str | N
         return slots.model_copy(update={"occasion": occasion}), None, None
     if entry.kind == "search" and entry.value:
         return slots, entry.value, None
-    if entry.kind == "photo":
-        return slots, None, "Photo search is coming soon; tell me what you're after instead."
     return slots, None, None
 
 

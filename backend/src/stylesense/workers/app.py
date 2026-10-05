@@ -5,6 +5,7 @@ from prometheus_client import CollectorRegistry, Gauge
 
 from stylesense.bootstrap.container import Container
 from stylesense.guards.outbox import Handler, OutboxRelay
+from stylesense.modules.tryon.service import TOPIC as TRYON_TOPIC
 from stylesense.modules.users.service import PURGE_TOPIC
 from stylesense.workers.heartbeat import FileHeartbeat
 from stylesense.workers.runtime import PeriodicTask, Worker
@@ -15,11 +16,12 @@ EMBED_INTERVAL_S = 60
 EMBED_BATCH = 64
 EVENT_PRUNE_INTERVAL_S = 24 * 3_600
 EVENT_RETENTION = timedelta(days=90)
+MEDIA_PURGE_INTERVAL_S = 15 * 60
 
 
 def default_handlers(container: Container) -> dict[str, Handler]:
     """Outbox topic -> handler. Each feature registers its topics here."""
-    return {PURGE_TOPIC: container.users.handle_purge}
+    return {PURGE_TOPIC: container.users.handle_purge, TRYON_TOPIC: container.tryon.handle}
 
 
 def build_worker(
@@ -54,6 +56,13 @@ def build_worker(
         await container.stylist.prune_events(older_than=EVENT_RETENTION)
         return False
 
+    async def purge_media() -> bool:
+        # Photos and try-on results live 24 h; the storage copies go first, then the rows.
+        uploads = await container.uploads.purge_expired()
+        if container.tryon.metrics and uploads:
+            container.tryon.metrics.purged.labels("upload").inc(uploads)
+        return uploads + await container.tryon.purge_expired() > 0
+
     async def embed_catalog() -> bool:
         return await container.catalog.embed_pending(batch_size=EMBED_BATCH) >= EMBED_BATCH
 
@@ -63,6 +72,7 @@ def build_worker(
             PeriodicTask("outbox.backlog", OUTBOX_GAUGE_INTERVAL_S, measure_backlog),
             PeriodicTask("auth.prune_tokens", TOKEN_PRUNE_INTERVAL_S, prune_tokens, exclusive=True),
             PeriodicTask("catalog.embed", EMBED_INTERVAL_S, embed_catalog),
+            PeriodicTask("media.purge", MEDIA_PURGE_INTERVAL_S, purge_media, exclusive=True),
             PeriodicTask(
                 "stylist.prune_events", EVENT_PRUNE_INTERVAL_S, prune_session_events, exclusive=True
             ),

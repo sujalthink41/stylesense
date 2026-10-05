@@ -10,3 +10,4 @@ Copy [`_template.md`](_template.md) to `<alert-name>.md`.
 | [outbox-backlog](outbox-backlog.md) | Outbox backlog grows or dead letters appear |
 | [sign-in-unavailable](sign-in-unavailable.md) | Google sign-in returns 503 |
 | [ai-degraded](ai-degraded.md) | AI calls unavailable or budget exhausted |
+| [media-and-tryon](media-and-tryon.md) | Uploads/try-on return 503, try-ons give up, or the 24 h purge fails |
