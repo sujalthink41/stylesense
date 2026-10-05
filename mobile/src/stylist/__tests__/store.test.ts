@@ -1,4 +1,5 @@
 import { ApiClient } from '@/api/client';
+import { timers } from '@/lib/perf';
 
 import { createStylistStore } from '../store';
 
@@ -63,6 +64,16 @@ describe('stylist store', () => {
 
     expect(store.getState().session?.turn_id).toBe(5);
     expect(store.getState().error).toBeNull();
+  });
+
+  it('restarts the products timer on every tap, so reading time never counts', async () => {
+    const started = jest.spyOn(timers, 'start');
+    const { store } = setup((m) => (m === 'POST' ? respond(200, { turn_id: 2, ui: UI(2) }) : respond(200, VIEW(1))));
+    await store.getState().start('search', 'tee');
+    await store.getState().act(tap);
+
+    expect(started.mock.calls).toEqual([['tap_to_products'], ['tap_to_products']]);
+    started.mockRestore();
   });
 
   it('retries once when the session is busy', async () => {

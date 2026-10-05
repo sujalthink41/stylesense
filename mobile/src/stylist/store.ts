@@ -56,7 +56,7 @@ export function createStylistStore(api: ApiClient, sleep = (ms: number) => new P
 
       async start(entry, value) {
         set({ phase: 'starting', error: null });
-        timers.start('first_products');
+        timers.start('tap_to_products');
         try {
           const session = await api.post<SessionView>('/v1/stylist/sessions', {
             entry,
@@ -86,6 +86,7 @@ export function createStylistStore(api: ApiClient, sleep = (ms: number) => new P
         const current = get().session;
         if (!current || get().phase !== 'idle') return; // one turn at a time
         set({ phase: 'acting', error: null, loading: null });
+        timers.start('tap_to_products'); // restarts per tap: measures waiting, not reading
         const adopt = (ui: Screen) => set({ session: { ...current, status: 'active', turn_id: ui.turn_id, ui }, loading: null });
         const onEvent = (e: SSEEvent) => {
           const data = parseJson(e.data);

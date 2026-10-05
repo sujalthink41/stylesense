@@ -15,4 +15,4 @@ The server already streams each turn as Server-Sent Events (ADR 0011): `ui.loadi
 
 ## Consequences
 - Slow AI turns now show a meaningful skeleton within milliseconds, and a flaky network no longer loses a turn.
-- Time to first products is measured on the device (`lib/perf.ts`, `first_products`, logged in development and sent as a breadcrumb) and checked against the CP16 target of under 5 s.
+- Time to first products is measured on the device (`lib/perf.ts`, `tap_to_products`, logged in development and sent as a breadcrumb) and checked against the CP16 target of under 5 s.

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { API_URL } from '@/api/config';
+import type { ClickSource } from '@/api/types';
 import { api } from '@/auth/session';
 import { useWishlist } from '@/boards/wishlist';
 import { useTheme } from '@/design/theme';
@@ -53,7 +54,7 @@ export function GenUIScreen({ envelope, ctx, header }: { envelope: UiEnvelope; c
       </ScrollView>
       {composer ? <View style={styles.composer}>{renderComponent(composer, ctx)}</View> : null}
       {buy ? (
-        <BuyBar storeName={buy.offer.store_name} pricePaise={buy.offer.price_paise} isBest={buy.compared} onBuy={() => openOffer(buy.offer.buy_path, 'detail')} />
+        <BuyBar storeName={buy.offer.store_name} pricePaise={buy.offer.price_paise} isBest={buy.compared} onBuy={() => openOffer(buy.offer.buy_path, 'stylist')} />
       ) : null}
     </View>
   );
@@ -162,7 +163,7 @@ function bestOffer(components: GenUIComponent[]) {
   return offer ? { offer, compared: inStock.length > 1 } : null;
 }
 
-function openOffer(buyPath: string, src: string) {
+function openOffer(buyPath: string, src: ClickSource) {
   // The redirect endpoint records the click and only goes to allow-listed store hosts.
   void Linking.openURL(`${API_URL}${buyPath}?src=${src}`);
 }
@@ -198,7 +199,7 @@ function DeckAdapter({ component, ctx }: { component: Extract<GenUIComponent, { 
   const { colors } = useTheme();
   const [cards, setCards] = useState<ProductCardData[]>(component.props.cards as ProductCardData[]);
   const [hasMore, setHasMore] = useState(component.props.has_more ?? false);
-  useEffect(() => void timers.end('first_products'), []);
+  useEffect(() => void timers.end('tap_to_products'), []);
 
   const onSwipe = useCallback(
     (card: ProductCardData, direction: SwipeDirection) => {

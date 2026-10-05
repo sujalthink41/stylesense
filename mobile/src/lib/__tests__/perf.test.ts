@@ -6,14 +6,14 @@ describe('timers', () => {
     const report = jest.fn();
     const timers = createTimers(() => now, report);
 
-    timers.start('first_products');
+    timers.start('tap_to_products');
     now = 3_400;
-    expect(timers.end('first_products')).toBe(2_400);
+    expect(timers.end('tap_to_products')).toBe(2_400);
     now = 9_000;
-    expect(timers.end('first_products')).toBeNull(); // a refill isn't "first" any more
+    expect(timers.end('tap_to_products')).toBeNull(); // a refill isn't "first" any more
 
     expect(report).toHaveBeenCalledTimes(1);
-    expect(report).toHaveBeenCalledWith('first_products', 2_400);
+    expect(report).toHaveBeenCalledWith('tap_to_products', 2_400);
   });
 
   it('restarting resets the clock; ending an unknown timer is a no-op', () => {

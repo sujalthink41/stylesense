@@ -160,7 +160,7 @@ describe('GenUI renderer', () => {
       expect(screen.getByText('Buy on Flipkart')).toBeTruthy(); // the sold-out "best" is skipped
       await fireEvent.press(screen.getByTestId('buy-best'));
 
-      expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/v1\/out\/f\?src=detail$/));
+      expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/v1\/out\/f\?src=stylist$/));
     });
 
     it('shows no buy bar when nothing is in stock', async () => {

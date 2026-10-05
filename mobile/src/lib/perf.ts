@@ -25,5 +25,8 @@ const report: Report = (name, ms) => {
   Sentry.addBreadcrumb({ category: 'perf', message: name, data: { ms }, level: 'info' });
 };
 
-/** App-wide timers. `first_products`: tap on Home → first deck on screen (CP16 exit: < 5 s). */
+/**
+ * App-wide timers. `tap_to_products`: the last tap (start or answer) → its deck on screen.
+ * Restarted on every tap, so time spent reading a question never counts (CP16 exit: < 5 s).
+ */
 export const timers = createTimers(() => Date.now(), report);
