@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_URL, APP_VERSION } from '@/api/config';
 import type { StyleOptions, StyleProfileView } from '@/api/types';
+import { googleSignOut } from '@/auth/google';
 import { api, useSession } from '@/auth/session';
 import { useTheme } from '@/design/theme';
 import { space } from '@/design/tokens';
@@ -58,7 +59,7 @@ export default function MeTab() {
 
         <StyleDnaCard profile={profile.data} options={options.data} busy={phase === 'starting'} onStart={() => void retake()} />
 
-        <Button label="Sign out" variant="tonal" icon="logout" onPress={() => void signOut()} />
+        <Button label="Sign out" variant="tonal" icon="logout" onPress={() => void Promise.all([signOut(), googleSignOut()])} />
         <Text variant="caption" tone="secondary" align="center">
           StyleSense {APP_VERSION} · UI catalog v{GENUI_CATALOG_VERSION}
           {__DEV__ ? ` · ${API_URL}` : ''}

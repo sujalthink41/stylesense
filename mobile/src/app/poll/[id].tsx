@@ -14,8 +14,8 @@ import { palette, radius, space } from '@/design/tokens';
 import { formatRupees } from '@/lib/money';
 import { storeName } from '@/ui/organisms/ProductSwipeCard';
 import { Badge } from '@/ui/atoms/Badge';
+import { BackButton } from '@/ui/atoms/BackButton';
 import { Button } from '@/ui/atoms/Button';
-import { IconButton } from '@/ui/atoms/IconButton';
 import { PressableScale } from '@/ui/atoms/PressableScale';
 import { Text } from '@/ui/atoms/Text';
 import { Banner } from '@/ui/molecules/Banner';
@@ -59,7 +59,7 @@ export default function PollScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.ground }]} edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <IconButton icon="arrowLeft" label="Back" size={44} onPress={() => router.back()} />
+        <BackButton />
       </View>
       {!p ? (
         <View style={styles.pad}>{poll.error ? <Banner tone="warning" text={friendlyMessage(poll.error)} /> : <Skeleton shape="question" />}</View>

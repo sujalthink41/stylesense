@@ -11,9 +11,9 @@ import { palette, radius, space } from '@/design/tokens';
 import { pickPhoto, uploadPhoto } from '@/media/upload';
 import { useStylist } from '@/stylist';
 import { Buti } from '@/ui/atoms/Buti';
+import { BackButton } from '@/ui/atoms/BackButton';
 import { Button } from '@/ui/atoms/Button';
 import { Icon } from '@/ui/atoms/Icon';
-import { IconButton } from '@/ui/atoms/IconButton';
 import { Text } from '@/ui/atoms/Text';
 import { Banner } from '@/ui/molecules/Banner';
 import { Rise } from '@/ui/motion';
@@ -47,7 +47,7 @@ export default function PhotoScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.ground }]} edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <IconButton icon="close" label="Close" size={44} onPress={() => router.back()} />
+        <BackButton close />
       </View>
       <View style={styles.body}>
         <Rise index={0} style={[styles.frame, { backgroundColor: colors.shell }]}>

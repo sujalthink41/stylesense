@@ -49,7 +49,9 @@
           "photosPermission": "StyleSense uses your photos to find similar clothes and for virtual try-on. Photos are deleted within 24 hours.",
           "cameraPermission": "StyleSense uses the camera to find clothes like the ones you photograph and for virtual try-on. Photos are deleted within 24 hours."
         }
-      ]
+      ],
+      "expo-sharing",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true

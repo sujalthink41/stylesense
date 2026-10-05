@@ -18,6 +18,7 @@ import { palette, radius, space } from '@/design/tokens';
 import { formatRupees } from '@/lib/money';
 import { storeName } from '@/ui/organisms/ProductSwipeCard';
 import { shareLink } from '@/lib/share';
+import { BackButton } from '@/ui/atoms/BackButton';
 import { Button } from '@/ui/atoms/Button';
 import { Icon } from '@/ui/atoms/Icon';
 import { IconButton } from '@/ui/atoms/IconButton';
@@ -95,7 +96,7 @@ export default function BoardScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.ground }]} edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <IconButton icon="arrowLeft" label="Back" size={44} onPress={() => router.back()} />
+        <BackButton />
         <View style={{ flex: 1 }} />
         {b && b.items.length ? (
           <IconButton

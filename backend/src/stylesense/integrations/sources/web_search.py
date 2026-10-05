@@ -11,6 +11,7 @@ caller (WebCatalog); this module only finds and parses.
 """
 
 import asyncio
+import html
 import json
 import re
 import time
@@ -110,7 +111,7 @@ def product_id(site: StoreSite, url: str) -> tuple[str, str] | None:
 
 
 def clean_title(site: StoreSite, title: str) -> str:
-    t = re.sub(r"\s+", " ", title).strip()
+    t = re.sub(r"\s+", " ", html.unescape(title)).strip()
     t = re.sub(r"^buy\s+", "", t, flags=re.I)
     if site.code == "myntra":  # "X - Kurtas for Women 1234 | Myntra"
         t = t.split(" - ")[0]
@@ -298,8 +299,8 @@ class WebSearchFinder:
         facts = await self._page(site, url) or PageFacts(
             price_paise=_price_in(str(r.get("title", "")))
         )
-        title = (facts.title or title)[:160]
-        brand = (facts.brand or brand_of(title))[:60]
+        title = html.unescape(facts.title or title)[:160]
+        brand = html.unescape(facts.brand or brand_of(title))[:60]
         if facts.image and facts.image.startswith("https://"):
             image = facts.image
         slots = parse_request(title)

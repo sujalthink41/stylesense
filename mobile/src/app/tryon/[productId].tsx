@@ -11,11 +11,12 @@ import { friendlyMessage } from '@/api/errors';
 import { api } from '@/auth/session';
 import { useTheme } from '@/design/theme';
 import { palette, radius, space } from '@/design/tokens';
+import { saveImage, shareFromUrl } from '@/media/save';
 import { pickPhoto, uploadPhoto } from '@/media/upload';
 import { Buti } from '@/ui/atoms/Buti';
+import { BackButton } from '@/ui/atoms/BackButton';
 import { Button } from '@/ui/atoms/Button';
 import { Icon } from '@/ui/atoms/Icon';
-import { IconButton } from '@/ui/atoms/IconButton';
 import { Text } from '@/ui/atoms/Text';
 import { Banner } from '@/ui/molecules/Banner';
 import { PrintRepeat } from '@/ui/molecules/PrintRepeat';
@@ -100,7 +101,7 @@ export default function TryOnScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.shell }]} edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <IconButton icon="close" label="Close try-on" size={44} variant="glass" onPress={() => router.back()} />
+        <BackButton close variant="glass" label="Close try-on" />
         <Text variant="bodySmall" tone="onShellMuted" numberOfLines={1} style={{ flex: 1 }}>
           {title ?? 'Virtual try-on'}
         </Text>
@@ -154,10 +155,29 @@ export default function TryOnScreen() {
 /** The result is revealed top to bottom, like a print lifted off the block. */
 function Result({ job, onReport }: { job: TryOn; onReport(): void }) {
   const reveal = useSharedValue(0);
+  const [note, setNote] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     reveal.set(withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }));
   }, [reveal]);
   const mask = useAnimatedStyle(() => ({ height: `${reveal.value * 100}%` }));
+  const name = `stylesense-look-${job.id}.jpg`;
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const outcome = await saveImage(job.result_url!, name);
+      if (outcome === 'saved') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setNote('Saved to your gallery.');
+      } else if (outcome === 'shared') setNote('Choose “Save” in the share sheet to keep it.');
+    } catch {
+      setNote('Couldn’t save just now. Try Share instead.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <View style={styles.body}>
       <View style={styles.result}>
@@ -165,9 +185,26 @@ function Result({ job, onReport }: { job: TryOn; onReport(): void }) {
           <Image source={{ uri: job.result_url! }} style={styles.resultImage} contentFit="cover" accessibilityLabel="You, wearing this item" />
         </Animated.View>
       </View>
-      <Animated.View entering={enter.rise(2)} style={styles.row}>
-        <Button label="Done" variant="inverse" style={{ flex: 1 }} onPress={() => router.back()} />
-        <Button label="Report" variant="ghost" onPress={onReport} />
+      {note ? (
+        <Animated.View entering={enter.pop()}>
+          <Text variant="bodySmall" tone="onShell" align="center">
+            {note}
+          </Text>
+        </Animated.View>
+      ) : null}
+      <Animated.View entering={enter.rise(2)} style={{ gap: 8 }}>
+        <Button label="Save to Photos" variant="inverse" icon="download" fullWidth loading={saving} onPress={() => void save()} />
+        <View style={styles.row}>
+          <Button
+            label="Share"
+            variant="ghost"
+            icon="share"
+            style={{ flex: 1 }}
+            onPress={() => void shareFromUrl(job.result_url!, name).catch(() => setNote('Couldn’t open sharing.'))}
+          />
+          <Button label="Done" variant="ghost" style={{ flex: 1 }} onPress={() => router.back()} />
+        </View>
+        <Button label="Report this result" variant="ghost" onPress={onReport} />
       </Animated.View>
     </View>
   );
@@ -181,6 +218,6 @@ const styles = StyleSheet.create({
   frame: { width: 200, height: 250, borderRadius: radius.xl, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 8 },
   result: { flex: 1, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: palette.indigo700 },
   mask: { overflow: 'hidden', width: '100%' },
-  resultImage: { width: '100%', height: 600 },
+  resultImage: { width: '100%', aspectRatio: 2 / 3 },
   row: { flexDirection: 'row', gap: 10 },
 });

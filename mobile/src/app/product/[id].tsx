@@ -14,6 +14,7 @@ import { useWishlist } from '@/boards/wishlist';
 import { useTheme } from '@/design/theme';
 import { space } from '@/design/tokens';
 import { shareLink } from '@/lib/share';
+import { BackButton } from '@/ui/atoms/BackButton';
 import { Button } from '@/ui/atoms/Button';
 import { IconButton } from '@/ui/atoms/IconButton';
 import { Banner } from '@/ui/molecules/Banner';
@@ -62,7 +63,7 @@ export default function ProductScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.ground }]} edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <IconButton icon="arrowLeft" label="Back" size={44} onPress={() => router.back()} />
+        <BackButton />
         <View style={{ flex: 1 }} />
         {p ? (
           <IconButton
