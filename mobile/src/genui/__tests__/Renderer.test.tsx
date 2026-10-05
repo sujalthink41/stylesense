@@ -48,11 +48,13 @@ describe('GenUI renderer', () => {
   it('splits the stylist lead from its question and sends the tapped option', async () => {
     const dispatch = await draw([question]);
 
-    expect(screen.getByText('Got it: summer t-shirts.')).toBeTruthy();
+    expect(screen.getByText('summer t-shirts')).toBeTruthy(); // what it understood, as a chip
     expect(screen.getByText('Who is it for?')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('option-women'));
 
-    expect(dispatch).toHaveBeenCalledWith({ type: 'chip_select', component_id: 'q_gender', option_ids: ['women'] });
+    // The tile dyes first, then the answer goes (a short beat so the tap is seen).
+    await waitFor(() => expect(dispatch).toHaveBeenCalledWith({ type: 'chip_select', component_id: 'q_gender', option_ids: ['women'] }));
+    expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
   it('replaces a component it does not know with an update prompt', async () => {

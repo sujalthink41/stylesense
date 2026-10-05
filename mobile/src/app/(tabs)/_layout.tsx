@@ -1,5 +1,7 @@
 import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from 'expo-router/ui';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/design/theme';
@@ -42,6 +44,13 @@ type TabButtonProps = TabTriggerSlotProps & { icon: IconName; label: string };
 
 function TabButton({ icon, label, isFocused, ...props }: TabButtonProps) {
   const { colors } = useTheme();
+  const focus = useSharedValue(isFocused ? 1 : 0);
+  useEffect(() => {
+    focus.set(withSpring(isFocused ? 1 : 0, { damping: 15, stiffness: 220 }));
+  }, [isFocused, focus]);
+  // The indicator pill grows out from the icon (Material 3), the icon lifts a touch.
+  const pill = useAnimatedStyle(() => ({ opacity: focus.value, transform: [{ scaleX: 0.4 + focus.value * 0.6 }] }));
+  const glyph = useAnimatedStyle(() => ({ transform: [{ translateY: -focus.value * 1.5 }, { scale: 1 + focus.value * 0.06 }] }));
   return (
     <Pressable
       {...props}
@@ -50,8 +59,11 @@ function TabButton({ icon, label, isFocused, ...props }: TabButtonProps) {
       accessibilityLabel={label}
       style={styles.tab}
     >
-      <View style={[styles.indicator, isFocused && { backgroundColor: colors.tonal }]}>
-        <Icon name={icon} size={22} color={isFocused ? colors.onTonal : colors.textSecondary} strokeWidth={isFocused ? 2 : 1.75} />
+      <View style={styles.indicator}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.pill, { backgroundColor: colors.tonal }, pill]} />
+        <Animated.View style={glyph}>
+          <Icon name={icon} size={22} color={isFocused ? colors.onTonal : colors.textSecondary} strokeWidth={isFocused ? 2 : 1.75} />
+        </Animated.View>
       </View>
       <Text variant="caption" tone={isFocused ? 'onTonal' : 'secondary'} style={isFocused ? { fontFamily: 'AnekLatin-Bold' } : undefined}>
         {label}
@@ -63,5 +75,6 @@ function TabButton({ icon, label, isFocused, ...props }: TabButtonProps) {
 const styles = StyleSheet.create({
   bar: { flexDirection: 'row', paddingTop: 10, paddingHorizontal: 8 },
   tab: { flex: 1, alignItems: 'center', gap: 4, minHeight: 56 },
-  indicator: { width: 64, height: 32, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  indicator: { width: 64, height: 32, alignItems: 'center', justifyContent: 'center' },
+  pill: { borderRadius: radius.pill },
 });

@@ -72,6 +72,14 @@ export function friendlyMessage(error: unknown): string {
       return 'Too many tries at once. Wait a moment and try again.';
     case 'daily_limit':
       return "You've reached today's limit. Try again tomorrow.";
+    case 'permission_denied':
+      return 'StyleSense needs access to your camera or photos for this. You can allow it in Settings.';
+    case 'upload_failed':
+      return "That photo didn't upload. Check your connection and try again.";
+    case 'photo_rejected':
+      return 'That photo didn’t work. Try a clear, well-lit photo.';
+    case 'tryon_unavailable':
+      return 'Try-on is resting right now. Try again in a little while.';
     case 'app_update_required':
       return 'Please update StyleSense to keep going.';
     default:

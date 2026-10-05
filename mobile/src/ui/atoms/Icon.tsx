@@ -12,6 +12,7 @@ const paths = {
   search: ['m20.5 20.5-4.2-4.2'],
   camera: ['M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z'],
   close: ['M18 6 6 18', 'M6 6l12 12'],
+  plus: ['M12 5v14', 'M5 12h14'],
   arrowLeft: ['M19 12H5', 'M12 19l-7-7 7-7'],
   arrowRight: ['M5 12h14', 'M13 5l7 7-7 7'],
   arrowUpRight: ['M7 17 17 7', 'M8 7h9v9'],
