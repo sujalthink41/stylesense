@@ -15,6 +15,7 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=500]
+        exclude: (^|/)package-lock\.json$  # generated; reviewed via npm ci, not by eye
       - id: detect-private-key
       - id: no-commit-to-branch
         args: [--branch, main]

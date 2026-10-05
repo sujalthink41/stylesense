@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import timedelta
 
 import structlog
@@ -17,6 +18,20 @@ from stylesense.modules.users.service import UsersService
 from stylesense.platform.clock import Clock
 
 logger = structlog.get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class DevIdentity:
+    """A stand-in identity for local development: the email is the subject."""
+
+    email: str
+    provider: str = "dev"
+    name: str | None = "Local Developer"
+    picture_url: str | None = None
+
+    @property
+    def subject(self) -> str:
+        return self.email
 
 
 class AuthService:
@@ -46,6 +61,15 @@ class AuthService:
         user, created = await self._users.sign_in(identity)
         pair = await self.issue_session(user, installation_id=installation_id)
         logger.info("signed_in", user_id=str(user.id), new_user=created)
+        return SignInResult(tokens=pair, user=user, is_new_user=created)
+
+    async def sign_in_dev(
+        self, email: str, *, installation_id: uuid.UUID | None = None
+    ) -> SignInResult:
+        """Developer sign-in without Google. Callers must check it's enabled (never prod)."""
+        user, created = await self._users.sign_in(DevIdentity(email=email.strip().lower()))
+        pair = await self.issue_session(user, installation_id=installation_id)
+        logger.info("signed_in_dev", user_id=str(user.id), new_user=created)
         return SignInResult(tokens=pair, user=user, is_new_user=created)
 
     async def issue_session(

@@ -5,7 +5,7 @@ import asyncio
 import json
 import sys
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from decimal import Decimal
 from typing import Any
 
@@ -41,26 +41,13 @@ async def seed_catalog(settings: Settings, *, seed: int) -> dict[str, int]:
     return {**asdict(report), "embedded": embedded}
 
 
-@dataclass(frozen=True, slots=True)
-class _DevIdentity:
-    email: str
-    provider: str = "dev"
-    name: str | None = "Local Developer"
-    picture_url: str | None = None
-
-    @property
-    def subject(self) -> str:
-        return self.email
-
-
 async def dev_token(settings: Settings, *, email: str) -> dict[str, Any]:
     """Local-only: a real user + real tokens without Google, for trying the API."""
     if settings.env == Environment.PRODUCTION:
         raise SystemExit("refusing to mint developer tokens in production")
     async with _Session(settings) as c:
-        user, _ = await c.users.sign_in(_DevIdentity(email=email.strip().lower()))
-        pair = await c.auth.issue_session(user)
-    return {"user_id": str(user.id), **pair.model_dump(mode="json")}
+        result = await c.auth.sign_in_dev(email)
+    return {"user_id": str(result.user.id), **result.tokens.model_dump(mode="json")}
 
 
 async def eval_understand(settings: Settings, *, engine: str) -> dict[str, Any]:

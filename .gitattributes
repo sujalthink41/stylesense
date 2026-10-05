@@ -6,3 +6,5 @@
 *.jpeg binary
 *.webp binary
 uv.lock linguist-generated=true
+*.ttf binary
+*.otf binary

@@ -64,8 +64,10 @@ downgrade: ## Roll back one migration
 
 ##@ Contracts
 .PHONY: contracts
-contracts: ## Regenerate backend/contracts/genui.schema.json (commit the result)
+contracts: ## Regenerate the API contracts (GenUI JSON Schema, OpenAPI) and the app's types from them
 	$(UV) run python -m stylesense.cli export-genui-contract > $(BACKEND)/contracts/genui.schema.json
+	$(UV) run python -m stylesense.main openapi > $(BACKEND)/contracts/openapi.json
+	cd mobile && npm run gen
 
 ##@ Data
 .PHONY: seed

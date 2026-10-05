@@ -74,6 +74,19 @@ The stylist works without an AI key (rules-only "degraded" mode). To score its r
 
 Run `make help` to see every command.
 
+### The app on your phone
+
+Install **Expo Go** (Play Store / App Store); the phone and PC must share a Wi-Fi network.
+
+```bash
+# .env: APP_DEV_SIGN_IN_ENABLED=true   (developer sign-in; refused in production)
+API_BIND=0.0.0.0 API_HOST_PORT=8010 make up       # expose only the API on your LAN
+echo "EXPO_PUBLIC_API_URL=http://<your-pc-ip>:8010" > mobile/.env.local
+cd mobile && npm ci && npx expo start --lan       # scan the QR code with Expo Go
+```
+
+Sign in with any email. App checks: `cd mobile && npm run check` (types, lint, tests + coverage).
+
 ## Development
 
 ```bash
@@ -91,6 +104,7 @@ make migration m="add users"   # new Alembic migration
 
 ```
 backend/        FastAPI service + worker (src/stylesense, tests, alembic, Dockerfile)
+mobile/         Expo (React Native) app: routes, design system, GenUI renderer
 infra/compose/  Docker Compose stack (base, dev and observability overlays)
 infra/observability/  Collector, Tempo, Prometheus and Grafana config
 docs/           Product, business, spec, DB design, checkpoints, ADRs, runbooks

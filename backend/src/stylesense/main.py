@@ -1,3 +1,5 @@
+import json
+import sys
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
@@ -131,3 +133,25 @@ def _attach_client_telemetry(
     if provider is not None:
         instrument_clients(container.engine, provider)
     return collector
+
+
+def openapi_json() -> str:
+    """The HTTP API schema the mobile app generates its types from (`make contracts`).
+
+    Built from placeholder settings: the schema depends on code, not on any environment.
+    """
+    from stylesense.platform.config import Settings  # noqa: PLC0415
+
+    settings = Settings(
+        database_url="postgresql+asyncpg://openapi:openapi@localhost/openapi",
+        redis_url="redis://localhost:6379/0",
+        jwt_secret="openapi-schema-export-" + "x" * 16,
+        metrics_enabled=False,
+    )
+    return json.dumps(create_app(settings).openapi(), indent=2, sort_keys=True) + "\n"
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] != ["openapi"]:
+        raise SystemExit("usage: python -m stylesense.main openapi")
+    sys.stdout.write(openapi_json())

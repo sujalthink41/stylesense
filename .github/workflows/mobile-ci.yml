@@ -1,0 +1,46 @@
+name: mobile-ci
+
+on:
+  pull_request:
+    paths: ["mobile/**", "backend/contracts/**", ".github/workflows/mobile-ci.yml"]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: mobile
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Contract types match the backend contracts
+        run: |
+          npm run gen
+          git diff --exit-code -- src/genui/types.gen.ts src/api/schema.gen.ts \
+            || { echo "::error::Generated types are stale. Run 'make contracts' and commit."; exit 1; }
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Tests with coverage gate
+        run: npm run test:ci
+      # Known highs (braces, node-forge, uuid@7) sit in Expo's build tooling with no patched
+      # release yet; they never reach the bundle. Gate on critical; revisit each SDK bump.
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Bundles for Android
+        run: npx expo export --platform android --output-dir /tmp/bundle
