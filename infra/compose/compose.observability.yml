@@ -100,7 +100,7 @@ services:
     networks: [backend]
 
   glitchtip-valkey:
-    image: valkey/valkey:8-alpine
+    image: valkey/valkey:9-alpine
     restart: unless-stopped
     logging: *logging
     networks: [backend]
