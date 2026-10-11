@@ -24,7 +24,7 @@ dependencies = [
     "redis>=8.1.0",
     "sentry-sdk>=2.71.0",
     # <2.1 until opentelemetry-instrumentation-sqlalchemy supports 2.1 (guarded by test_tracing_clients).
-    "sqlalchemy[asyncio]>=2.0,<2.1",
+    "sqlalchemy[asyncio]>=2.0,<2.2",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
 ]
