@@ -141,6 +141,10 @@ class PersonalizationService:
             profile.fit_preference = update.fit_preference
             profile.styles = update.styles
             profile.sizes = update.sizes.model_dump(exclude_none=True)
+            if update.favorite_brands is not None:
+                profile.favorite_brands = update.favorite_brands
+            if "usual_budget_paise" in update.model_fields_set:
+                profile.usual_budget_paise = update.usual_budget_paise
             profile.onboarding_done = True
             profile.updated_at = self._clock.now()
             view = _view(profile)
@@ -154,6 +158,7 @@ class PersonalizationService:
             return None
         return Taste(
             fit_preference=profile.fit_preference,
+            favorite_brands=tuple(profile.favorite_brands),
             sizes=dict(profile.sizes),
             vector=_vector(profile),
             affinity={k: int(v) for k, v in profile.tag_affinity.items()},
@@ -195,5 +200,7 @@ def _view(profile: StyleProfile | None) -> StyleProfileView:
         sizes=Sizes.model_validate(profile.sizes),
         onboarding_done=profile.onboarding_done,
         swipe_count=profile.swipe_count,
+        favorite_brands=list(profile.favorite_brands),
+        usual_budget_paise=profile.usual_budget_paise,
         top_tags=[tag for tag, _ in liked[:TOP_TAGS]],
     )

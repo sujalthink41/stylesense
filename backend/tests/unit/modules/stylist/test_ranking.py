@@ -192,3 +192,18 @@ def test_what_you_can_see_outranks_a_shared_occasion() -> None:
 
     assert ranked[0].hit is denim
     assert set(ranked[0].matched) == {"denim", "sky blue"}
+
+
+def test_favourite_brands_get_a_nudge_not_an_override() -> None:
+    wanted = Slots(category="tshirt", colors=["black"])
+    loved_plain = _hit(tags=("tshirt",), brand="Roadster")
+    other_match = _hit(tags=("tshirt", "black"), brand="Other")
+    other_plain = _hit(tags=("tshirt",), brand="Plain")
+
+    ranked = rank(
+        [other_plain, loved_plain, other_match], wanted, limit=3, favorite_brands=["roadster"]
+    )
+
+    order = [r.hit.product.brand for r in ranked]
+    assert order.index("Roadster") < order.index("Plain")  # beats an equal item
+    assert order[0] == "Other"  # but not a better match

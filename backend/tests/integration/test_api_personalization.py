@@ -87,6 +87,30 @@ def test_style_profile_round_trip(client: TestClient) -> None:
     assert fetched["top_tags"]
 
 
+def test_profile_extras_survive_retaking_style_dna(client: TestClient) -> None:
+    headers = _auth(client, "google-asha")
+    extras = {
+        "styles": ["minimal"],
+        "favorite_brands": [" Roadster ", "ASICS", "ASICS"],
+        "usual_budget_paise": 150_000,
+    }
+
+    saved = client.put("/v1/me/style-profile", json=extras, headers=headers).json()
+    retaken = client.put(
+        "/v1/me/style-profile", json={"styles": ["streetwear"]}, headers=headers
+    ).json()
+
+    assert saved["favorite_brands"] == ["Roadster", "ASICS"]  # trimmed, deduplicated
+    assert (retaken["favorite_brands"], retaken["usual_budget_paise"]) == (
+        ["Roadster", "ASICS"],
+        150_000,
+    )
+    cleared = client.put(
+        "/v1/me/style-profile", json={"styles": [], "usual_budget_paise": None}, headers=headers
+    )
+    assert cleared.json()["usual_budget_paise"] is None
+
+
 @pytest.mark.parametrize(
     "body", [{"styles": ["goth"]}, {"sizes": {"top": "XXXL"}}, {"fit_preference": "kids"}]
 )

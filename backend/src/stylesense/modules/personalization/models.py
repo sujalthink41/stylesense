@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Text,
     UniqueConstraint,
     func,
@@ -46,6 +47,9 @@ class StyleProfile(Base):
     tag_affinity: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     swipe_count: Mapped[int] = mapped_column(server_default=text("0"))
     onboarding_done: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Profile extras the person sets themselves: a soft ranking boost and a budget default.
+    favorite_brands: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    usual_budget_paise: Mapped[int | None] = mapped_column(Integer)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_now)
 
 

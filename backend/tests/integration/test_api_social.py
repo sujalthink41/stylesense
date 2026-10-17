@@ -314,3 +314,19 @@ def test_poll_page_lists_options_and_ships_the_vote_script(client: TestClient) -
     assert "X-Voter-Token" in page.text
     assert client.get("/p/NoSuchPoll1").status_code == 404
     assert client.get("/p/bad slug").status_code in {404, 422}
+
+
+@pytest.mark.parametrize(
+    ("path", "must_say"),
+    [
+        ("/privacy", "deleted automatically within 24 hours"),
+        ("/terms", "three try-ons a day"),
+        ("/delete-account", "Delete account"),
+    ],
+)
+def test_play_store_pages_are_public(client: TestClient, path: str, must_say: str) -> None:
+    page = client.get(path)
+
+    assert page.status_code == 200
+    assert must_say in page.text
+    assert "support@" in page.text or "mailto:" in page.text

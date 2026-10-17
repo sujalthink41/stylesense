@@ -17,6 +17,7 @@ from stylesense.modules.stylist.slots import Slots
 
 W_MATCH, W_SIMILARITY, W_RATING = 0.40, 0.35, 0.25
 TW_MATCH, TW_SIMILARITY, TW_TASTE, TW_RATING = 0.30, 0.25, 0.25, 0.20
+FAVORITE_BRAND_BONUS = 0.08  # a nudge, not an override: relevance still decides
 _BRAND_PENALTY = 0.85  # each extra pick from the same brand keeps 85% of its score
 _RATING_FLOOR, _RATING_SPAN = 3.0, 2.0
 _CONFIDENT_RATINGS = 200
@@ -36,6 +37,7 @@ def rank(
     *,
     limit: int,
     affinity: Mapping[str, int] | None = None,
+    favorite_brands: Sequence[str] = (),
 ) -> list[Ranked]:
     wanted = slots.preference_weights()
     affinity = affinity or {}
@@ -43,6 +45,14 @@ def rank(
     scored = [
         _score(h, wanted, affinity if personal else None) for h in hits if _within_budget(h, slots)
     ]
+    if favorite_brands:
+        loved = {b.lower() for b in favorite_brands}
+        scored = [
+            Ranked(r.hit, r.score + FAVORITE_BRAND_BONUS, r.matched, r.liked)
+            if r.hit.product.brand.lower() in loved
+            else r
+            for r in scored
+        ]
     scored.sort(key=lambda r: (-r.score, str(r.hit.product.id)))
     return _diversify(scored, limit)
 

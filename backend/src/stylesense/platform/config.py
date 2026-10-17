@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     # Live product search (DuckDuckGo → Amazon.in, Flipkart, Myntra) when the catalog has too
     # little for a request. Interim until the stores' affiliate APIs; prices are never estimated.
     web_search_enabled: bool = False
+    # Shown on the privacy, terms and account-deletion pages (Play Store requires them).
+    support_email: str = Field(default="support@stylesense.app", max_length=120)
     # Virtual try-on. "fake" returns the garment image (local testing only); "none" = off;
     # "openai" = image editing with the OpenAI key (model and per-image cost from settings).
     tryon_provider: Literal["none", "fake", "openai"] = "none"

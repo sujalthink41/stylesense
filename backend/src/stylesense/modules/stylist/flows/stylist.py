@@ -262,7 +262,13 @@ class StylistFlow:
         if p["step"] not in {"results", "detail"} or slots.missing():
             return None
         hits, taste = await self._retrieve(ctx.user_id, ctx.session_id, p, extra_exclude=exclude)
-        ranked = rank(hits, slots, limit=limit + 1, affinity=taste.affinity if taste else None)
+        ranked = rank(
+            hits,
+            slots,
+            limit=limit + 1,
+            affinity=taste.affinity if taste else None,
+            favorite_brands=taste.favorite_brands if taste else (),
+        )
         cards = [_card(r, rule_reasons(r, slots)) for r in ranked[:limit]]
         return DeckPage(cards=cards, has_more=len(ranked) > limit)
 
