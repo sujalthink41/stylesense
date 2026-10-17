@@ -40,6 +40,7 @@ from stylesense.modules.auth.tokens import AccessTokenCodec
 from stylesense.modules.boards.service import BoardsService
 from stylesense.modules.catalog.ports import Embedder
 from stylesense.modules.catalog.service import CatalogService
+from stylesense.modules.legal.service import LegalService
 from stylesense.modules.looks.service import LookService
 from stylesense.modules.personalization.service import (
     PersonalizationMetrics,
@@ -101,6 +102,7 @@ class Container:
     looks: LookService
     boards: BoardsService
     sharing: SharingService
+    legal: LegalService
     polls: PollsService
     uploads: UploadsService
     tryon: TryOnService
@@ -293,6 +295,7 @@ def build_container(
         looks=looks,
         boards=boards,
         sharing=sharing,
+        legal=LegalService(uow, clock=clock, support_email=settings.support_email),
         polls=polls,
         uploads=uploads,
         tryon=tryon,

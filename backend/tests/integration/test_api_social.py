@@ -12,6 +12,7 @@ from stylesense.guards.rate_limit import DEFAULT_POLICIES
 from stylesense.integrations.sources.mock import MockSource
 from stylesense.main import create_app
 from stylesense.modules.catalog.models import Product
+from stylesense.modules.legal.schemas import LegalPublish
 from stylesense.platform.config import Settings
 from tests.fakes.identity import FakeIdentityVerifier
 
@@ -330,3 +331,24 @@ def test_play_store_pages_are_public(client: TestClient, path: str, must_say: st
     assert page.status_code == 200
     assert must_say in page.text
     assert "support@" in page.text or "mailto:" in page.text
+
+
+def test_legal_pages_come_from_the_database_and_new_versions_show_up(client: TestClient) -> None:
+    container: Container = client.app.state.container  # type: ignore[attr-defined]
+
+    first = client.get("/v1/public/legal/terms").json()
+    assert first["kind"] == "terms"
+    assert "{{support_email}}" not in first["body_html"]  # filled in when shown
+
+    async def publish() -> int:
+        view = await container.legal.publish(
+            LegalPublish(kind="terms", title="Terms of use", body_html="<p>New terms v2</p>")
+        )
+        return view.version
+
+    version = client.portal.call(publish)  # type: ignore[union-attr]
+
+    assert version == first["version"] + 1
+    assert "New terms v2" in client.get("/terms").text  # publishing clears the cache
+    assert client.get("/v1/public/legal/terms").json()["version"] == version
+    assert client.get("/v1/public/legal/nonsense").status_code == 422

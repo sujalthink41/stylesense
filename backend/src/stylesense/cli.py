@@ -7,6 +7,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import asdict
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from stylesense.ai.gateway.admin import ModelPriceIn, TaskConfigIn
@@ -23,6 +24,7 @@ from stylesense.integrations.sources.web_search import (
     ddg_images,
     fetch_page,
 )
+from stylesense.modules.legal.schemas import LegalPublish
 from stylesense.modules.stylist.evals.scoring import Report, load_golden, score, score_async
 from stylesense.modules.stylist.slots import Slots
 from stylesense.modules.stylist.tasks import STYLIST_UNDERSTAND, UnderstandInput
@@ -93,6 +95,22 @@ async def seed_web(settings: Settings, *, retire_mock: bool, per_store: int) -> 
     finally:
         await container.aclose()
     return totals
+
+
+async def legal_publish(settings: Settings, args: argparse.Namespace) -> dict[str, Any]:
+    """Publish a new version of a legal page from an HTML fragment file."""
+    body = LegalPublish(
+        kind=args.kind,
+        title=args.title,
+        body_html=await asyncio.to_thread(Path(args.file).read_text, encoding="utf-8"),
+    )
+    async with _Session(settings) as c:
+        view = await c.legal.publish(body)
+    return {
+        "kind": view.kind,
+        "version": view.version,
+        "published_at": view.published_at.isoformat(),
+    }
 
 
 async def dev_token(settings: Settings, *, email: str) -> dict[str, Any]:
@@ -206,6 +224,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     seed.add_argument("--seed", type=int, default=2026)
 
+    legal = commands.add_parser("legal-publish", help="publish a new privacy/terms/deletion page")
+    legal.add_argument("kind", choices=["privacy", "terms", "delete_account"])
+    legal.add_argument("--title", required=True)
+    legal.add_argument(
+        "--file", required=True, help="HTML fragment; {{support_email}} is filled in"
+    )
+
     web = commands.add_parser(
         "seed-web", help="load real products from Amazon.in, Flipkart, Myntra (web search)"
     )
@@ -255,6 +280,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     match args.command:
         case "seed-catalog":
             result: dict[str, Any] = asyncio.run(seed_catalog(settings, seed=args.seed))
+        case "legal-publish":
+            result = asyncio.run(legal_publish(settings, args))
         case "seed-web":
             result = asyncio.run(
                 seed_web(settings, retire_mock=args.retire_mock, per_store=args.per_store)
