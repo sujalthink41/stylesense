@@ -1,6 +1,7 @@
-# Homelab production: layered on compose.yml (make prod-up / scripts/deploy.sh).
-# Nothing is published on the host. The internet reaches the API only via the Cloudflare
-# Tunnel (outbound connection, HTTPS at Cloudflare's edge, no router ports to open).
+# Homelab production: layered on compose.yml (scripts/deploy.sh).
+# The API is published on the server's localhost only. The internet reaches it through
+# either Tailscale Funnel (no domain needed) or a Cloudflare Tunnel (your own domain):
+# both are outbound connections with HTTPS at the edge, so no router ports are opened.
 services:
   migrate:
     environment:
@@ -10,6 +11,7 @@ services:
     environment:
       APP_ENV: production
     restart: always
+    ports: ["127.0.0.1:${API_LOCAL_PORT:-8000}:8000"]  # for Tailscale Funnel; never 0.0.0.0
 
   worker:
     environment:
@@ -18,11 +20,12 @@ services:
 
   # Public hostname → http://api:8000 is set in the Cloudflare dashboard (Zero Trust → Tunnels).
   tunnel:
+    profiles: [cloudflare]  # deploy.sh turns it on when CLOUDFLARE_TUNNEL_TOKEN is set
     image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-2025.8.1}
     restart: always
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
       api: { condition: service_healthy }
     deploy:

@@ -9,7 +9,7 @@ UV      := uv --directory $(BACKEND)
 COMPOSE := docker compose --env-file .env -f infra/compose/compose.yml
 DEV     := $(COMPOSE) -f infra/compose/compose.dev.yml
 OBS     := $(DEV) -f infra/compose/compose.observability.yml
-PROD    := $(COMPOSE) -f infra/compose/compose.prod.yml
+PROD    := $(COMPOSE) -f infra/compose/compose.prod.yml --profile cloudflare
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 ##@ Setup
