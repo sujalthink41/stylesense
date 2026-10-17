@@ -19,7 +19,7 @@ What Google Play requires, what the app already does, and what is still to do be
 
 ## To do before the first release
 
-1. **Go live on a public HTTPS domain (CP19).** The privacy, terms and deletion URLs and the API must be reachable from the internet; `localhost` or Wi-Fi addresses are not accepted. Set `APP_PUBLIC_WEB_URL` and `APP_SUPPORT_EMAIL` (a real inbox you read).
+1. **Go live on a public HTTPS domain** (`docs/guides/homelab-deploy.md`). The privacy, terms and deletion URLs and the API must be reachable from the internet; `localhost` or Wi-Fi addresses are not accepted. Set `APP_PUBLIC_WEB_URL` and `APP_SUPPORT_EMAIL` (a real inbox you read).
 2. **Play Console account** (one-time $25). New personal accounts must run a **closed test with at least 12 testers for 14 days in a row** before they can apply for production.
 3. **Real Google sign-in only.** Make sure `APP_DEV_SIGN_IN_ENABLED` is off in production, and add the Play App Signing SHA-1 as a second Android OAuth client in Google Cloud (Play re-signs the app with its own key).
 4. **Reviewer access.** In Play Console → App content → App access, give a test Google account that reviewers can sign in with.

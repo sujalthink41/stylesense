@@ -1,0 +1,57 @@
+# Homelab production: layered on compose.yml (make prod-up / scripts/deploy.sh).
+# Nothing is published on the host. The internet reaches the API only via the Cloudflare
+# Tunnel (outbound connection, HTTPS at Cloudflare's edge, no router ports to open).
+services:
+  migrate:
+    environment:
+      APP_ENV: production
+
+  api:
+    environment:
+      APP_ENV: production
+    restart: always
+
+  worker:
+    environment:
+      APP_ENV: production
+    restart: always
+
+  # Public hostname → http://api:8000 is set in the Cloudflare dashboard (Zero Trust → Tunnels).
+  tunnel:
+    image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-2025.8.1}
+    restart: always
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    depends_on:
+      api: { condition: service_healthy }
+    deploy:
+      resources: { limits: { memory: 128m } }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    networks: [backend]
+
+  # Nightly pg_dump at 02:30 (container TZ), keeping BACKUP_KEEP_DAYS days in ../../backups.
+  backup:
+    image: pgvector/pgvector:pg18
+    restart: always
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      TZ: ${TZ:-Asia/Kolkata}
+    volumes:
+      - ../../backups:/backups
+      - ../../scripts/backup-loop.sh:/backup-loop.sh:ro
+    entrypoint: ["sh", "/backup-loop.sh"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy:
+      resources: { limits: { memory: 256m } }
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+    networks: [backend]

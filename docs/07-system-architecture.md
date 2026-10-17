@@ -308,8 +308,11 @@ graph node → gateway.run(task, …)
 ## 5. Data model summary
 See `05-db-design.md`. Key ideas: canonical **products** + per-store **offers**; money in **paise**; **embeddings** on products and a **taste vector** per user; stylist session state lives in `stylist_sessions` (no LangGraph checkpoint tables, ADR 0012).
 
-## 6. Deployment *(planned)*
-Homelab → Docker Compose (`prod` profile) → Caddy → Cloudflare Tunnel → the internet. No inbound ports. Nightly encrypted backups off-site. See `03-technical-spec.md` §13–14.
+## 6. Deployment *(homelab: built; hardening: planned)*
+Homelab → Docker Compose (`compose.yml` + `compose.prod.yml`) → `cloudflared` container → Cloudflare Tunnel → the internet. No inbound ports, nothing published on the host; Cloudflare terminates HTTPS and forwards to `api:8000`. One domain serves the API, share/poll pages and the legal pages.
+- `scripts/deploy.sh` (`make deploy`): pull `main`, back up, build, migrate, restart, set LLM routes (`scripts/bootstrap-ai.sh`).
+- `backup` container: nightly `pg_dump` at 02:30 IST into `./backups`, 7 days kept; `scripts/restore.sh` restores one.
+- Guide: `docs/guides/homelab-deploy.md`. Still planned for CP19: Caddy (if a second app shares the host), off-site encrypted backups, alert rules, load and ZAP tests. See `03-technical-spec.md` §13–14.
 
 ## 7. Local development *(built)*
 
@@ -390,3 +393,4 @@ Dev host ports come from `.env` (`POSTGRES_HOST_PORT=5434` by default, to avoid 
 | CP12 | 2026-10-05 | Photos via Cloudinary (ADR 0016, supersedes 0003): signed direct uploads, server-side verification, authenticated delivery with signed URLs, 24 h purge (storage first, SET NULL user FKs); vision support in the LLM gateway (image parts for OpenAI/Anthropic, vision bulkhead) and `photo.understand`; shop from a photo via the stylist; try-on as outbox jobs (ADR 0017) with double-tap protection, retries, free retry, quotas and a global cap, SSE progress; content reports; `cli purge-media`; metrics + panels; runbook; migration 0009. |
 | CP15 | 2026-10-05 | Mobile foundation (ADR 0018): Expo SDK 57 app with expo-router guards, "Indigo & Block" design system (tokens, Anek Latin, atoms/molecules/organisms), API client with shared refresh and problem errors, SecureStore session, force-update screen, GenUI renderer for all 14 component types + stylist store + swipe deck; generated contract types checked in CI (`mobile-ci`); backend `POST /v1/auth/dev` (non-production) and `python -m stylesense.main openapi`; dev API can bind to the LAN. CP13/CP14 deferred. |
 | CP16 | 2026-10-05 | Mobile stylist (ADR 0019): streamed turns over SSE with shape-aware skeletons and resume-not-resend; Android back follows the server's Back; detail save heart (wishlist) and docked best-price buy bar; swipe deck prefetch + memoised cards; one-time welcome / Style DNA onboarding and a Style DNA card on Me; `tap_to_products` timing. |
+| CP19 (part) | 2026-10-17 | Homelab production deploy: `compose.prod.yml` (production env, Cloudflare Tunnel, nightly backups), `.env.prod.example`, deploy/restore/AI-route scripts, `make deploy`/`prod-*`, APK builds point at the public URL. CP17 stylist: open item categories, typo-tolerant items, only the item is required (gender and budget are optional taps), Style DNA is one screen. |

@@ -20,7 +20,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1028742653028-pdtu23hhtl41q6nj3qgtor86gvbhvu4a.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1028742653028-pdtu23hhtl41q6nj3qgtor86gvbhvu4a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_API_URL": "https://CHANGE-ME.yourdomain.com"
       }
     },
     "production": {
@@ -28,7 +29,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1028742653028-pdtu23hhtl41q6nj3qgtor86gvbhvu4a.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1028742653028-pdtu23hhtl41q6nj3qgtor86gvbhvu4a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_API_URL": "https://CHANGE-ME.yourdomain.com"
       }
     }
   },
