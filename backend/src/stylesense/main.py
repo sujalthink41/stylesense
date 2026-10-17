@@ -12,6 +12,7 @@ from prometheus_client import CollectorRegistry, GCCollector, PlatformCollector,
 from stylesense.api.health import router as health_router
 from stylesense.api.middleware import LoadSheddingMiddleware
 from stylesense.api.v1 import router as v1_router
+from stylesense.api.web import router as web_router
 from stylesense.bootstrap.container import Container, Telemetry, build_container
 from stylesense.guards.bulkhead import Bulkhead
 from stylesense.infra.database import pool_stats
@@ -109,6 +110,7 @@ def create_app(
     )
     app.include_router(health_router)
     app.include_router(v1_router)
+    app.include_router(web_router)  # public share and poll pages
     if settings.metrics_enabled:
         app.include_router(metrics_router(registry))
     if provider is not None:

@@ -88,13 +88,17 @@ from stylesense.modules.personalization.schemas import SwipeInput, Taste
 from stylesense.modules.personalization.styles import SIZE_KIND
 from stylesense.modules.stylist.explain import clean, rule_reasons, rupees
 from stylesense.modules.stylist.flows.base import DeckPage, Entry, Progress, Rendered, TurnContext
-from stylesense.modules.stylist.ports import PhotoSource, TasteSource
+from stylesense.modules.stylist.guard import OFF_TOPIC_REPLY, UNSAFE_REPLY, screen
+from stylesense.modules.stylist.ports import LiveCatalog, PhotoSource, TasteSource
 from stylesense.modules.stylist.ranking import Ranked, rank
-from stylesense.modules.stylist.slots import CATEGORIES, OCCASIONS, Slots
+from stylesense.modules.stylist.slots import CATEGORIES, OCCASIONS, Slots, category_label
 from stylesense.modules.stylist.tasks import (
     PHOTO_UNDERSTAND,
+    STYLIST_ADVISE,
     STYLIST_EXPLAIN,
     STYLIST_UNDERSTAND,
+    AdviceInput,
+    AdviceOutput,
     ExplainInput,
     ExplainOutput,
     ExplainProduct,
@@ -103,7 +107,7 @@ from stylesense.modules.stylist.tasks import (
     UnderstandInput,
     UnderstandOutput,
 )
-from stylesense.modules.stylist.understanding import parse_request
+from stylesense.modules.stylist.understanding import guess_category, parse_request, unknown_words
 from stylesense.modules.uploads.exceptions import (
     DailyLimitError,
     UploadNotFoundError,
@@ -116,16 +120,35 @@ logger = structlog.get_logger(__name__)
 DECK_SIZE = 10
 PHOTO_UNAVAILABLE = "Photo search is unavailable right now. Tell me what you're after instead."
 CANDIDATES = 60
+UNPRICED_LIMIT = 10
+LIVE_WAIT_BELOW = 20  # fewer catalog matches: wait for the live search; more: refresh behind
+LIVE_TIMEOUT_S = 15  # the shopper is waiting; a slow search engine must not stall the turn
 MAX_HISTORY = 10
 SLIDER_MAX_PAISE = 500_000
 LOOK_SLIDER_MAX_PAISE = 1_000_000
 ALTERNATIVES = 6
-_GENDER_OPTIONS = [
-    ("men", "Men"),
-    ("women", "Women"),
-    ("unisex", "Unisex"),
-    ("any", "No preference"),
-]
+_OPEN_PROMPT = "What are you looking for? Name anything: socks, a kurta, sneakers, a watch…"
+_NOT_UNDERSTOOD = (
+    "I couldn't tell which item you mean. Tell me what you're after, like "
+    "'black socks', 'white sneakers' or 'a silk saree'."
+)
+# What people shop for each occasion: the only time the stylist offers item options.
+_OCCASION_ITEMS: dict[str, tuple[str, ...]] = {
+    "wedding": ("kurta", "sherwani", "saree", "lehenga", "blazer", "formal_shoes", "jewellery"),
+    "festive": ("kurta", "saree", "lehenga", "sherwani", "dress", "jewellery", "sandals"),
+    "party": ("dress", "shirt", "top", "jeans", "blazer", "heels", "sneakers"),
+    "office": ("shirt", "trousers", "blazer", "kurta", "formal_shoes", "dress", "bag"),
+    "college": ("tshirt", "jeans", "hoodie", "sneakers", "backpack", "top"),
+    "date night": ("dress", "shirt", "top", "jeans", "heels", "watch"),
+    "sports": ("tshirt", "joggers", "shorts", "sneakers", "socks"),
+    "travel": ("tshirt", "shorts", "sneakers", "backpack", "sunglasses", "cap"),
+    "summer": ("tshirt", "shirt", "shorts", "dress", "sandals", "sunglasses"),
+    "winter": ("jacket", "sweater", "hoodie", "boots", "scarf"),
+    "casual": ("tshirt", "jeans", "shirt", "sneakers", "dress", "top"),
+}
+_EVENTS = frozenset({"wedding", "party", "date night"})
+_FOR_MEN = Suggestion(id="for_men", label="For men", action=Shortcut(value="for_men"))
+_FOR_WOMEN = Suggestion(id="for_women", label="For women", action=Shortcut(value="for_women"))
 _AI_FAILURES = (AIUnavailableError, AIQuotaExceededError, AIInputTooLargeError)
 _RESTART = Suggestion(id="restart", label="Start over", action=Restart())
 _BACK = Suggestion(id="back", label="Back", action=Back())
@@ -148,6 +171,7 @@ class _State(TypedDict, total=False):
     text: str | None
     notice: str | None
     hits: list[SearchHit]
+    unpriced: list[SearchHit]  # matches whose price we don't know yet: shown apart, never budgeted
     taste: Taste | None
     page: list[Ranked]
     has_more: bool
@@ -180,8 +204,14 @@ class StylistFlow:
         taste: TasteSource | None = None,
         looks: LookService | None = None,
         photos: PhotoSource | None = None,
+        *,
+        live: LiveCatalog | None = None,
+        ai_reasons: bool = False,
     ) -> None:
         self._catalog = catalog
+        self._live = live
+        self._ai_reasons = ai_reasons  # card reasons from the model cost tokens; rules are free
+        self._background: set[asyncio.Task[bool]] = set()
         self._ai = ai
         self._taste = taste
         self._looks = looks
@@ -248,7 +278,13 @@ class StylistFlow:
         if p["step"] not in {"results", "detail"} or slots.missing():
             return None
         hits, taste = await self._retrieve(ctx.user_id, ctx.session_id, p, extra_exclude=exclude)
-        ranked = rank(hits, slots, limit=limit + 1, affinity=taste.affinity if taste else None)
+        ranked = rank(
+            hits,
+            slots,
+            limit=limit + 1,
+            affinity=taste.affinity if taste else None,
+            favorite_brands=taste.favorite_brands if taste else (),
+        )
         cards = [_card(r, rule_reasons(r, slots)) for r in ranked[:limit]]
         return DeckPage(cards=cards, has_more=len(ranked) > limit)
 
@@ -290,52 +326,81 @@ class StylistFlow:
             return {}
         p = s["persisted"]
         known = Slots.model_validate(p["slots"])
+        verdict = screen(text, in_conversation=bool(known.category or known.occasion))
+        if verdict in {"unsafe", "off_topic"}:
+            # Nothing is kept or searched; only the verdict is logged, never the text.
+            logger.info("stylist_guard", verdict=verdict)
+            reply = UNSAFE_REPLY if verdict == "unsafe" else OFF_TOPIC_REPLY
+            return {"persisted": p, "notice": reply}
+        advice = await self._ai_advise(s, text, known) if verdict == "question" else None
         from_rules = parse_request(text)
+        if advice is not None and advice.search:
+            from_rules = from_rules.merged(parse_request(advice.search))
         slots = known.merged(from_rules)
-        if from_ai := await self._ai_understand(s, text, slots):
+        if from_rules.category is None and (typo := guess_category(text)):
+            item, typed = typo  # "i need shocks": socks, and "shocks" isn't a search keyword
+            keywords = [k for k in slots.keywords if k != typed]
+            slots = slots.model_copy(update={"category": item, "keywords": keywords})
+        # The AI is asked only when the rules couldn't place some words AND we still don't
+        # know the item: most requests cost no tokens. It may name any fashion item.
+        if (
+            slots.missing()
+            and unknown_words(text)
+            and (from_ai := await self._ai_understand(s, text, slots))
+        ):
             slots = _fill_gaps(slots, from_ai)
         p["query"] = f"{p['query']} {text}".strip()[-500:]
-        if slots == known:
-            return {
-                "persisted": p,
-                "notice": "I didn't catch that. Try a category, colour or budget.",
-            }
+        if slots.model_copy(update={"keywords": known.keywords}) == known:
+            slots = known  # nothing understood: don't keep noise as keywords
+            answer = advice.answer if advice is not None else None
+            return {"persisted": p, "notice": answer or _NOT_UNDERSTOOD}
         p["slots"] = slots.model_dump()
         p["page"] = 0
+        if advice is not None:
+            return {"persisted": p, "notice": advice.answer}  # the answer, above the picks
         return {"persisted": p}
 
     def _decide(self, s: _State) -> str:
         p = s["persisted"]
         if p["step"] == "detail" and p.get("detail"):
             return "detail"
+        if p.get("ask_budget"):
+            return "ask"  # they tapped "Set a budget"
         return "ask" if Slots.model_validate(p["slots"]).missing() else "search"
 
     async def _ask(self, s: _State) -> _State:
+        """Only ever asks what we can't search without (the item), or the budget on request.
+        With an occasion, the options are what people wear to it; otherwise an open prompt."""
         p = s["persisted"]
         slots = Slots.model_validate(p["slots"])
-        missing = slots.missing()[0]
+        missing = "budget" if p.get("ask_budget") else slots.missing()[0]
         if p.get("asking") != missing:
             p["questions"] += 1
         p["step"], p["asking"] = "ask", missing
-        question: Component
-        if missing == "category":
-            question = _chips(
-                "q_category",
-                _lead(slots, "What are you shopping for?"),
-                [(k, label, icon) for k, (label, icon) in CATEGORIES.items()],
-            )
-        elif missing == "gender":
-            question = _chips(
-                "q_gender",
-                _lead(slots, "Who is it for?"),
-                [(k, lbl, None) for k, lbl in _GENDER_OPTIONS],
-            )
+        questions: list[Component]
+        if missing == "budget":
+            questions = [_budget_slider(slots)]
+        elif slots.occasion in _OCCASION_ITEMS:
+            questions = [
+                _chips(
+                    "q_category",
+                    f"What do you need for the {slots.occasion}?"
+                    if slots.occasion in _EVENTS
+                    else f"What are you looking for, for {slots.occasion}?",
+                    [(k, *CATEGORIES[k]) for k in _OCCASION_ITEMS[slots.occasion]],
+                )
+            ]
+        elif s.get("notice"):
+            questions = []  # the notice already says what to type
         else:
-            question = _budget_slider(slots)
+            questions = [InfoBanner(id="prompt", props=InfoBannerProps(text=_OPEN_PROMPT))]
         components: list[Component] = [
             *_notice(s),
-            question,
-            TextInputBar(id="ask", props=TextInputBarProps()),
+            *questions,
+            TextInputBar(
+                id="ask",
+                props=TextInputBarProps(placeholder="e.g. black socks, white sneakers, silk saree"),
+            ),
         ]
         if p["history"]:
             components.append(
@@ -348,7 +413,7 @@ class StylistFlow:
             Progress([LoadingSkeleton(id="loading", props=LoadingSkeletonProps(shape="cards"))])
         )
         hits, taste = await self._retrieve(s["user_id"], s["session_id"], s["persisted"])
-        return {"hits": hits, "taste": taste}
+        return {"hits": hits, "taste": taste, "unpriced": await self._unpriced(s["persisted"])}
 
     async def _rank(self, s: _State) -> _State:
         p = s["persisted"]
@@ -366,7 +431,7 @@ class StylistFlow:
     async def _explain(self, s: _State) -> _State:
         slots = Slots.model_validate(s["persisted"]["slots"])
         reasons = {str(r.hit.product.id): rule_reasons(r, slots) for r in s["page"]}
-        if s["page"] and (from_ai := await self._ai_explain(s, slots)):
+        if self._ai_reasons and s["page"] and (from_ai := await self._ai_explain(s, slots)):
             for product_id, ai_reasons in from_ai.items():
                 if product_id in reasons and (cleaned := clean(ai_reasons)):
                     reasons[product_id] = cleaned
@@ -376,12 +441,16 @@ class StylistFlow:
         p = s["persisted"]
         p["step"], p["asking"] = "results", None
         slots = Slots.model_validate(p["slots"])
+        budget_label = "Change budget" if slots.budget_max_paise else "Set a budget"
         bar_items = [
+            # Who it's for is a tap away, never a question asked first.
+            *([_FOR_MEN, _FOR_WOMEN] if slots.gender is None else []),
             Suggestion(
-                id="change_budget", label="Change budget", action=Shortcut(value="change_budget")
+                id="change_budget", label=budget_label, action=Shortcut(value="change_budget")
             ),
             _RESTART,
         ]
+        check_price = _check_price(s.get("unpriced") or [], slots.brand)
         if not s["page"]:
             empty = EmptyState(
                 id="empty",
@@ -391,7 +460,7 @@ class StylistFlow:
                     recovery=bar_items,
                 ),
             )
-            return {"persisted": p, "components": [*_notice(s), empty]}
+            return {"persisted": p, "components": [*_notice(s), empty, *check_price]}
         if s["has_more"]:
             bar_items.insert(
                 0, Suggestion(id="more", label="Show more", action=Shortcut(value="more"))
@@ -403,9 +472,26 @@ class StylistFlow:
                 title=_deck_title(slots), cards=cards, has_more=s["has_more"]
             ),
         )
+        missing = p.get("brand_missing")
+        brand_note: list[Component] = (
+            [
+                InfoBanner(
+                    id="brand",
+                    props=InfoBannerProps(
+                        tone="warning",
+                        text=f"No {missing} matches right now. "
+                        "Here are the closest picks from other brands.",
+                    ),
+                )
+            ]
+            if missing
+            else []
+        )
         components: list[Component] = [
             *_notice(s),
+            *brand_note,
             deck,
+            *check_price,
             SuggestionBar(id="next", props=SuggestionBarProps(suggestions=bar_items[:6])),
             TextInputBar(
                 id="ask", props=TextInputBarProps(placeholder="Refine: e.g. only cotton, under 800")
@@ -518,11 +604,63 @@ class StylistFlow:
             size=size,
             taste=taste.vector if taste else None,
             limit=CANDIDATES,
+            brand=slots.brand,
         )
         hits = await self._catalog.search(query)
+        # Every new request searches the stores live (repeats within the cache window reuse the
+        # last search), so results reflect what's on sale now, not only what we stored before.
+        if not p.get("page"):
+            if len(hits) >= LIVE_WAIT_BELOW:
+                self._refresh_later(slots)  # a full deck already: show it now, refresh behind
+            elif await self._top_up(slots):
+                hits = await self._catalog.search(query)
+        p["brand_missing"] = None
+        if not hits and slots.brand:  # say so, then show the closest other brands
+            p["brand_missing"] = slots.brand
+            query = query.model_copy(update={"brand": None})
+            hits = await self._catalog.search(query)
         if not hits and size:  # nothing left in their size: showing other sizes beats nothing
             hits = await self._catalog.search(query.model_copy(update={"size": None}))
         return hits, taste
+
+    async def _unpriced(self, p: dict[str, Any]) -> list[SearchHit]:
+        """Same request, items whose price isn't known yet (no budget claim is made for them)."""
+        if p.get("page", 0) or self._live is None:
+            return []
+        slots = Slots.model_validate(p["slots"])
+        query = SearchQuery(
+            category=slots.category,
+            gender=None if slots.gender == "any" else slots.gender,
+            text=_search_text(slots, p["query"]),
+            price_known=False,
+            limit=UNPRICED_LIMIT,
+            brand=slots.brand,
+        )
+        hits = await self._catalog.search(query)
+        if not hits and slots.brand:  # none of that brand: other brands, as for priced picks
+            hits = await self._catalog.search(query.model_copy(update={"brand": None}))
+        return hits
+
+    def _refresh_later(self, slots: Slots) -> None:
+        if self._live is None or not slots.category:
+            return
+        task = asyncio.create_task(self._top_up(slots))
+        self._background.add(task)  # keep a reference until done (asyncio holds tasks weakly)
+        task.add_done_callback(self._background.discard)
+
+    async def _top_up(self, slots: Slots) -> bool:
+        """Search the stores live for this request (once per request shape per cache window)."""
+        if self._live is None or not slots.category:
+            return False
+        try:
+            added = await asyncio.wait_for(
+                self._live.refresh(_web_query(slots), category=slots.category, gender=slots.gender),
+                LIVE_TIMEOUT_S,
+            )
+        except Exception as exc:  # noqa: BLE001 - live search is a bonus: never fail the turn
+            logger.info("live_catalog_skipped", reason=type(exc).__name__)
+            return False
+        return added > 0
 
     async def _load_taste(self, user_id: uuid.UUID) -> Taste | None:
         return await self._taste.taste(user_id) if self._taste is not None else None
@@ -559,7 +697,7 @@ class StylistFlow:
             return slots, "I couldn't read the photo just now. Tell me what you're after instead."
         if not seen.usable:
             return slots, "I can't find clothes to match in that photo. Try another one?"
-        return _fill_gaps(slots, seen.to_slots()), None
+        return _fill_gaps(slots, seen.to_slots()).model_copy(update={"budget_optional": True}), None
 
     # ---------- AI (optional; every failure degrades to rules) ----------
 
@@ -571,6 +709,14 @@ class StylistFlow:
         )
         return result.to_slots() if isinstance(result, UnderstandOutput) else None
 
+    async def _ai_advise(self, s: _State, text: str, known: Slots) -> AdviceOutput | None:
+        result = await self._ask_ai(
+            s,
+            STYLIST_ADVISE,
+            AdviceInput(question=text[:300], known=known.model_dump(exclude_defaults=True)),
+        )
+        return result if isinstance(result, AdviceOutput) else None
+
     async def _ai_explain(self, s: _State, slots: Slots) -> dict[str, list[str]] | None:
         products = [
             ExplainProduct(
@@ -581,7 +727,7 @@ class StylistFlow:
             )
             for r in s["page"]
         ]
-        request = " ".join(f"{k}={v}" for k, v in slots.model_dump(exclude_defaults=True).items())
+        request = _describe_for_ai(slots)
         result = await self._ask_ai(
             s, STYLIST_EXPLAIN, ExplainInput(request=request, products=products)
         )
@@ -607,6 +753,15 @@ class StylistFlow:
 
 
 # ---------- helpers ----------
+
+
+def _describe_for_ai(slots: Slots) -> str:
+    """The request as plain fields, budgets in rupees (models misread paise)."""
+    fields = slots.model_dump(exclude_defaults=True)
+    for key in ("budget_min_paise", "budget_max_paise"):
+        if key in fields:
+            fields[key.replace("_paise", "_rupees")] = fields.pop(key) // 100
+    return " ".join(f"{k}={v}" for k, v in fields.items())
 
 
 def _fill_gaps(base: Slots, ai: Slots) -> Slots:
@@ -721,6 +876,30 @@ def _look_slider(look: Look) -> BudgetSlider:
     )
 
 
+def _check_price(hits: list[SearchHit], brand: str | None = None) -> list[Component]:
+    if not hits:
+        return []
+    seen: set[str] = set()
+    items = []
+    for h in hits:  # the same item listed twice (two ASINs) shows once
+        key = h.product.title.lower()
+        if key not in seen:
+            seen.add(key)
+            items.append(_summary_card(h.product, []))
+    return [
+        ProductCarousel(
+            id="check_price",
+            props=ProductCarouselProps(title=_check_price_title(hits, brand), items=items),
+        )
+    ]
+
+
+def _check_price_title(hits: list[SearchHit], brand: str | None) -> str:
+    if brand and any(brand.lower() in h.product.brand.lower() for h in hits):
+        return f"More {brand} on the stores: tap to check the price"[:120]
+    return "Also on Amazon & Myntra: check price"
+
+
 def _summary_card(p: ProductSummary, reasons: list[str]) -> ProductCardProps:
     return ProductCardProps(
         product_id=p.id,
@@ -767,8 +946,14 @@ def _notice(s: _State) -> list[Component]:
 
 
 def _lead(slots: Slots, question: str) -> str:
-    known = [slots.occasion, slots.colors[0] if slots.colors else None, slots.fit, slots.fabric]
-    category = CATEGORIES[slots.category][0].lower() if slots.category else None
+    known = [
+        slots.brand,
+        slots.occasion,
+        slots.colors[0] if slots.colors else None,
+        slots.fit,
+        slots.fabric,
+    ]
+    category = category_label(slots.category).lower() if slots.category else None
     summary = " ".join(w for w in [*known, category] if w)
     return f"Got it: {summary}. {question}"[:120] if summary else question
 
@@ -801,6 +986,30 @@ def _budget_slider(slots: Slots) -> BudgetSlider:
     )
 
 
+# How shoppers name a category in a store search ("asics shoes", not "asics sneakers").
+WEB_LABELS = {"sneakers": "shoes", "tshirt": "t-shirt"}
+
+
+def _web_query(slots: Slots) -> str:
+    """What a shopper would type into a store: "women black linen wedding kurta"."""
+    category = slots.category or ""
+    label = WEB_LABELS.get(category, category.replace("_", " "))
+    gender = slots.gender if slots.gender in {"men", "women"} else ""
+    # A brand search stays on the brand: an occasion word would pull in other brands.
+    occasion = None if slots.brand else slots.occasion
+    words = [
+        gender,
+        slots.brand,
+        *slots.colors[:1],
+        slots.fit,
+        slots.fabric,
+        *slots.keywords[:2],
+        occasion,
+        label,
+    ]
+    return " ".join(w for w in words if w)
+
+
 def _search_text(slots: Slots, query: str) -> str | None:
     words = [query, *slots.preferences()]
     text = " ".join(w for w in words if w).strip()
@@ -808,12 +1017,14 @@ def _search_text(slots: Slots, query: str) -> str | None:
 
 
 def _deck_title(slots: Slots) -> str:
-    label = CATEGORIES[slots.category][0] if slots.category else "Picks"
+    label = category_label(slots.category) if slots.category else "Picks"
     who = {"men": " for men", "women": " for women", "unisex": ", unisex"}.get(
         slots.gender or "", ""
     )
-    occasion = f"{slots.occasion.title()} " if slots.occasion else ""
+    occasion = f"{slots.occasion.title()} " if slots.occasion and not slots.brand else ""
     budget = f" under {rupees(slots.budget_max_paise)}" if slots.budget_max_paise else ""
+    if slots.brand:
+        return f"{slots.brand} {label.lower()}{who}{budget}"[:120]
     return f"{occasion}{label.lower() if occasion else label}{who}{budget}"[:120]
 
 
@@ -856,11 +1067,12 @@ def _apply_action(
         case ChipSelect(component_id="q_category", option_ids=[category, *_]):
             _push(p)
             slots = slots.model_copy(update={"category": category})
-        case ChipSelect(component_id="q_gender", option_ids=[gender, *_]):
+        case Shortcut(value="for_men" | "for_women" as who):
             _push(p)
-            slots = slots.model_copy(update={"gender": gender})
+            slots = slots.model_copy(update={"gender": who.removeprefix("for_")})
         case SliderSet(component_id="q_budget") as budget:
             _push(p)
+            p["ask_budget"] = False
             low = budget.min_paise or None
             slots = slots.model_copy(
                 update={"budget_min_paise": low, "budget_max_paise": budget.max_paise or None}
@@ -878,8 +1090,9 @@ def _apply_action(
             p["page"] += 1
         case Shortcut(value="change_budget"):
             _push(p)
-            slots = slots.model_copy(update={"budget_min_paise": None, "budget_max_paise": None})
+            p["ask_budget"] = True  # the slider comes next; results stay until it's set
         case TextInput() as typed:
             _push(p)
+            p["ask_budget"] = False  # typing ("under 800") answers or skips the slider
             text = typed.text
     return p, slots, text

@@ -93,6 +93,9 @@ class Settings(BaseSettings):
     # AI gateway. A provider is enabled only when its key is set.
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None  # OpenAI-compatible; routes say groq:<model>
+    # Card reasons from the model cost tokens on every deck; rule-based reasons are free.
+    stylist_ai_reasons: bool = False
     llm_daily_budget_usd: Decimal = Field(default=Decimal("2.00"), ge=0, le=10_000)
     llm_budget_alert_ratio: float = Field(default=0.8, gt=0, le=1)
     llm_max_attempts: int = Field(default=3, ge=1, le=5)
@@ -112,8 +115,23 @@ class Settings(BaseSettings):
     media_ttl_hours: int = Field(default=24, ge=1, le=168)  # user photos are deleted after this
     upload_daily_limit: int = Field(default=30, ge=1, le=1_000)  # per user
     photo_search_daily_limit: int = Field(default=10, ge=1, le=1_000)  # per user
-    # Virtual try-on. "fake" returns the garment image (local testing only); "none" = off.
-    tryon_provider: Literal["none", "fake"] = "none"
+    # Live product search (DuckDuckGo → Amazon.in, Flipkart, Myntra) when the catalog has too
+    # little for a request. Interim until the stores' affiliate APIs; prices are never estimated.
+    web_search_enabled: bool = False
+    # Shown on the privacy, terms and account-deletion pages (Play Store requires them).
+    support_email: str = Field(default="support@stylesense.app", max_length=120)
+    # Virtual try-on. "fake" returns the garment image (local testing only); "none" = off;
+    # "openai" = image editing with the OpenAI key (model and per-image cost from settings).
+    tryon_provider: Literal["none", "fake", "openai"] = "none"
+    tryon_openai_model: str | None = None
+    tryon_openai_quality: Literal["low", "medium", "high"] = "medium"
+    # Only some image models accept input_fidelity; leave unset for those that don't.
+    tryon_openai_input_fidelity: Literal["low", "high"] | None = None
+    tryon_cost_micro_usd: int = Field(default=0, ge=0)  # flat fallback per image
+    # USD per 1M tokens from the provider's price list; set all three for exact per-job cost.
+    tryon_price_image_input: float | None = Field(default=None, ge=0)
+    tryon_price_text_input: float | None = Field(default=None, ge=0)
+    tryon_price_output: float | None = Field(default=None, ge=0)
     tryon_daily_limit: int = Field(default=3, ge=0, le=100)  # per user
     tryon_global_daily_limit: int = Field(default=200, ge=0, le=100_000)  # paid: hard cap
 
@@ -127,9 +145,12 @@ class Settings(BaseSettings):
     @field_validator(
         "openai_api_key",
         "anthropic_api_key",
+        "groq_api_key",
         "cloudinary_cloud_name",
         "cloudinary_api_key",
         "cloudinary_api_secret",
+        "tryon_openai_model",
+        "tryon_openai_input_fidelity",
         mode="before",
     )
     @classmethod
@@ -152,6 +173,10 @@ class Settings(BaseSettings):
             raise ValueError("developer sign-in must never be enabled in production")
         if self.env is Environment.PRODUCTION and self.tryon_provider == "fake":
             raise ValueError("the fake try-on provider must never serve real users")
+        if self.tryon_provider == "openai" and not (
+            self.openai_api_key and self.tryon_openai_model
+        ):
+            raise ValueError("tryon_provider=openai needs openai_api_key and tryon_openai_model")
         return self
 
     @property

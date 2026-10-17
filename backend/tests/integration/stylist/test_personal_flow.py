@@ -8,13 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stylesense.genui.actions import (
-    Back,
     ChipSelect,
     Shortcut,
     Swipe,
 )
 from stylesense.genui.components import (
-    ChipQuestion,
     ImageChoiceGrid,
     InfoBanner,
 )
@@ -69,7 +67,6 @@ async def _tshirts(
 
 async def _any_tshirt(app: App) -> None:
     await app.start("search", "t-shirt under 2000")
-    await app.send(ChipSelect(component_id="q_gender", option_ids=["any"]))
 
 
 # ---------- exit criterion: ranking shifts toward liked styles ----------
@@ -253,13 +250,9 @@ async def test_onboarding_with_taps_only_saves_style_dna(
     app = App(catalog_sessions, user_id, version=1)
 
     await app.start("onboarding")
-    assert isinstance(app.component("q_fit"), ChipQuestion)
-    await app.send(ChipSelect(component_id="q_fit", option_ids=["women"]))
+    # One screen of looks: who it's for and sizes are said in the chat, never asked up front.
     assert isinstance(app.component("q_styles"), ImageChoiceGrid)
     await app.send(ChipSelect(component_id="q_styles", option_ids=["boho", "party"]))
-    await app.send(ChipSelect(component_id="q_top", option_ids=["s"]))
-    await app.send(Shortcut(value="skip"))  # waist
-    await app.send(ChipSelect(component_id="q_shoe", option_ids=["uk5"]))
 
     banner = app.component("saved")
     assert isinstance(banner, InfoBanner)
@@ -267,27 +260,19 @@ async def test_onboarding_with_taps_only_saves_style_dna(
     snapshot = await app.service.snapshot(app.session_id, user_id, client_version=1)
     assert snapshot.status == "ended"
     view = await app.personal.profile(user_id)
-    assert (view.fit_preference, view.styles, view.onboarding_done) == (
-        "women",
-        ["boho", "party"],
-        True,
-    )
-    assert view.sizes == Sizes(top="S", shoe="UK5")
+    assert (view.styles, view.onboarding_done) == (["boho", "party"], True)
 
 
-async def test_onboarding_back_undoes_the_last_answer(
+async def test_skipping_onboarding_finishes_it_with_nothing_chosen(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
     app = App(catalog_sessions, user_id, version=1)
     await app.start("onboarding")
-    await app.send(ChipSelect(component_id="q_fit", option_ids=["men"]))
 
-    await app.send(Back())
-    await app.send(ChipSelect(component_id="q_fit", option_ids=["unisex"]))
-    for _ in range(4):
-        await app.send(Shortcut(value="skip"))
+    await app.send(Shortcut(value="skip"))
 
-    assert (await app.personal.profile(user_id)).fit_preference == "unisex"
+    view = await app.personal.profile(user_id)
+    assert (view.styles, view.onboarding_done) == ([], True)
 
 
 async def test_onboarding_rejects_styles_that_were_not_offered_or_too_many(
@@ -295,7 +280,6 @@ async def test_onboarding_rejects_styles_that_were_not_offered_or_too_many(
 ) -> None:
     app = App(catalog_sessions, user_id, version=1)
     await app.start("onboarding")
-    await app.send(Shortcut(value="skip"))
 
     for chosen in (["goth"], ["boho", "party", "minimal", "sporty"]):
         with pytest.raises(InvalidActionError):
@@ -307,6 +291,5 @@ async def test_abandoned_onboarding_saves_nothing(
 ) -> None:
     app = App(catalog_sessions, user_id, version=1)
     await app.start("onboarding")
-    await app.send(ChipSelect(component_id="q_fit", option_ids=["men"]))
 
     assert (await app.personal.profile(user_id)).onboarding_done is False

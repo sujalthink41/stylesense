@@ -1,7 +1,7 @@
-"""Style DNA onboarding: taps only, about five screens, every step skippable.
+"""Style DNA onboarding: one screen of looks to tap (up to 3), skippable, then saved.
 
-    fit ─► styles (image grid, up to 3) ─► top size ─► bottom size ─► shoe size ─► saved
-
+Who you shop for and your sizes are never asked up front: you say them in the chat when they
+matter ("for my wife", "size 9").
 Answers are saved once at the end (one idempotent PUT), so abandoning midway changes nothing.
 """
 
@@ -11,9 +11,6 @@ from typing import Any, Protocol
 
 from stylesense.genui.actions import Action, Back, ChipSelect, Restart, Shortcut
 from stylesense.genui.components import (
-    ChipOption,
-    ChipQuestion,
-    ChipQuestionProps,
     Component,
     ImageChoice,
     ImageChoiceGrid,
@@ -39,8 +36,7 @@ from stylesense.modules.personalization.styles import (
 )
 from stylesense.modules.stylist.flows.base import Entry, Progress, Rendered, TurnContext
 
-STEPS = ("fit", "styles", "top", "bottom", "shoe")
-_FIT_OPTIONS = (("men", "Men"), ("women", "Women"), ("unisex", "Unisex"), ("any", "No preference"))
+STEPS = ("styles",)
 _SKIP = Suggestion(id="skip", label="Skip", action=Shortcut(value="skip"))
 _BACK = Suggestion(id="back", label="Back", action=Back())
 
@@ -91,38 +87,19 @@ class StyleDnaFlow:
 
 
 def _screen(state: Mapping[str, Any]) -> list[Component]:
-    step = STEPS[state["step"]]
-    question: Component
-    if step == "fit":
-        question = _chips("q_fit", "Which styles do you usually shop?", _FIT_OPTIONS)
-    elif step == "styles":
-        question = ImageChoiceGrid(
-            id="q_styles",
-            props=ImageChoiceGridProps(
-                question=f"Pick up to {MAX_STYLES} looks you love",
-                options=[
-                    ImageChoice(id=key, label=style.label, image_url=style.image_url)
-                    for key, style in STYLES.items()
-                ],
-                max_select=MAX_STYLES,
-            ),
-        )
-    else:
-        sizes = {"top": TOP_SIZES, "bottom": BOTTOM_SIZES, "shoe": SHOE_SIZES}[step]
-        label = {"top": "Your top size?", "bottom": "Your waist size?", "shoe": "Your shoe size?"}
-        # Option ids are lowercase by contract ("uk9"); the label keeps the real size.
-        question = _chips(f"q_{step}", label[step], [(s.lower(), s) for s in sizes])
-    actions = [_SKIP, _BACK] if state["step"] else [_SKIP]
-    return [question, SuggestionBar(id="next", props=SuggestionBarProps(suggestions=actions))]
-
-
-def _chips(component_id: str, question: str, options: Any) -> ChipQuestion:
-    return ChipQuestion(
-        id=component_id,
-        props=ChipQuestionProps(
-            question=question, options=[ChipOption(id=i, label=label) for i, label in options]
+    question = ImageChoiceGrid(
+        id="q_styles",
+        props=ImageChoiceGridProps(
+            question=f"Pick up to {MAX_STYLES} looks you love",
+            options=[
+                ImageChoice(id=key, label=style.label, image_url=style.image_url)
+                for key, style in STYLES.items()
+            ],
+            max_select=MAX_STYLES,
         ),
     )
+    actions = [_SKIP, _BACK] if state["step"] else [_SKIP]
+    return [question, SuggestionBar(id="next", props=SuggestionBarProps(suggestions=actions))]
 
 
 def _to_update(answers: Mapping[str, list[str]]) -> StyleProfileUpdate:

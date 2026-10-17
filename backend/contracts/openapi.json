@@ -700,10 +700,17 @@
             "type": "string"
           },
           "price_paise": {
-            "maximum": 100000000.0,
-            "minimum": 0.0,
-            "title": "Price Paise",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
           },
           "store": {
             "maxLength": 40,
@@ -1312,6 +1319,45 @@
         "title": "ItemReceipt",
         "type": "object"
       },
+      "LegalView": {
+        "properties": {
+          "body_html": {
+            "title": "Body Html",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "privacy",
+              "terms",
+              "delete_account"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "version",
+          "title",
+          "body_html",
+          "published_at"
+        ],
+        "title": "LegalView",
+        "type": "object"
+      },
       "LivenessOut": {
         "properties": {
           "status": {
@@ -1623,8 +1669,15 @@
             "title": "Mrp Paise"
           },
           "price_paise": {
-            "title": "Price Paise",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Paise"
           },
           "rating": {
             "anyOf": [
@@ -3066,6 +3119,23 @@
         "additionalProperties": false,
         "description": "Full replacement (PUT): what onboarding or the edit screen submits.",
         "properties": {
+          "favorite_brands": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 40,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Brands"
+          },
           "fit_preference": {
             "anyOf": [
               {
@@ -3093,6 +3163,19 @@
             "maxItems": 3,
             "title": "Styles",
             "type": "array"
+          },
+          "usual_budget_paise": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 10000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Budget Paise"
           }
         },
         "title": "StyleProfileUpdate",
@@ -3100,6 +3183,14 @@
       },
       "StyleProfileView": {
         "properties": {
+          "favorite_brands": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Favorite Brands",
+            "type": "array"
+          },
           "fit_preference": {
             "anyOf": [
               {
@@ -3141,6 +3232,17 @@
             },
             "title": "Top Tags",
             "type": "array"
+          },
+          "usual_budget_paise": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Budget Paise"
           }
         },
         "required": [
@@ -3621,6 +3723,48 @@
           "product_id"
         ],
         "title": "TryOnCreate",
+        "type": "object"
+      },
+      "TryOnQuota": {
+        "description": "How many try-ons are left in the rolling 24 h window (failures don't count).",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "remaining": {
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "resets_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resets At"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "limit",
+          "used",
+          "remaining",
+          "resets_at",
+          "available"
+        ],
+        "title": "TryOnQuota",
         "type": "object"
       },
       "TryOnView": {
@@ -6142,6 +6286,53 @@
         ]
       }
     },
+    "/v1/public/legal/{kind}": {
+      "get": {
+        "operationId": "legal_document_v1_public_legal__kind__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "privacy",
+                "terms",
+                "delete_account"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Privacy policy, terms or how to delete your account",
+        "tags": [
+          "public"
+        ]
+      }
+    },
     "/v1/public/polls/{slug}": {
       "get": {
         "operationId": "public_poll_v1_public_polls__slug__get",
@@ -6721,6 +6912,27 @@
           }
         },
         "summary": "Start a try-on (Idempotency-Key required; the same selfie + item returns its job)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/tryon/quota": {
+      "get": {
+        "operationId": "tryon_quota_v1_tryon_quota_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryOnQuota"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Try-ons left today (3 a day; failures don't count)",
         "tags": [
           "media"
         ]

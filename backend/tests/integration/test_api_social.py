@@ -12,6 +12,7 @@ from stylesense.guards.rate_limit import DEFAULT_POLICIES
 from stylesense.integrations.sources.mock import MockSource
 from stylesense.main import create_app
 from stylesense.modules.catalog.models import Product
+from stylesense.modules.legal.schemas import LegalPublish
 from stylesense.platform.config import Settings
 from tests.fakes.identity import FakeIdentityVerifier
 
@@ -273,3 +274,81 @@ def test_public_pages_are_rate_limited_per_ip(client: TestClient) -> None:
 
     assert statuses[:limit] == [200] * limit
     assert statuses[limit] == 429
+
+
+# ---------- public web pages ----------
+
+
+def test_share_page_renders_products_with_tracked_store_links(client: TestClient) -> None:
+    headers = _auth(client)
+    ids = _products(client, 2)
+    share = client.post(
+        "/v1/shares",
+        json={"kind": "look", "title": "Date <night>", "product_ids": ids},
+        headers=headers,
+    ).json()
+
+    page = client.get(f"/l/{share['slug']}")
+
+    assert page.status_code == 200
+    assert page.headers["content-type"].startswith("text/html")
+    assert "Date &lt;night&gt;" in page.text  # escaped, never raw
+    assert 'property="og:title"' in page.text
+    assert page.text.count('class="card"') == 2
+    assert "/v1/out/" in page.text
+    assert "src=share" in page.text
+    assert "meera" not in page.text
+
+    client.delete(f"/v1/shares/{share['slug']}", headers=headers)
+    gone = client.get(f"/l/{share['slug']}")
+    assert gone.status_code == 410
+    assert "expired" in gone.text
+
+
+def test_poll_page_lists_options_and_ships_the_vote_script(client: TestClient) -> None:
+    poll = _poll(client, _auth(client))
+
+    page = client.get(f"/p/{poll['slug']}")
+
+    assert page.status_code == 200
+    assert page.text.count('class="option"') == 3
+    assert "X-Voter-Token" in page.text
+    assert client.get("/p/NoSuchPoll1").status_code == 404
+    assert client.get("/p/bad slug").status_code in {404, 422}
+
+
+@pytest.mark.parametrize(
+    ("path", "must_say"),
+    [
+        ("/privacy", "deleted automatically within 24 hours"),
+        ("/terms", "three try-ons a day"),
+        ("/delete-account", "Delete account"),
+    ],
+)
+def test_play_store_pages_are_public(client: TestClient, path: str, must_say: str) -> None:
+    page = client.get(path)
+
+    assert page.status_code == 200
+    assert must_say in page.text
+    assert "support@" in page.text or "mailto:" in page.text
+
+
+def test_legal_pages_come_from_the_database_and_new_versions_show_up(client: TestClient) -> None:
+    container: Container = client.app.state.container  # type: ignore[attr-defined]
+
+    first = client.get("/v1/public/legal/terms").json()
+    assert first["kind"] == "terms"
+    assert "{{support_email}}" not in first["body_html"]  # filled in when shown
+
+    async def publish() -> int:
+        view = await container.legal.publish(
+            LegalPublish(kind="terms", title="Terms of use", body_html="<p>New terms v2</p>")
+        )
+        return view.version
+
+    version = client.portal.call(publish)  # type: ignore[union-attr]
+
+    assert version == first["version"] + 1
+    assert "New terms v2" in client.get("/terms").text  # publishing clears the cache
+    assert client.get("/v1/public/legal/terms").json()["version"] == version
+    assert client.get("/v1/public/legal/nonsense").status_code == 422

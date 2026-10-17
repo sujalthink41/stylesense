@@ -11,13 +11,25 @@ export interface PriceProps {
   /** Show "38% off" next to a struck MRP. */
   showDiscount?: boolean;
   tone?: 'default' | 'onShell';
+  /** With no price: the store that lists it. We never estimate: "See price on Myntra". */
+  store?: string | null;
 }
 
 /** Prices are display type: condensed, tabular, the ₹ set smaller and raised. */
-export function Price({ paise, size = 'md', mrpPaise, showDiscount = true, tone = 'default' }: PriceProps) {
+export function Price({ paise, size = 'md', mrpPaise, showDiscount = true, tone = 'default', store }: PriceProps) {
   const { colors } = useTheme();
   const spec = priceType[size];
   const color = tone === 'onShell' ? colors.onShell : colors.text;
+  if (paise == null && store) {
+    return (
+      <RNText
+        style={[typeScale.bodyStrong, { color: tone === 'onShell' ? colors.onShell : colors.onTonal }]}
+        accessibilityLabel={`Price on ${store}`}
+      >
+        See price on {store} →
+      </RNText>
+    );
+  }
   if (paise == null) {
     return (
       <RNText style={[typeScale.bodySmall, { color: colors.textSecondary }]} accessibilityLabel="Price not available">

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DEV_SIGN_IN } from '@/api/config';
 import { friendlyMessage } from '@/api/errors';
+import { googleIdToken, googleSignInAvailable } from '@/auth/google';
 import { useSession } from '@/auth/session';
 import { useTheme } from '@/design/theme';
 import { palette, radius, space } from '@/design/tokens';
@@ -16,6 +17,9 @@ export default function SignInScreen() {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const signInWithDev = useSession((s) => s.signInWithDev);
+  const signInWithGoogle = useSession((s) => s.signInWithGoogle);
+  const google = googleSignInAvailable();
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +37,19 @@ export default function SignInScreen() {
       setError(friendlyMessage(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const googleSignIn = async () => {
+    setGoogleBusy(true);
+    setError(null);
+    try {
+      const idToken = await googleIdToken();
+      if (idToken) await signInWithGoogle(idToken); // null: they closed the account picker
+    } catch (e) {
+      setError(friendlyMessage(e));
+    } finally {
+      setGoogleBusy(false);
     }
   };
 
@@ -59,6 +76,9 @@ export default function SignInScreen() {
             </Text>
           </View>
 
+          {google ? (
+            <Button label="Continue with Google" variant="inverse" size="lg" fullWidth loading={googleBusy} onPress={() => void googleSignIn()} testID="google-sign-in" />
+          ) : null}
           {DEV_SIGN_IN ? (
             <View style={styles.dev}>
               <TextInput
@@ -74,14 +94,17 @@ export default function SignInScreen() {
                 onSubmitEditing={devSignIn}
                 testID="dev-email"
               />
-              <Button label="Continue" variant="inverse" loading={busy} onPress={devSignIn} fullWidth testID="dev-sign-in" />
-              <Text variant="caption" tone="onShellMuted" align="center">
-                Developer sign-in (this build only). Google sign-in arrives with the installable build.
-              </Text>
+              <Button label={google ? 'Developer sign-in' : 'Continue'} variant={google ? 'ghost' : 'inverse'} loading={busy} onPress={devSignIn} fullWidth testID="dev-sign-in" />
+              {!google ? (
+                <Text variant="caption" tone="onShellMuted" align="center">
+                  Developer sign-in (Expo Go). Google sign-in works in the installed StyleSense build.
+                </Text>
+              ) : null}
             </View>
-          ) : (
+          ) : null}
+          {!google && !DEV_SIGN_IN ? (
             <Button label="Continue with Google" variant="inverse" fullWidth disabled accessibilityHint="Available in the installable build" />
-          )}
+          ) : null}
           {error ? (
             <Text variant="bodySmall" style={{ color: palette.madderTint }} accessibilityRole="alert">
               {error}

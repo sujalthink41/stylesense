@@ -19,6 +19,7 @@ from stylesense.integrations.llm.errors import is_retryable_status, retry_after_
 
 class OpenAIProvider:
     name = "openai"
+    supports_prompt_cache_key = True  # OpenAI-only; compatible APIs may reject it
 
     def __init__(
         self,
@@ -35,12 +36,17 @@ class OpenAIProvider:
     async def aclose(self) -> None:
         await self._client.close()
 
+    def _extra_options(self, model: str) -> dict[str, Any]:
+        """Per-provider request options (none for OpenAI itself)."""
+        return {}
+
     async def chat(self, model: str, call: ChatCall) -> ChatOutput:
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": [_message(m) for m in call.messages],
             "max_completion_tokens": call.max_output_tokens,
             "timeout": call.timeout_s,
+            **self._extra_options(model),
         }
         if call.temperature is not None:
             kwargs["temperature"] = call.temperature
@@ -53,7 +59,7 @@ class OpenAIProvider:
                     "strict": False,
                 },
             }
-        if call.cache_key:
+        if call.cache_key and self.supports_prompt_cache_key:
             kwargs["prompt_cache_key"] = call.cache_key  # groups requests sharing our static prefix
         response = await self._guard(self._client.chat.completions.create(**kwargs))
         choice = response.choices[0]

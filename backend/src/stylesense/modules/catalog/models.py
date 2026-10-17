@@ -129,7 +129,9 @@ class Offer(Base):
     store_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("stores.id"))
     external_id: Mapped[str] = mapped_column(Text)
     url: Mapped[str] = mapped_column(Text)
-    price_paise: Mapped[int] = mapped_column(Integer)
+    # None = the store has it but its price isn't known yet (web search found no real price).
+    # Never estimated: such offers are left out of best price, budgets and price history.
+    price_paise: Mapped[int | None] = mapped_column(Integer)
     mrp_paise: Mapped[int | None] = mapped_column(Integer)
     rating: Mapped[float | None] = mapped_column(Numeric(2, 1, asdecimal=False))
     in_stock: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))

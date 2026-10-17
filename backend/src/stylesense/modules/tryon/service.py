@@ -13,7 +13,7 @@ job id passed to the provider as its idempotency key.
 import asyncio
 import uuid
 from collections.abc import AsyncIterator, Callable
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import structlog
 from prometheus_client import CollectorRegistry, Counter
@@ -31,16 +31,23 @@ from stylesense.modules.sharing.models import Share
 from stylesense.modules.tryon.exceptions import (
     TryOnNotFoundError,
     TryOnNotRetryableError,
+    TryOnQuotaError,
     TryOnUnavailableError,
 )
 from stylesense.modules.tryon.models import ContentReport, TryOnJob
 from stylesense.modules.tryon.ports import (
+    TryOnExhaustedError,
     TryOnProvider,
     TryOnRejectedError,
     TryOnRetryableError,
 )
-from stylesense.modules.tryon.schemas import ReportCreate, ReportReceipt, TryOnCreate, TryOnView
-from stylesense.modules.uploads.exceptions import DailyLimitError
+from stylesense.modules.tryon.schemas import (
+    ReportCreate,
+    ReportReceipt,
+    TryOnCreate,
+    TryOnQuota,
+    TryOnView,
+)
 from stylesense.modules.uploads.models import Upload
 from stylesense.modules.uploads.ports import (
     MediaRejectedError,
@@ -55,6 +62,7 @@ logger = structlog.get_logger(__name__)
 
 TOPIC = "tryon.run"
 MAX_ATTEMPTS = 3
+_IST = timezone(timedelta(hours=5, minutes=30))
 RENDER_TIMEOUT_S = 120
 RESULT_PREFIX = "stylesense/t"
 PURGE_BATCH = 200
@@ -65,6 +73,7 @@ _REJECTED = "We couldn't use that photo. Try a clear, well-lit photo of yourself
 _GAVE_UP = "Try-on is busy right now. Tap retry in a minute."
 _EXPIRED = "Your photo has expired. Take a new one to try again."
 _UNSAVABLE = "We couldn't save this try-on. Please try a different item."
+_STUDIO_CLOSED = "Our try-on studio is busy right now. Please try again in a little while."
 _OUTCOMES = {"done": "done", _REJECTED: "rejected", _GAVE_UP: "gave_up", _UNSAVABLE: "unsavable"}
 
 
@@ -115,7 +124,8 @@ class TryOnService:
     # ---------- requests ----------
 
     async def request(self, user_id: uuid.UUID, body: TryOnCreate) -> tuple[TryOnView, bool]:
-        """Returns (job, created). The same selfie + product while a job is active = that job."""
+        """Returns (job, created). The same selfie + product while a job is active, or already
+        rendered and not expired, returns that job: one paid render per look."""
         if self._provider is None or self._store is None:
             raise TryOnUnavailableError
         await self._uploads.image_url(user_id, body.selfie_upload_id, kind="selfie")  # owned, ready
@@ -135,6 +145,19 @@ class TryOnService:
                     TryOnJob.status.in_(_ACTIVE),
                 )
             )
+            # Same selfie, same product, already rendered and still kept: show it again
+            # instead of paying for an identical image.
+            existing = existing or await s.scalar(
+                select(TryOnJob).where(
+                    TryOnJob.user_id == user_id,
+                    TryOnJob.selfie_upload_id == body.selfie_upload_id,
+                    TryOnJob.product_id == body.product_id,
+                    TryOnJob.status == "done",
+                    TryOnJob.reported_at.is_(None),
+                    TryOnJob.result_deleted_at.is_(None),
+                    TryOnJob.expires_at > now,
+                )
+            )
             if existing is not None:
                 return self._view(existing), False
             since = now - timedelta(days=1)
@@ -145,7 +168,8 @@ class TryOnService:
                 )
             )
             if (mine or 0) >= self._daily_limit:
-                raise DailyLimitError
+                resets = await self._resets_at(s, user_id, since)
+                raise TryOnQuotaError(limit=self._daily_limit, resets_at=_clock_time(resets))
             everyone = await s.scalar(
                 select(func.count()).where(TryOnJob.created_at > since, counted)
             )
@@ -170,6 +194,51 @@ class TryOnService:
             )
         logger.info("tryon_requested", job_id=str(job.id), provider=job.provider)
         return self._view(job), True
+
+    async def quota(self, user_id: uuid.UUID) -> TryOnQuota:
+        """What the try-on screen shows: "2 of 3 left today"."""
+        now = self._clock.now()
+        since = now - timedelta(days=1)
+        async with self._uow() as uow:
+            s = uow.session
+            used = (
+                await s.scalar(
+                    select(func.count()).where(
+                        TryOnJob.user_id == user_id,
+                        TryOnJob.created_at > since,
+                        TryOnJob.status != "failed",
+                    )
+                )
+                or 0
+            )
+            everyone = (
+                await s.scalar(
+                    select(func.count()).where(
+                        TryOnJob.created_at > since, TryOnJob.status != "failed"
+                    )
+                )
+                or 0
+            )
+            resets = await self._resets_at(s, user_id, since) if used else None
+        return TryOnQuota(
+            limit=self._daily_limit,
+            used=min(used, self._daily_limit),
+            remaining=max(0, self._daily_limit - used),
+            resets_at=resets,
+            available=self.enabled and everyone < self._global_limit,
+        )
+
+    async def _resets_at(
+        self, s: AsyncSession, user_id: uuid.UUID, since: datetime
+    ) -> datetime | None:
+        oldest = await s.scalar(
+            select(func.min(TryOnJob.created_at)).where(
+                TryOnJob.user_id == user_id,
+                TryOnJob.created_at > since,
+                TryOnJob.status != "failed",
+            )
+        )
+        return oldest + timedelta(days=1) if oldest else None
 
     async def get(self, user_id: uuid.UUID, job_id: uuid.UUID) -> TryOnView:
         async with self._uow() as uow:
@@ -230,6 +299,14 @@ class TryOnService:
             asset = await self._store.import_url(result.image_url, f"{RESULT_PREFIX}/{job_id}")
         except TryOnRejectedError:
             await self._finish(job_id, status="failed", error=_REJECTED)
+            return
+        except TryOnExhaustedError as exc:
+            # Out of credit or key problem: no retries (they'd all fail), no quota used,
+            # and the person can tap retry later for free.
+            logger.exception("tryon_provider_exhausted", job_id=str(job_id), reason=str(exc))
+            await self._finish(job_id, status="failed", error=_STUDIO_CLOSED)
+            if self.metrics:
+                self.metrics.jobs.labels("exhausted").inc()
             return
         except MediaRejectedError:
             logger.warning("tryon_result_refused_by_storage", job_id=str(job_id))
@@ -411,3 +488,12 @@ def _lock_key(user_id: uuid.UUID) -> int:
 async def _exists(s: AsyncSession, kind: str, target_id: uuid.UUID) -> bool:
     column = {"product": Product.id, "share": Share.id, "poll": Poll.id}[kind]
     return await s.scalar(select(column).where(column == target_id)) is not None
+
+
+def _clock_time(at: datetime | None) -> str:
+    """ "7:30 pm" in India time, for the limit message."""
+    if at is None:
+        return "tomorrow"
+    local = at.astimezone(_IST)
+    hour = local.hour % 12 or 12
+    return f"{hour}:{local.minute:02d} {'am' if local.hour < 12 else 'pm'}"  # noqa: PLR2004

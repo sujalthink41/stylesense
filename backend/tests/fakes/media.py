@@ -1,6 +1,11 @@
 from collections.abc import Sequence
 
-from stylesense.modules.tryon.ports import TryOnRejectedError, TryOnResult, TryOnRetryableError
+from stylesense.modules.tryon.ports import (
+    TryOnExhaustedError,
+    TryOnRejectedError,
+    TryOnResult,
+    TryOnRetryableError,
+)
 from stylesense.modules.uploads.ports import (
     MediaRejectedError,
     MediaUnavailableError,
@@ -85,3 +90,6 @@ class ScriptedTryOn:
 
     def refuse(self) -> None:
         self.failures.append(TryOnRejectedError("no person"))
+
+    def out_of_credit(self) -> None:
+        self.failures.append(TryOnExhaustedError("insufficient_quota"))

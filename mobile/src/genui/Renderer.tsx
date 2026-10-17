@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -10,6 +11,7 @@ import { useWishlist } from '@/boards/wishlist';
 import { useTheme } from '@/design/theme';
 import { space } from '@/design/tokens';
 import { timers } from '@/lib/perf';
+import { shareLink } from '@/lib/share';
 import { Badge } from '@/ui/atoms/Badge';
 import { Button } from '@/ui/atoms/Button';
 import { Chip } from '@/ui/atoms/Chip';
@@ -31,6 +33,7 @@ import { ProductDetailView } from '@/ui/organisms/ProductDetailView';
 import { ProductSwipeCard, type ProductCardData } from '@/ui/organisms/ProductSwipeCard';
 import { Skeleton } from '@/ui/organisms/Skeleton';
 import { SwipeDeck, type SwipeDirection } from '@/ui/organisms/SwipeDeck';
+import { Rise } from '@/ui/motion';
 
 import type { Action, GenUIComponent, GenUIContext, UiEnvelope } from './types';
 
@@ -48,8 +51,10 @@ export function GenUIScreen({ envelope, ctx, header }: { envelope: UiEnvelope; c
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {header}
-        {body.map((c) => (
-          <View key={`${envelope.turn_id}:${c.id}`}>{renderComponent(c, ctx)}</View>
+        {body.map((c, i) => (
+          <Rise key={`${envelope.turn_id}:${c.id}`} index={i}>
+            {renderComponent(c, ctx)}
+          </Rise>
         ))}
       </ScrollView>
       {composer ? <View style={styles.composer}>{renderComponent(composer, ctx)}</View> : null}
@@ -109,7 +114,26 @@ export function renderComponent(c: GenUIComponent, ctx: GenUIContext): ReactNode
         />
       );
     case 'product_detail':
-      return <ProductDetailView detail={c.props} accessory={<WishlistHeart productId={c.props.product_id} />} />;
+      return (
+        <View style={styles.stack}>
+          <ProductDetailView detail={c.props} accessory={<WishlistHeart productId={c.props.product_id} />} />
+          <View style={styles.actions}>
+            <Button
+              label="Try it on"
+              variant="tonal"
+              icon="camera"
+              style={{ flex: 1 }}
+              onPress={() => router.push({ pathname: '/tryon/[productId]', params: { productId: c.props.product_id, title: c.props.title } })}
+            />
+            <Button
+              label="Share"
+              variant="ghost"
+              icon="share"
+              onPress={() => void shareLink({ kind: 'product', productId: c.props.product_id }, `${c.props.title} on StyleSense`).catch(() => undefined)}
+            />
+          </View>
+        </View>
+      );
     case 'product_carousel':
       return (
         <ProductCarousel
@@ -159,8 +183,11 @@ function bestOffer(components: GenUIComponent[]) {
   const comparison = components.find((c) => c.type === 'store_comparison');
   if (comparison?.type !== 'store_comparison') return null;
   const inStock = comparison.props.offers.filter((o) => o.in_stock);
-  const offer = inStock.find((o) => o.is_best) ?? [...inStock].sort((a, b) => a.price_paise - b.price_paise)[0];
-  return offer ? { offer, compared: inStock.length > 1 } : null;
+  const priced = inStock.filter((o) => o.price_paise != null);
+  // Cheapest real price; with none known, the first store that lists it ("See price on …").
+  const offer =
+    priced.find((o) => o.is_best) ?? [...priced].sort((a, b) => (a.price_paise ?? 0) - (b.price_paise ?? 0))[0] ?? inStock[0];
+  return offer ? { offer, compared: priced.length > 1 } : null;
 }
 
 function openOffer(buyPath: string, src: ClickSource) {
@@ -249,5 +276,6 @@ const styles = StyleSheet.create({
   composer: { paddingHorizontal: space.screen, paddingBottom: space.md, paddingTop: space.xs },
   suggestions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   stack: { gap: space.md },
+  actions: { flexDirection: 'row', gap: 10 },
   deckHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

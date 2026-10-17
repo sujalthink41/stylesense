@@ -9,6 +9,7 @@ UV      := uv --directory $(BACKEND)
 COMPOSE := docker compose --env-file .env -f infra/compose/compose.yml
 DEV     := $(COMPOSE) -f infra/compose/compose.dev.yml
 OBS     := $(DEV) -f infra/compose/compose.observability.yml
+PROD    := $(COMPOSE) -f infra/compose/compose.prod.yml
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 ##@ Setup
@@ -98,6 +99,23 @@ shell-db: ## psql into the dev database
 	$(DEV) exec postgres sh -c 'psql -U $$POSTGRES_USER -d $$POSTGRES_DB'
 
 ##@ Observability
+.PHONY: deploy prod-ps prod-logs prod-backup prod-down
+##@ Homelab production (run on the server; guide: docs/guides/homelab-deploy.md)
+deploy: ## Pull main, back up, build, migrate, restart, set AI routes
+	./scripts/deploy.sh
+
+prod-ps: ## Production service status
+	$(PROD) ps
+
+prod-logs: ## Tail production logs: make prod-logs s=api
+	$(PROD) logs -f --tail=200 $(s)
+
+prod-backup: ## Back up the database now (to ./backups)
+	$(PROD) run --rm --no-deps backup now
+
+prod-down: ## Stop production (keeps data)
+	$(PROD) down
+
 .PHONY: obs-up obs-down obs-ps
 obs-up: ## Dev stack + Grafana/Prometheus/Tempo/GlitchTip/Uptime Kuma
 	APP_VERSION=$(VERSION) $(OBS) up -d --build

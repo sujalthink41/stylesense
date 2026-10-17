@@ -16,7 +16,7 @@ class OfferOut(_Frozen):
     id: uuid.UUID
     store: str
     store_name: str
-    price_paise: int
+    price_paise: int | None  # None: price not known yet ("See price on <store>")
     mrp_paise: int | None
     discount_percent: int
     rating: float | None
@@ -80,6 +80,11 @@ class SearchQuery(BaseModel):
     size: str | None = Field(default=None, max_length=10)  # only items stocked in this size
     taste: list[float] | None = None  # user's taste vector: scored, and the order without text
     limit: int = Field(default=50, ge=1, le=200)
+    # True: only products with a real price (decks, budgets). False: only those whose price we
+    # don't know yet ("See price on …"). None: both.
+    price_known: bool | None = True
+    # A named brand is a hard filter (matched on the brand or the title, any case).
+    brand: str | None = Field(default=None, max_length=40)
 
 
 @dataclass(frozen=True, slots=True)

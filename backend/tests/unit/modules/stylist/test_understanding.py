@@ -4,7 +4,7 @@ from hypothesis import strategies as st
 
 from stylesense.modules.stylist.evals.scoring import load_golden, score
 from stylesense.modules.stylist.slots import Slots
-from stylesense.modules.stylist.understanding import parse_request
+from stylesense.modules.stylist.understanding import guess_category, parse_request
 
 # ---------- the golden set (the CP8 exit criterion) ----------
 
@@ -94,10 +94,46 @@ def test_parser_never_crashes_on_arbitrary_input(text: str) -> None:
 # ---------- slots ----------
 
 
-def test_missing_slots_are_asked_in_a_fixed_order() -> None:
-    assert Slots().missing() == ["category", "gender", "budget"]
-    assert Slots(category="tshirt", budget_max_paise=50_000).missing() == ["gender"]
-    assert Slots(category="tshirt", gender="any", budget_max_paise=50_000).missing() == []
+def test_only_the_item_is_required_before_searching() -> None:
+    assert Slots().missing() == ["category"]
+    assert Slots(category="socks").missing() == []  # who it's for and budget are refinements
+
+
+@pytest.mark.parametrize(
+    ("text", "category"),
+    [
+        ("i need socks", "socks"),
+        ("formal shoes for office", "formal_shoes"),
+        ("track pants for gym", "joggers"),
+        ("night suit for her", "nightwear"),
+        ("salwar suit for mom", "kurta"),
+        ("a silk saree", "saree"),
+        ("laptop bag", "backpack"),
+        ("smart watch for dad", "watch"),
+        ("tie-dye t-shirt", "tshirt"),
+        ("cap sleeve top", "top"),
+        ("nehru jacket for sangeet", "blazer"),
+    ],
+)
+def test_many_fashion_items_are_understood(text: str, category: str) -> None:
+    assert parse_request(text).category == category
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("I need shocks", ("socks", "shocks")),
+        ("black jens", ("jeans", "jens")),
+        ("kurthi for my wife", ("kurta", "kurthi")),
+        ("sneekers", ("sneakers", "sneekers")),
+        ("i hate this", None),
+        ("something classy", None),
+    ],
+)
+def test_misspelt_items_are_recognised_and_ordinary_words_are_not(
+    text: str, expected: tuple[str, str] | None
+) -> None:
+    assert guess_category(text) == expected
 
 
 def test_merge_keeps_known_values_and_fills_gaps() -> None:

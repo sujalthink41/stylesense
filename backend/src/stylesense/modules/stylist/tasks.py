@@ -1,27 +1,37 @@
-"""AI tasks used by the stylist. Output schemas pin the vocabulary, so the model can't invent
-categories or colours; numbers are bounded; everything is validated by the gateway.
+"""AI tasks used by the stylist. Output schemas pin the vocabulary for colours, fits and
+occasions; the item is open (any fashion item), cleaned and mapped onto our ids when it fits.
+Numbers are bounded; everything is validated by the gateway.
 """
 
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from stylesense.ai.gateway.tasks import TaskSpec
-from stylesense.modules.stylist.slots import Slots
+from stylesense.modules.stylist.brands import find_brand
+from stylesense.modules.stylist.slots import CATEGORIES, MAX_CATEGORY_CHARS, Slots
+from stylesense.modules.stylist.understanding import guess_category, parse_request
 
-Category = Literal[
-    "tshirt",
-    "shirt",
-    "jeans",
-    "trousers",
-    "kurta",
-    "dress",
-    "top",
-    "shorts",
-    "sneakers",
-    "jacket",
-    "hoodie",
-]
+_ITEM = re.compile(r"[a-z][a-z -]*[a-z]")
+
+
+def normalize_category(value: object) -> str | None:
+    """'Socks ' → 'socks', 'kurtis' → 'kurta', 'Mojari' → 'mojari'; junk → None."""
+    if not isinstance(value, str):
+        return None
+    text = " ".join(value.lower().split())[:MAX_CATEGORY_CHARS]
+    if not text or text in {"null", "none", "unknown"}:
+        return None
+    if text in CATEGORIES:
+        return text
+    if known := parse_request(text).category:
+        return known
+    if guess := guess_category(text):
+        return guess[0]
+    return text.replace(" ", "_") if _ITEM.fullmatch(text) else None
+
+
 Occasion = Literal[
     "summer",
     "winter",
@@ -66,7 +76,7 @@ class UnderstandInput(BaseModel):
 
 
 class UnderstandOutput(BaseModel):
-    category: Category | None = None
+    category: str | None = Field(default=None, max_length=60)
     gender: Literal["men", "women", "unisex"] | None = None
     budget_min_rupees: int | None = Field(default=None, ge=50, le=100_000)
     budget_max_rupees: int | None = Field(default=None, ge=50, le=100_000)
@@ -74,6 +84,18 @@ class UnderstandOutput(BaseModel):
     colors: list[Color] = Field(default_factory=list, max_length=3)
     fit: Fit | None = None
     fabric: Fabric | None = None
+    brand: str | None = Field(default=None, max_length=40)
+
+    @field_validator("category", mode="after")
+    @classmethod
+    def _item(cls, value: str | None) -> str | None:
+        return normalize_category(value)
+
+    @field_validator("colors", mode="before")
+    @classmethod
+    def _null_means_none(cls, value: object) -> object:
+        # Open models often send null for "no colours"; one null must not void the whole answer.
+        return [] if value is None else value
 
     def to_slots(self) -> Slots:
         low, high = self.budget_min_rupees, self.budget_max_rupees
@@ -86,6 +108,7 @@ class UnderstandOutput(BaseModel):
             colors=list(self.colors),
             fit=self.fit,
             fabric=self.fabric,
+            brand=(find_brand(self.brand) or self.brand.strip()[:40]) if self.brand else None,
             budget_min_paise=low * 100 if low is not None else None,
             budget_max_paise=high * 100 if high is not None else None,
         )
@@ -119,12 +142,19 @@ PHOTO_UNDERSTAND = TaskSpec(
 
 STYLIST_UNDERSTAND = TaskSpec(
     name="stylist.understand",
-    prompt_version="2026-10-05",
+    prompt_version="2026-10-17",
     instructions=(
         "You extract a fashion shopping request for Indian shoppers into structured fields. "
-        "The text may mix English and Hindi (Hinglish). Fill only fields the user actually "
-        "expressed; leave others null. `known` holds what we already know: do not repeat it. "
-        "Budgets are in rupees ('1.5k' = 1500)."
+        "`category` is the item they want as a short shopping noun. Use one of these ids when "
+        f"it fits: {', '.join(CATEGORIES)}. Otherwise use their item in plain words (e.g. "
+        "'mojari', 'lungi'). Fix obvious typos ('shocks' means socks). Leave it null when the "
+        "item isn't clothing, footwear or a fashion accessory. "
+        "The text may mix English and Hindi (Hinglish). Fill fields the user expressed or "
+        "clearly implied, and leave the rest null. Implied means near-certain from Indian "
+        "context: a kurti, saree or lehenga is cut for women, a sherwani for men; mehendi, "
+        "haldi and sangeet are wedding functions; 'for my wife' means women. Don't guess "
+        "beyond that. `known` holds what we already know: do not repeat it. Budgets are in "
+        "rupees ('1.5k' = 1500, '2.5k' = 2500)."
     ),
     input_type=UnderstandInput,
     output_type=UnderstandOutput,
@@ -154,12 +184,58 @@ class ExplainOutput(BaseModel):
 
 STYLIST_EXPLAIN = TaskSpec(
     name="stylist.explain",
-    prompt_version="2026-10-05",
+    prompt_version="2026-10-05.2",
     instructions=(
-        "For each product, give up to 3 very short reasons (max 5 words each) why it suits the "
-        "request, like chips on a shopping card. Use only the facts given (title, price, tags): "
-        "never invent materials, discounts, ratings or prices."
+        "For each product, give 2 or 3 short reasons (2 to 5 words, sentence case) why it suits "
+        "this shopper's request, shown as chips on a shopping card. Each reason must add "
+        "something the title doesn't already say: how it fits the occasion, what the fabric or "
+        "fit does for them, the colour they asked for, or budget headroom. Never restate the "
+        "category, gender or the words 'within budget'. Good: 'Breathable for summer', "
+        "'Matches your sky blue', 'Easy office-to-dinner', '₹700 under budget'. Use only the "
+        "facts given (title, price, tags): never invent materials, discounts or ratings."
     ),
     input_type=ExplainInput,
     output_type=ExplainOutput,
+)
+
+
+class AdviceInput(BaseModel):
+    question: str = Field(max_length=300)
+    known: dict[str, Any]
+
+
+ADVICE_MAX_CHARS = 280
+
+
+class AdviceOutput(BaseModel):
+    answer: str
+    search: str | None = None  # a short shopping query for what to show, e.g. "white sneakers men"
+
+    @field_validator("answer", mode="before")
+    @classmethod
+    def _short(cls, value: object) -> object:
+        # A long answer is trimmed, never rejected: one over-long reply must not cost a retry.
+        text = str(value or "").strip()
+        return (
+            text if len(text) <= ADVICE_MAX_CHARS else text[: ADVICE_MAX_CHARS - 1].rstrip() + "…"
+        )
+
+    @field_validator("search", mode="before")
+    @classmethod
+    def _query(cls, value: object) -> object:
+        return str(value).strip()[:80] or None if value else None
+
+
+STYLIST_ADVISE = TaskSpec(
+    name="stylist.advise",
+    prompt_version="2026-10-17",
+    instructions=(
+        "You are a friendly Indian fashion stylist. Answer the shopper's fashion question in at "
+        "most two short sentences (under 40 words): practical, specific, India-aware. If showing "
+        "products would help, set `search` to a short shopping query for the one best item to buy "
+        "(category plus key attributes and gender if known, e.g. 'white leather sneakers men'); "
+        "otherwise null. Never mention prices, stores or links. `known` is what we already know."
+    ),
+    input_type=AdviceInput,
+    output_type=AdviceOutput,
 )

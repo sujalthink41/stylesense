@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, Path, Request, Response, status
 from stylesense.api.auth import Claims
 from stylesense.api.dependencies import ContainerDep
 from stylesense.api.rate_limit import client_ip, rate_limited, rate_limited_user
+from stylesense.modules.legal.schemas import LegalKind, LegalView
 from stylesense.modules.polls.schemas import PollCreate, PollView, PublicPoll, VoteInput, VoterToken
 from stylesense.modules.sharing.schemas import PublicShare, ShareCreate, ShareView
 
@@ -51,6 +52,12 @@ async def list_shares(claims: Claims, container: ContainerDep) -> list[ShareView
 )
 async def revoke_share(slug: Slug, claims: Claims, container: ContainerDep) -> None:
     await container.sharing.revoke(claims.user_id, slug)
+
+
+@public.get("/legal/{kind}", summary="Privacy policy, terms or how to delete your account")
+async def legal_document(kind: LegalKind, container: ContainerDep, response: Response) -> LegalView:
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return await container.legal.latest(kind)
 
 
 @public.get(

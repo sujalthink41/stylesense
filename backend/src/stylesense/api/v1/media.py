@@ -13,7 +13,13 @@ from stylesense.api.auth import Claims
 from stylesense.api.dependencies import ContainerDep
 from stylesense.api.idempotency import IdempotencyKey, run_idempotent
 from stylesense.api.rate_limit import rate_limited_user
-from stylesense.modules.tryon.schemas import ReportCreate, ReportReceipt, TryOnCreate, TryOnView
+from stylesense.modules.tryon.schemas import (
+    ReportCreate,
+    ReportReceipt,
+    TryOnCreate,
+    TryOnQuota,
+    TryOnView,
+)
 from stylesense.modules.uploads.schemas import UploadCreate, UploadView
 
 router = APIRouter(tags=["media"], dependencies=[Depends(rate_limited_user("api.per_user"))])
@@ -89,6 +95,11 @@ async def request_tryon(
     if not created:
         response.status_code = status.HTTP_200_OK
     return job
+
+
+@router.get("/tryon/quota", summary="Try-ons left today (3 a day; failures don't count)")
+async def tryon_quota(claims: Claims, container: ContainerDep) -> TryOnQuota:
+    return await container.tryon.quota(claims.user_id)
 
 
 @router.get("/tryon/{job_id}", summary="A try-on's status and (when done) its signed result URL")

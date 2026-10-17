@@ -16,6 +16,7 @@ from stylesense.modules.catalog.models import (
     ProductImage,
     Store,
 )
+from stylesense.modules.legal.models import LegalDocument
 from stylesense.modules.personalization.models import StyleProfile, Swipe
 from stylesense.modules.polls.models import Poll, PollOption, PollVote
 from stylesense.modules.sharing.models import Share
@@ -38,6 +39,7 @@ __all__ = [
     "BoardItem",
     "Consent",
     "ContentReport",
+    "LegalDocument",
     "LlmModel",
     "LlmTaskConfig",
     "LlmUsage",

@@ -54,8 +54,11 @@ class EchoOutput(BaseModel):
 
 DIAGNOSTICS_ECHO = TaskSpec(
     name="diagnostics.echo",
-    prompt_version="2026-10-05",
-    instructions="Health check. Copy the input text into `echo` exactly and set `ok` to true.",
+    prompt_version="2026-10-05.2",
+    instructions=(
+        "Health check. Set `echo` to the value of the input's `text` field, character for "
+        "character (not the surrounding JSON or tags), and set `ok` to true."
+    ),
     input_type=EchoInput,
     output_type=EchoOutput,
 )

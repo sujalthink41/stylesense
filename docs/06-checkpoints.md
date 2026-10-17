@@ -31,10 +31,10 @@ We build StyleSense **backend first, then frontend**, checkpoint by checkpoint. 
 | **Phase 2: Frontend** | | | |
 | CP15 | Mobile foundation + auth + GenUI renderer | S0, S1, S4 | ✅ |
 | CP16 | Mobile stylist, swipe, Style DNA, detail | S5–S8 | ✅ |
-| CP17 | Mobile boards, share, polls, photo, try-on, feed, alerts | S9–S15 | ⬜ |
+| CP17 | Mobile boards, share, polls, photo, try-on, feed, alerts | S9–S15 | ✅ (alerts deferred to CP13) |
 | CP18 | Admin dashboard + public web pages | S16 | ⬜ |
 | **Phase 3: Production** | | | |
-| CP19 | Hardening, compliance & homelab production deploy | S17 | ⬜ |
+| CP19 | Hardening, compliance & homelab production deploy | S17 | 🟡 homelab deploy built; hardening to do |
 | CP20 | Play Store closed testing → public release | — | ⬜ |
 | CP21 | Real store integrations (post-v1) | S18 | ⬜ |
 

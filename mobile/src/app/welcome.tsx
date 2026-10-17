@@ -55,7 +55,7 @@ export default function WelcomeScreen() {
           First, your style.
         </Text>
         <Text variant="body" tone="secondary">
-          Pick looks you love, your fit and your sizes. Thirty seconds, taps only, and every pick after that gets sharper.
+          Tap the looks you love. Ten seconds, one screen, and every pick after that gets sharper. Everything else, just tell the stylist.
         </Text>
       </View>
       <View style={styles.actions}>

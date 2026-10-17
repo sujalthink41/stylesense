@@ -30,7 +30,7 @@ DEFAULT_TYPICAL_PRICE_PAISE = 150_000
 @dataclass(frozen=True, slots=True)
 class OfferView:
     store: str
-    price_paise: int
+    price_paise: int | None
     in_stock: bool
     rating: float | None
 
@@ -50,11 +50,11 @@ def is_allowed_store_url(url: str, allowed_hosts: Iterable[str]) -> bool:
 
 
 def best_offer[O: OfferView](offers: Sequence[O]) -> O | None:
-    """Cheapest in-stock offer; price ties go to the better-rated listing."""
-    in_stock = [o for o in offers if o.in_stock]
-    if not in_stock:
+    """Cheapest in-stock offer with a known price; ties go to the better-rated listing."""
+    priced = [o for o in offers if o.in_stock and o.price_paise is not None]
+    if not priced:
         return None
-    return min(in_stock, key=lambda o: (o.price_paise, -(o.rating or 0), o.store))
+    return min(priced, key=lambda o: (o.price_paise or 0, -(o.rating or 0), o.store))
 
 
 def needs_alternatives(offers: Sequence[OfferView]) -> bool:
@@ -90,8 +90,8 @@ def pick_alternatives[P: Priced](
     return picked
 
 
-def discount_percent(price_paise: int, mrp_paise: int | None) -> int:
-    if not mrp_paise or mrp_paise <= price_paise:
+def discount_percent(price_paise: int | None, mrp_paise: int | None) -> int:
+    if price_paise is None or not mrp_paise or mrp_paise <= price_paise:
         return 0
     return min(_MAX_DISCOUNT, round((mrp_paise - price_paise) * 100 / mrp_paise))
 

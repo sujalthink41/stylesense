@@ -16,6 +16,16 @@ class TryOnCreate(BaseModel):
     product_id: uuid.UUID
 
 
+class TryOnQuota(BaseModel):
+    """How many try-ons are left in the rolling 24 h window (failures don't count)."""
+
+    limit: int
+    used: int
+    remaining: int
+    resets_at: datetime | None  # when the oldest counted try-on leaves the window
+    available: bool  # false when try-on is switched off or the day's capacity is used
+
+
 class TryOnView(BaseModel):
     id: uuid.UUID
     status: TryOnStatus

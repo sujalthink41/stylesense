@@ -558,6 +558,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/legal/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Privacy policy, terms or how to delete your account */
+        get: operations["legal_document_v1_public_legal__kind__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/polls/{slug}": {
         parameters: {
             query?: never;
@@ -740,6 +757,23 @@ export interface paths {
         put?: never;
         /** Start a try-on (Idempotency-Key required; the same selfie + item returns its job) */
         post: operations["request_tryon_v1_tryon_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tryon/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Try-ons left today (3 a day; failures don't count) */
+        get: operations["tryon_quota_v1_tryon_quota_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1116,7 +1150,7 @@ export interface components {
              */
             offer_id: string;
             /** Price Paise */
-            price_paise: number;
+            price_paise: number | null;
             /** Store */
             store: string;
             /** Store Name */
@@ -1364,6 +1398,25 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** LegalView */
+        LegalView: {
+            /** Body Html */
+            body_html: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "privacy" | "terms" | "delete_account";
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: number;
+        };
         /** LivenessOut */
         LivenessOut: {
             /**
@@ -1496,7 +1549,7 @@ export interface components {
             /** Mrp Paise */
             mrp_paise: number | null;
             /** Price Paise */
-            price_paise: number;
+            price_paise: number | null;
             /** Rating */
             rating: number | null;
             /** Sizes In Stock */
@@ -2011,14 +2064,23 @@ export interface components {
          * @description Full replacement (PUT): what onboarding or the edit screen submits.
          */
         StyleProfileUpdate: {
+            /** Favorite Brands */
+            favorite_brands?: string[] | null;
             /** Fit Preference */
             fit_preference?: ("men" | "women" | "unisex" | "any") | null;
             sizes?: components["schemas"]["Sizes"];
             /** Styles */
             styles?: string[];
+            /** Usual Budget Paise */
+            usual_budget_paise?: number | null;
         };
         /** StyleProfileView */
         StyleProfileView: {
+            /**
+             * Favorite Brands
+             * @default []
+             */
+            favorite_brands: string[];
             /** Fit Preference */
             fit_preference: ("men" | "women" | "unisex" | "any") | null;
             /** Onboarding Done */
@@ -2030,6 +2092,8 @@ export interface components {
             swipe_count: number;
             /** Top Tags */
             top_tags: string[];
+            /** Usual Budget Paise */
+            usual_budget_paise?: number | null;
         };
         /** Suggestion */
         Suggestion: {
@@ -2242,6 +2306,22 @@ export interface components {
              * Format: uuid
              */
             selfie_upload_id: string;
+        };
+        /**
+         * TryOnQuota
+         * @description How many try-ons are left in the rolling 24 h window (failures don't count).
+         */
+        TryOnQuota: {
+            /** Available */
+            available: boolean;
+            /** Limit */
+            limit: number;
+            /** Remaining */
+            remaining: number;
+            /** Resets At */
+            resets_at: string | null;
+            /** Used */
+            used: number;
         };
         /** TryOnView */
         TryOnView: {
@@ -3772,6 +3852,37 @@ export interface operations {
             };
         };
     };
+    legal_document_v1_public_legal__kind__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "privacy" | "terms" | "delete_account";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     public_poll_v1_public_polls__slug__get: {
         parameters: {
             query?: never;
@@ -4181,6 +4292,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tryon_quota_v1_tryon_quota_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TryOnQuota"];
                 };
             };
         };

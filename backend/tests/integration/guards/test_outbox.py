@@ -184,6 +184,25 @@ async def test_slow_handler_times_out_and_is_retried(
     assert (msg.status, msg.last_error) == ("pending", "TimeoutError")
 
 
+async def test_a_slow_topic_can_have_a_longer_timeout(
+    sessions: async_sessionmaker[AsyncSession], clock: FixedClock
+) -> None:
+    # AI image work takes a minute; killing it at the default would retry (and pay) again.
+    relay = _relay(
+        sessions,
+        clock,
+        {"push.send": Recorder(delay=0.1)},
+        handler_timeout_s=0.05,
+        topic_timeouts_s={"push.send": 2},
+    )
+    await _add(sessions, clock)
+
+    await relay.run_batch()
+
+    [msg] = await _messages(sessions)
+    assert msg.status == "done"
+
+
 async def test_delayed_message_waits_until_due(
     sessions: async_sessionmaker[AsyncSession], clock: FixedClock
 ) -> None:

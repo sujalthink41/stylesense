@@ -74,7 +74,7 @@ export const ProductSwipeCard = memo(function ProductSwipeCard({ card, imageHeig
               {card.title}
             </Text>
           </View>
-          <Price paise={card.price_paise} size="lg" />
+          <Price paise={card.price_paise} size="lg" store={storeName(card.best_store)} />
         </View>
         <ReasonChips reasons={card.reasons ?? []} />
       </View>

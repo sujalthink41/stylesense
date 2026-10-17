@@ -10,6 +10,9 @@ from stylesense.modules.users.service import PURGE_TOPIC
 from stylesense.workers.heartbeat import FileHeartbeat
 from stylesense.workers.runtime import PeriodicTask, Worker
 
+# Longer than the try-on provider's own timeout (150 s), so its retry/fail logic decides.
+TRYON_HANDLER_TIMEOUT_S = 210
+
 OUTBOX_GAUGE_INTERVAL_S = 30
 TOKEN_PRUNE_INTERVAL_S = 6 * 3_600
 EMBED_INTERVAL_S = 60
@@ -38,6 +41,7 @@ def build_worker(
         clock=container.clock,
         batch_size=settings.outbox_batch_size,
         max_attempts=settings.outbox_max_attempts,
+        topic_timeouts_s={TRYON_TOPIC: TRYON_HANDLER_TIMEOUT_S},
     )
     pending = Gauge("outbox_pending", "Outbox messages waiting for delivery", registry=registry)
 

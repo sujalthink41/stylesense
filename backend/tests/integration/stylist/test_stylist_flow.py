@@ -57,7 +57,12 @@ class Driver:
     """Plays the app: starts a session and sends actions on the current turn."""
 
     def __init__(
-        self, sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID, ai: StubAI | None
+        self,
+        sessions: async_sessionmaker[AsyncSession],
+        user_id: uuid.UUID,
+        ai: StubAI | None,
+        *,
+        ai_reasons: bool = False,
     ) -> None:
         def uow() -> UnitOfWork:
             return UnitOfWork(sessions)
@@ -65,7 +70,7 @@ class Driver:
         catalog = CatalogService(uow, clock=FixedClock(), embedder=HashingEmbedder())
         self.service = StylistService(
             uow,
-            flows={"stylist": StylistFlow(catalog, ai)},
+            flows={"stylist": StylistFlow(catalog, ai, ai_reasons=ai_reasons)},
             default_flow="stylist",
             clock=FixedClock(),
         )
@@ -110,42 +115,101 @@ class Driver:
 # ---------- without AI (the default until keys are configured) ----------
 
 
-async def test_summer_tshirt_under_500_needs_one_question(
+async def test_summer_tshirt_under_500_shows_picks_without_questions(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
     app = Driver(catalog_sessions, user_id, ai=None)
 
-    first = await app.start("search", "summer t-shirt under 500")
-    assert first.components[0].type == "chip_question"
-    assert first.components[0].id == "q_gender"  # category, budget, occasion already understood
-    question = first.components[0]
-    assert isinstance(question, ChipQuestion)
-    assert "summer" in question.props.question.lower()
+    await app.start("search", "summer t-shirt under 500")
 
-    await app.send(ChipSelect(component_id="q_gender", option_ids=["men"]))
     cards = app.deck().props.cards
     assert cards
     assert all(c.price_paise is not None and c.price_paise <= 50_000 for c in cards)
     assert all(c.reasons for c in cards)
     assert "Within ₹500" in cards[0].reasons
     state = await app.state()
-    assert (state["questions"], state["ai"]) == (1, "degraded")
+    assert (state["questions"], state["ai"]) == (0, "unused")  # rules understood it: no tokens
 
 
-async def test_occasion_tile_asks_at_most_three_questions(
+async def test_who_it_is_for_is_an_optional_tap_on_the_results(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    app = Driver(catalog_sessions, user_id, ai=None)
+    await app.start("search", "t-shirt under 2000")
+    bar = next(c for c in app.screen.components if c.id == "next")  # type: ignore[union-attr]
+    assert {"for_men", "for_women"} <= {s.id for s in bar.props.suggestions}  # type: ignore[union-attr]
+
+    await app.send(Shortcut(value="for_women"))
+
+    assert (await app.state())["slots"]["gender"] == "women"
+    assert "for women" in (app.deck().props.title or "")
+
+
+async def test_a_misspelt_item_is_searched_not_questioned(
     catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
 ) -> None:
     app = Driver(catalog_sessions, user_id, ai=None)
 
-    await app.start("occasion_tile", "party")
+    await app.start("search", "I need shocks")
+
+    state = await app.state()
+    assert state["slots"]["category"] == "socks"
+    assert "shocks" not in state["slots"]["keywords"]
+    assert "chip_question" not in app.types()
+
+
+async def test_any_fashion_item_the_ai_names_is_a_category(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    ai = StubAI({"stylist.understand": UnderstandOutput(category=" Mojari ")})
+    app = Driver(catalog_sessions, user_id, ai=ai)
+
+    await app.start("search", "need a pair of mojaris for my brother")
+
+    assert (await app.state())["slots"]["category"] == "mojari"
+    assert "chip_question" not in app.types()
+
+
+async def test_set_a_budget_opens_the_slider_and_narrows_the_picks(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    app = Driver(catalog_sessions, user_id, ai=None)
+    await app.start("search", "men's jeans")
+
+    await app.send(Shortcut(value="change_budget"))
+    assert app.types()[0] == "budget_slider"
+    await app.send(SliderSet(component_id="q_budget", min_paise=0, max_paise=150_000))
+
+    assert all(c.price_paise <= 150_000 for c in app.deck().props.cards)  # type: ignore[operator]
+
+
+async def test_an_unclear_request_gets_an_open_prompt_not_a_list(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    app = Driver(catalog_sessions, user_id, ai=None)
+
+    await app.start("search", "something nice in black under 2000")
+
+    assert app.types()[0] == "info_banner"
+    assert "chip_question" not in app.types()
+
+
+async def test_occasion_tile_offers_what_people_wear_to_it(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    app = Driver(catalog_sessions, user_id, ai=None)
+
+    first = await app.start("occasion_tile", "party")
+    question = first.components[0]
+    assert isinstance(question, ChipQuestion)
+    assert "party" in question.props.question.lower()
+    assert "dress" in {o.id for o in question.props.options}
     await app.send(ChipSelect(component_id="q_category", option_ids=["dress"]))
-    await app.send(ChipSelect(component_id="q_gender", option_ids=["women"]))
-    await app.send(SliderSet(component_id="q_budget", min_paise=0, max_paise=300_000))
 
     title = app.deck().props.title
     assert title is not None
     assert title.startswith("Party dresses")
-    assert (await app.state())["questions"] == 3
+    assert (await app.state())["questions"] == 1
 
 
 async def test_typing_a_refinement_re_searches(
@@ -201,7 +265,6 @@ async def test_show_more_pages_through_new_items(
 ) -> None:
     app = Driver(catalog_sessions, user_id, ai=None)
     await app.start("search", "t-shirts for anyone under 5000")
-    await app.send(ChipSelect(component_id="q_gender", option_ids=["any"]))
     page_one = {c.product_id for c in app.deck().props.cards}
     assert app.deck().props.has_more
 
@@ -257,11 +320,23 @@ async def test_ai_never_overrides_what_rules_understood(
     hallucinated = UnderstandOutput(category="jacket", gender="men", budget_max_rupees=90_000)
     app = Driver(catalog_sessions, user_id, ai=StubAI({"stylist.understand": hallucinated}))
 
-    await app.start("search", "jeans under 1000")
+    await app.start("search", "something cool under 1000 in denim for a farewell")
 
     state = await app.state()
-    assert (state["slots"]["category"], state["slots"]["budget_max_paise"]) == ("jeans", 100_000)
-    assert state["slots"]["gender"] == "men"  # a genuine gap: filled
+    assert state["slots"]["budget_max_paise"] == 100_000  # the rules' number, not the AI's
+    assert (state["slots"]["category"], state["slots"]["gender"]) == ("jacket", "men")  # gaps
+
+
+async def test_the_ai_is_not_asked_when_the_item_is_known(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    ai = StubAI(error=AIUnavailableError("must not be called"))
+    app = Driver(catalog_sessions, user_id, ai=ai)
+
+    await app.start("search", "jeans under 1000 for a farewell, something cool")
+
+    assert ai.calls == []
+    assert "product_swipe_deck" in app.types()
 
 
 async def test_ai_reasons_replace_rule_reasons_for_known_products_only(
@@ -275,7 +350,9 @@ async def test_ai_reasons_replace_rule_reasons_for_known_products_only(
         items.append(ExplainItem(product_id=str(uuid.uuid4()), reasons=["Injected"]))
         return ExplainOutput(items=items[-10:])
 
-    app = Driver(catalog_sessions, user_id, ai=StubAI({"stylist.explain": explain}))
+    app = Driver(
+        catalog_sessions, user_id, ai=StubAI({"stylist.explain": explain}), ai_reasons=True
+    )
     await app.start("search", "men's summer t-shirt under 1500")
 
     reasons = {r for c in app.deck().props.cards for r in c.reasons}
@@ -289,7 +366,26 @@ async def test_ai_outage_degrades_silently(
 ) -> None:
     app = Driver(catalog_sessions, user_id, ai=StubAI(error=AIUnavailableError("down")))
 
-    await app.start("search", "women's kurta under 2000")
+    await app.start("search", "show me something royal under 2000")
 
-    assert app.deck().props.cards
+    # The AI was needed (which item?) and is down: the stylist simply asks instead.
+    assert app.types()[0] == "info_banner"
     assert (await app.state())["ai"] == "degraded"
+
+
+async def test_a_brand_search_spends_no_tokens_and_says_when_the_brand_is_not_stocked(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    # The mock catalog has no ASICS: say so, then show the closest other brands.
+    app = Driver(
+        catalog_sessions, user_id, ai=StubAI(error=AIUnavailableError("must not be called"))
+    )
+
+    first = await app.start("search", "asics shoes for men under 6000")
+
+    state = await app.state()
+    assert (state["slots"]["brand"], state["slots"]["category"]) == ("ASICS", "sneakers")
+    assert state["ai"] == "unused"  # fully understood by rules
+    banner = next(c for c in first.components if c.id == "brand")
+    assert "No ASICS" in banner.props.text  # type: ignore[union-attr]
+    assert app.deck().props.cards

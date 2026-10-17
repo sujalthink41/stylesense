@@ -11,6 +11,13 @@ class PhotoSource(Protocol):
     async def photo_for_search(self, user_id: uuid.UUID, upload_id: uuid.UUID) -> str: ...
 
 
+class LiveCatalog(Protocol):
+    """Tops up the catalog from live store search when it has too little for a request
+    (implemented by integrations.sources.web_search.WebCatalog). Returns products added."""
+
+    async def refresh(self, text: str, *, category: str | None, gender: str | None) -> int: ...
+
+
 class TasteSource(Protocol):
     """What the stylist needs from personalization (implemented by PersonalizationService)."""
 

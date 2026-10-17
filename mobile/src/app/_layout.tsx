@@ -94,6 +94,11 @@ function AppShell() {
         <Stack.Protected guard={!mustUpdate && signedIn && !welcome}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="session/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="product/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="board/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="poll/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="photo" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+          <Stack.Screen name="tryon/[productId]" options={{ animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
         </Stack.Protected>
       </Stack>
     </>

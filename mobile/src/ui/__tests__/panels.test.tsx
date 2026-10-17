@@ -132,6 +132,8 @@ describe('style DNA card', () => {
     onboarding_done: false,
     swipe_count: 0,
     top_tags: [],
+    favorite_brands: [],
+    usual_budget_paise: null,
     ...o,
   });
 
