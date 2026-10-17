@@ -4,6 +4,7 @@ The LLM (when configured) only fills gaps this parser leaves; numbers always com
 because a model can hallucinate a budget but a regex can't.
 """
 
+import difflib
 import re
 
 from stylesense.modules.stylist.brands import find_brand, strip_brands
@@ -12,20 +13,76 @@ from stylesense.modules.stylist.slots import MAX_BUDGET_PAISE, Slots
 _MIN_RUPEES = 50  # smaller numbers are sizes, counts or typos, not prices
 _AROUND_LOW, _AROUND_HIGH = 0.7, 1.2
 
-# Order matters: longer, more specific phrases first ("t shirt" before "shirt").
+# The earliest match in the text wins; at the same spot, the first term listed wins.
 _CATEGORY_TERMS: list[tuple[str, str]] = [
     (r"t[\s-]?shirts?|tees?|polo", "tshirt"),
+    (r"salwar(?: suits?)?|anarkalis?|kurta sets?|kurtas?|kurtis?", "kurta"),
     (r"crop tops?|tank tops?|tops?|tunics?|blouses?", "top"),
-    (r"jeans", "jeans"),
+    (r"jeans|jeggings", "jeans"),
+    (r"joggers?|track ?pants|track ?suits?|sweatpants", "joggers"),
     (r"trousers?|pants|chinos?|cargos?", "trousers"),
-    (r"kurtas?|kurtis?", "kurta"),
+    (r"sarees?|saris?", "saree"),
+    (r"lehengas?|lehenga cholis?|ghagras?", "lehenga"),
+    (r"sherwanis?|bandhgalas?|achkans?", "sherwani"),
     (r"dress(?:es)?|gowns?|frocks?", "dress"),
+    (r"swimwear|swimsuits?|bikinis?|swim ?trunks", "swimwear"),
+    (r"night ?wear|night ?suits?|pyjamas?|pajamas?|night ?dress(?:es)?|loungewear", "nightwear"),
+    (r"innerwear|underwear|boxers?|briefs|vests?|bras?|panties|lingerie|camisoles?", "innerwear"),
     (r"shorts", "shorts"),
+    (r"skirts?", "skirt"),
+    (r"jumpsuits?|rompers?|playsuits?", "jumpsuit"),
+    (r"leggings?|churidars?", "leggings"),
+    (r"formal shoes|oxfords?|derby shoes|brogues?", "formal_shoes"),
+    (r"loafers?|moccasins?", "loafers"),
+    (r"boots?", "boots"),
+    (r"heels|stilettos?|wedges", "heels"),
+    (r"sandals?|slippers?|flip[\s-]?flops?|chappals?|slides|kolhapuris?", "sandals"),
     (r"sneakers?|shoes|trainers|kicks", "sneakers"),
-    (r"jackets?|bombers?|puffers?|windcheaters?", "jacket"),
+    (r"socks?", "socks"),
+    (r"nehru jackets?|waistcoats?|blazers?", "blazer"),
+    (r"jackets?|bombers?|puffers?|windcheaters?|coats?", "jacket"),
     (r"hoodies?|sweatshirts?", "hoodie"),
+    (r"sweaters?|pullovers?|cardigans?|jumpers?", "sweater"),
+    (r"suits?|tuxedos?", "suit"),
+    (r"smart ?watch(?:es)?|watch(?:es)?", "watch"),
+    (r"sunglasses|sunnies|aviators?", "sunglasses"),
+    (r"backpacks?|rucksacks?|laptop bags?|school bags?", "backpack"),
+    (r"bags?|handbags?|sling bags?|tote(?: bag)?s?|clutch(?:es)?|purses?", "bag"),
+    (r"wallets?|card holders?", "wallet"),
+    (r"belts?", "belt"),
+    (r"caps|beanies?|hats?|cap(?![\s-]?sleeve)", "cap"),
+    (r"scarf|scarves|stoles?|dupattas?|shawls?|mufflers?", "scarf"),
+    (r"ties|neck ?ties?|bow ?ties?|tie(?![\s-]?(?:dye|up))", "tie"),
+    (
+        r"jewell?ery|jewelry|earrings?|necklaces?|bangles?|bracelets?|rings|pendants?"
+        r"|anklets?|jhumkas?",
+        "jewellery",
+    ),
     (r"shirts?|button[\s-]?downs?", "shirt"),
 ]
+# Item words a shopper might misspell ("shocks", "jens", "kurthi"): close matches count.
+_ITEM_WORDS: dict[str, str] = {
+    **{c: c for c in ("socks", "jeans", "kurta", "saree", "lehenga", "sherwani", "dress")},
+    **{c: c for c in ("shorts", "skirt", "jumpsuit", "leggings", "joggers", "loafers", "boots")},
+    **{c: c for c in ("heels", "sandals", "sneakers", "blazer", "jacket", "hoodie", "sweater")},
+    **{c: c for c in ("watch", "sunglasses", "backpack", "wallet", "belt", "scarf", "jewellery")},
+    "kurti": "kurta",
+    "tshirt": "tshirt",
+    "shirt": "shirt",
+    "trousers": "trousers",
+    "pants": "trousers",
+    "shoes": "sneakers",
+    "slippers": "sandals",
+    "handbag": "bag",
+    "earrings": "jewellery",
+    "necklace": "jewellery",
+    "innerwear": "innerwear",
+    "pyjama": "nightwear",
+    "swimwear": "swimwear",
+}
+_FUZZY_MIN = 4  # shorter words are too easy to mistake
+_FUZZY_CUTOFF = {4: 0.86}  # by word length; longer words use the default
+_FUZZY_DEFAULT = 0.8
 _GENDER_TERMS: list[tuple[str, str]] = [
     (r"unisex", "unisex"),
     (
@@ -41,7 +98,11 @@ _GENDER_TERMS: list[tuple[str, str]] = [
 ]
 # Garments that say who they're cut for, when the text doesn't (checked after _GENDER_TERMS).
 _IMPLIED_GENDER: list[tuple[str, str]] = [
-    (r"kurtis?|sarees?|sari|lehengas?|salwar|anarkali|blouses?|gowns?|frocks?|leggings", "women"),
+    (
+        r"kurtis?|sarees?|sari|lehengas?|salwar|anarkali|blouses?|gowns?|frocks?|leggings"
+        r"|skirts?|heels|bras?|panties|lingerie|jhumkas?|dupattas?",
+        "women",
+    ),
     (r"sherwanis?|bandhgala|kurta[\s-]?pyjamas?|kurta[\s-]?pajamas?", "men"),
 ]
 _OCCASION_TERMS: list[tuple[str, str]] = [
@@ -289,6 +350,17 @@ def unknown_words(text: str) -> list[str]:
         if word not in _STOPWORDS and word not in seen and len(word) >= MIN_WORD:
             seen.append(word)
     return seen
+
+
+def guess_category(text: str) -> tuple[str, str] | None:
+    """A misspelt item ("i need shocks" -> socks): (category, the word as typed), or None."""
+    for word in unknown_words(text):
+        if len(word) < _FUZZY_MIN:
+            continue
+        cutoff = _FUZZY_CUTOFF.get(len(word), _FUZZY_DEFAULT)
+        if close := difflib.get_close_matches(word, _ITEM_WORDS, n=1, cutoff=cutoff):
+            return _ITEM_WORDS[close[0]], word
+    return None
 
 
 def _first(text: str, terms: list[tuple[str, str]]) -> str | None:

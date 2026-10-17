@@ -44,7 +44,7 @@ export function StyleDnaCard({ profile, options, busy, onStart }: StyleDnaCardPr
           <Text variant="bodySmall" tone="secondary">
             {done
               ? `${profile?.swipe_count ?? 0} ${profile?.swipe_count === 1 ? 'swipe has' : 'swipes have'} taught your stylist so far`
-              : 'Thirty seconds, taps only. Every pick after gets sharper.'}
+              : 'One screen of looks to tap. Every pick after gets sharper.'}
           </Text>
         </View>
       </View>

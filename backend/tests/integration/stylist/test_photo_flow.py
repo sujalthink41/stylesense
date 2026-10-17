@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from stylesense.ai.gateway.exceptions import AIUnavailableError
 from stylesense.ai.gateway.tasks import TaskSpec
 from stylesense.genui.actions import ActionRequest, Shortcut, SliderSet
-from stylesense.genui.components import ChipQuestion, InfoBanner, ProductSwipeDeck
+from stylesense.genui.components import InfoBanner, ProductSwipeDeck
 from stylesense.genui.envelope import RenderEvent, UiEnvelope
 from stylesense.guards.rate_limit import RateLimiter
 from stylesense.infra.database import UnitOfWork
@@ -122,8 +122,8 @@ async def test_without_vision_ai_the_stylist_asks_instead(
 
     ui = await app.start(str(await app.photo()))
 
-    assert "couldn't read the photo" in (_banner(ui) or "")
-    assert any(isinstance(c, ChipQuestion) for c in ui.components)
+    assert "couldn't read the photo" in (_banner(ui) or "")  # the banner says what to type
+    assert [c.type for c in ui.components][-1] == "text_input_bar"
 
 
 async def test_a_photo_without_clothes_is_explained(

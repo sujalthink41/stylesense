@@ -10,7 +10,7 @@ import re
 from typing import Literal
 
 from stylesense.modules.stylist.brands import find_brand
-from stylesense.modules.stylist.understanding import parse_request
+from stylesense.modules.stylist.understanding import guess_category, parse_request, unknown_words
 
 Verdict = Literal["shop", "question", "off_topic", "unsafe"]
 
@@ -54,6 +54,13 @@ _REFINE = re.compile(
     r"|instead|only|without|actually|change|lighter|darker|bigger|smaller|longer|shorter)\b",
     re.IGNORECASE,
 )
+# "I need …", "show me …": a shopping request for something the rules don't know yet. The AI
+# names the item (or finds it isn't fashion), instead of the guard turning a shopper away.
+_WANTS = re.compile(
+    r"\b(?:need|want|buy|shop(?:ping)?|show|find|looking for|search|get me|suggest"
+    r"|chahiye|chaiye|dikhao|dikha|kharid\w*|lena)\b",
+    re.IGNORECASE,
+)
 _QUESTION = re.compile(
     r"^\s*(?:what|which|how|should|can|could|does|do|is|are|will|would|suggest|recommend|help)\b|\?\s*$",
     re.IGNORECASE,
@@ -78,7 +85,9 @@ def screen(text: str, *, in_conversation: bool = False) -> Verdict:
         or slots.fabric
         or slots.brand
         or find_brand(text)
+        or guess_category(text)
         or _FASHION.search(text)
+        or (_WANTS.search(text) and unknown_words(text))
         or (slots.gender and slots.budget_max_paise)
     )
     if not about_fashion:

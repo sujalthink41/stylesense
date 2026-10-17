@@ -1,28 +1,37 @@
-"""AI tasks used by the stylist. Output schemas pin the vocabulary, so the model can't invent
-categories or colours; numbers are bounded; everything is validated by the gateway.
+"""AI tasks used by the stylist. Output schemas pin the vocabulary for colours, fits and
+occasions; the item is open (any fashion item), cleaned and mapped onto our ids when it fits.
+Numbers are bounded; everything is validated by the gateway.
 """
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from stylesense.ai.gateway.tasks import TaskSpec
 from stylesense.modules.stylist.brands import find_brand
-from stylesense.modules.stylist.slots import Slots
+from stylesense.modules.stylist.slots import CATEGORIES, MAX_CATEGORY_CHARS, Slots
+from stylesense.modules.stylist.understanding import guess_category, parse_request
 
-Category = Literal[
-    "tshirt",
-    "shirt",
-    "jeans",
-    "trousers",
-    "kurta",
-    "dress",
-    "top",
-    "shorts",
-    "sneakers",
-    "jacket",
-    "hoodie",
-]
+_ITEM = re.compile(r"[a-z][a-z -]*[a-z]")
+
+
+def normalize_category(value: object) -> str | None:
+    """'Socks ' → 'socks', 'kurtis' → 'kurta', 'Mojari' → 'mojari'; junk → None."""
+    if not isinstance(value, str):
+        return None
+    text = " ".join(value.lower().split())[:MAX_CATEGORY_CHARS]
+    if not text or text in {"null", "none", "unknown"}:
+        return None
+    if text in CATEGORIES:
+        return text
+    if known := parse_request(text).category:
+        return known
+    if guess := guess_category(text):
+        return guess[0]
+    return text.replace(" ", "_") if _ITEM.fullmatch(text) else None
+
+
 Occasion = Literal[
     "summer",
     "winter",
@@ -67,7 +76,7 @@ class UnderstandInput(BaseModel):
 
 
 class UnderstandOutput(BaseModel):
-    category: Category | None = None
+    category: str | None = Field(default=None, max_length=60)
     gender: Literal["men", "women", "unisex"] | None = None
     budget_min_rupees: int | None = Field(default=None, ge=50, le=100_000)
     budget_max_rupees: int | None = Field(default=None, ge=50, le=100_000)
@@ -76,6 +85,11 @@ class UnderstandOutput(BaseModel):
     fit: Fit | None = None
     fabric: Fabric | None = None
     brand: str | None = Field(default=None, max_length=40)
+
+    @field_validator("category", mode="after")
+    @classmethod
+    def _item(cls, value: str | None) -> str | None:
+        return normalize_category(value)
 
     @field_validator("colors", mode="before")
     @classmethod
@@ -128,9 +142,13 @@ PHOTO_UNDERSTAND = TaskSpec(
 
 STYLIST_UNDERSTAND = TaskSpec(
     name="stylist.understand",
-    prompt_version="2026-10-05.2",
+    prompt_version="2026-10-17",
     instructions=(
         "You extract a fashion shopping request for Indian shoppers into structured fields. "
+        "`category` is the item they want as a short shopping noun. Use one of these ids when "
+        f"it fits: {', '.join(CATEGORIES)}. Otherwise use their item in plain words (e.g. "
+        "'mojari', 'lungi'). Fix obvious typos ('shocks' means socks). Leave it null when the "
+        "item isn't clothing, footwear or a fashion accessory. "
         "The text may mix English and Hindi (Hinglish). Fill fields the user expressed or "
         "clearly implied, and leave the rest null. Implied means near-certain from Indian "
         "context: a kurti, saree or lehenga is cut for women, a sherwani for men; mehendi, "

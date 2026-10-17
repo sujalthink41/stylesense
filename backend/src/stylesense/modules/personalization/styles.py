@@ -56,4 +56,10 @@ SIZE_KIND = {
     "jeans": "bottom",
     "trousers": "bottom",
     "sneakers": "shoe",
+    "sweater": "top",
+    "blazer": "top",
+    "joggers": "bottom",
+    "formal_shoes": "shoe",
+    "loafers": "shoe",
+    "boots": "shoe",
 }

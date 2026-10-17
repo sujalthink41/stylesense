@@ -294,4 +294,4 @@ def test_onboarding_entry_starts_style_dna(client: TestClient) -> None:
     )
 
     assert response.status_code == 201
-    assert response.json()["ui"]["components"][0]["id"] == "q_fit"
+    assert response.json()["ui"]["components"][0]["id"] == "q_styles"

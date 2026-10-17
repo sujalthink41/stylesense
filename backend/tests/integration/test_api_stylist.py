@@ -108,27 +108,25 @@ def test_session_starts_with_a_tappable_question(client: TestClient) -> None:
 
 def test_actions_stream_the_next_screen_as_sse(client: TestClient) -> None:
     headers = _auth(client)
-    session = _start(client, headers, "search", "party t-shirt for men")  # only budget missing
-    slider = {
-        "type": "slider_set",
-        "component_id": "q_budget",
-        "min_paise": 0,
-        "max_paise": 100_000,
-    }
+    session = _start(client, headers)  # party: which item?
+    chip = {"type": "chip_select", "component_id": "q_category", "option_ids": ["shirt"]}
+    _act(client, headers, session["session_id"], 1, chip)
+    refine = {"type": "text_input", "text": "for men under 1000"}
 
-    response = _act(client, headers, session["session_id"], 1, slider, extra_headers=SSE)
+    response = _act(client, headers, session["session_id"], 2, refine, extra_headers=SSE)
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     assert response.headers["cache-control"] == "no-store"
     events = _sse_events(response.text)
     assert [(i, e) for i, e, _ in events] == [
-        ("2.1", "ui.loading"),
-        ("2.2", "ui.render"),
-        ("2.3", "done"),
+        ("3.1", "ui.loading"),
+        ("3.2", "ui.render"),
+        ("3.3", "done"),
     ]
-    deck = events[1][2]["envelope"]["components"][0]
-    assert deck["type"] == "product_swipe_deck"
+    deck = next(
+        c for c in events[1][2]["envelope"]["components"] if c["type"] == "product_swipe_deck"
+    )
     assert all(card["price_paise"] <= 100_000 for card in deck["props"]["cards"])
 
 
@@ -147,7 +145,8 @@ def test_json_mode_returns_the_final_screen(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert (body["turn_id"], body["error"]) == (2, None)
-    assert body["ui"]["components"][0]["id"] == "q_gender"
+    # The item was all we needed: straight to picks, no more questions.
+    assert "product_swipe_deck" in [c["type"] for c in body["ui"]["components"]]
 
 
 def test_snapshot_resumes_where_the_user_left_off(client: TestClient) -> None:
@@ -158,12 +157,13 @@ def test_snapshot_resumes_where_the_user_left_off(client: TestClient) -> None:
         headers,
         session["session_id"],
         1,
-        {"type": "chip_select", "component_id": "q_category", "option_ids": ["kurta"]},
+        {"type": "chip_select", "component_id": "q_category", "option_ids": ["shirt"]},
     )
 
     snapshot = client.get(f"/v1/stylist/sessions/{session['session_id']}", headers=headers).json()
 
-    assert (snapshot["turn_id"], snapshot["ui"]["components"][0]["id"]) == (2, "q_gender")
+    assert snapshot["turn_id"] == 2
+    assert "product_swipe_deck" in [c["type"] for c in snapshot["ui"]["components"]]
 
 
 # ---------- protocol errors ----------
@@ -172,7 +172,7 @@ def test_snapshot_resumes_where_the_user_left_off(client: TestClient) -> None:
 def test_double_submit_gets_409_with_the_current_turn(client: TestClient) -> None:
     headers = _auth(client)
     session = _start(client, headers)
-    chip = {"type": "chip_select", "component_id": "q_category", "option_ids": ["tshirt"]}
+    chip = {"type": "chip_select", "component_id": "q_category", "option_ids": ["shirt"]}
     _act(client, headers, session["session_id"], 1, chip)
 
     replay = _act(client, headers, session["session_id"], 1, chip)

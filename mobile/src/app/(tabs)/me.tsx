@@ -1,10 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Haptics from 'expo-haptics';
+import { useQuery } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_URL, APP_VERSION } from '@/api/config';
@@ -16,53 +14,18 @@ import { useTheme } from '@/design/theme';
 import { palette, radius, space } from '@/design/tokens';
 import { typeScale } from '@/design/typography';
 import { GENUI_CATALOG_VERSION } from '@/genui/types.gen';
-import { formatRupees } from '@/lib/money';
 import { useStylist } from '@/stylist';
 import { Buti } from '@/ui/atoms/Buti';
 import { Button } from '@/ui/atoms/Button';
-import { Chip } from '@/ui/atoms/Chip';
 import { Icon, type IconName } from '@/ui/atoms/Icon';
 import { PressableScale } from '@/ui/atoms/PressableScale';
 import { Text } from '@/ui/atoms/Text';
-import { Banner } from '@/ui/molecules/Banner';
-import { BudgetSlider } from '@/ui/molecules/BudgetSlider';
-import { enter, Rise } from '@/ui/motion';
+import { Rise } from '@/ui/motion';
 import { StyleDnaCard } from '@/ui/organisms/StyleDnaCard';
-
-// Brands people shop for most on the three stores; any of them can be a favourite.
-const POPULAR_BRANDS = [
-  'Nike', 'Adidas', 'Puma', 'ASICS', 'Skechers', 'Red Tape', 'Campus', "Levi's", 'Roadster', 'HRX',
-  'U.S. Polo Assn.', 'Allen Solly', 'Van Heusen', 'Peter England', 'Jack & Jones', 'H&M', 'Zara',
-  'Biba', 'Libas', 'W', 'Aurelia', 'Fabindia', 'Manyavar', 'Snitch', 'Bewakoof', 'The Souled Store',
-  'Highlander', 'Mast & Harbour', 'Tommy Hilfiger', 'Calvin Klein', 'Crocs', 'Woodland',
-];
-const SHOPPING_FOR: { id: 'men' | 'women' | 'any'; label: string }[] = [
-  { id: 'men', label: 'Men' },
-  { id: 'women', label: 'Women' },
-  { id: 'any', label: 'Everyone' },
-];
-const MAX_BRANDS = 8;
-
-type Draft = {
-  fit: StyleProfileView['fit_preference'];
-  sizes: StyleProfileView['sizes'];
-  brands: string[];
-  budget: number | null;
-};
-
-function draftOf(p: StyleProfileView | undefined): Draft {
-  return {
-    fit: p?.fit_preference ?? null,
-    sizes: { ...(p?.sizes ?? {}) },
-    brands: [...(p?.favorite_brands ?? [])],
-    budget: p?.usual_budget_paise ?? null,
-  };
-}
 
 /** You, your style, and your data: everything here is yours to change or delete. */
 export default function MeTab() {
   const { colors } = useTheme();
-  const client = useQueryClient();
   const user = useSession((s) => s.user);
   const signOut = useSession((s) => s.signOut);
   const start = useStylist((s) => s.start);
@@ -87,46 +50,12 @@ export default function MeTab() {
     }, []),
   );
 
-  // Only what the person changed is state; everything shown is the saved profile plus edits.
-  const [edits, setEdits] = useState<Partial<Draft>>({});
-  const [saving, setSaving] = useState(false);
-  const [note, setNote] = useState<{ tone: 'info' | 'warning'; text: string } | null>(null);
-  const draft = useMemo<Draft>(() => ({ ...draftOf(profile.data), ...edits }), [profile.data, edits]);
-  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(draftOf(profile.data)), [draft, profile.data]);
-  const setDraft = (change: (d: Draft) => Draft) => setEdits(change(draft));
-
-  const save = async () => {
-    if (!profile.data) return;
-    setSaving(true);
-    setNote(null);
-    try {
-      // Saved whole; the Style DNA looks are sent back unchanged.
-      await api.put('/v1/me/style-profile', {
-        styles: profile.data.styles,
-        fit_preference: draft.fit,
-        sizes: draft.sizes,
-        favorite_brands: draft.brands,
-        usual_budget_paise: draft.budget,
-      });
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setNote({ tone: 'info', text: 'Saved. Your picks will use this from now on.' });
-      await client.invalidateQueries({ queryKey: ['style-profile'] });
-      setEdits({});
-    } catch (e) {
-      setNote({ tone: 'warning', text: friendlyMessage(e) });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const retake = async () => {
     const id = await start('onboarding');
     if (id) router.push(`/session/${id}`);
   };
 
   const saved = boards.data?.reduce((n, b) => n + b.item_count, 0) ?? 0;
-  const setSize = (kind: 'top' | 'bottom' | 'shoe') => (v: string | null) =>
-    setDraft((d) => ({ ...d, sizes: { ...d.sizes, [kind]: v } as Draft['sizes'] }));
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.ground }]} edges={['top']}>
@@ -147,39 +76,7 @@ export default function MeTab() {
         </Rise>
 
         <Rise index={3}>
-          <Section title="Your details" hint="Used to prefill sizes and lift the brands you love.">
-            <Field label="Shopping for">
-              <View style={styles.chips}>
-                {SHOPPING_FOR.map((o) => (
-                  <Chip key={o.id} label={o.label} selected={draft.fit === o.id} onPress={() => setDraft((d) => ({ ...d, fit: o.id }))} />
-                ))}
-              </View>
-            </Field>
-            <SizeRow label="Top size" values={options.data?.top_sizes ?? []} selected={draft.sizes.top} onPick={setSize('top')} />
-            <SizeRow label="Waist" values={options.data?.bottom_sizes ?? []} selected={draft.sizes.bottom} onPick={setSize('bottom')} />
-            <SizeRow label="Shoe size" values={options.data?.shoe_sizes ?? []} selected={draft.sizes.shoe} onPick={setSize('shoe')} />
-            <BrandPicker selected={draft.brands} onChange={(brands) => setDraft((d) => ({ ...d, brands }))} />
-            <Field label={draft.budget ? `Usual budget: up to ${formatRupees(draft.budget)}` : 'Usual budget'}>
-              <BudgetSlider
-                label="Usual budget for one item"
-                minPaise={50_000}
-                maxPaise={1_000_000}
-                stepPaise={50_000}
-                value={draft.budget ?? 200_000}
-                onChange={(v) => setDraft((d) => ({ ...d, budget: v }))}
-              />
-            </Field>
-            {note ? <Banner tone={note.tone} text={note.text} /> : null}
-            {dirty ? (
-              <Animated.View entering={enter.pop()}>
-                <Button label="Save my details" variant="primary" fullWidth loading={saving} onPress={() => void save()} />
-              </Animated.View>
-            ) : null}
-          </Section>
-        </Rise>
-
-        <Rise index={4}>
-          <Section title="Privacy & account">
+          <Section title="Privacy & account" hint="Sizes, budget and who you shop for? Just tell the stylist in the chat.">
             <Row icon="info" label="Privacy policy" onPress={() => void Linking.openURL(`${API_URL}/privacy`)} />
             <Row icon="info" label="Terms of use" onPress={() => void Linking.openURL(`${API_URL}/terms`)} />
             <Row icon="logout" label="Sign out" onPress={() => void Promise.all([signOut(), googleSignOut()])} />
@@ -306,46 +203,6 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
       </View>
       {children}
     </View>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: 8 }}>
-      <Text variant="label">{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-function SizeRow({ label, values, selected, onPick }: { label: string; values: string[]; selected?: string | null; onPick(v: string | null): void }) {
-  if (!values.length) return null;
-  return (
-    <Field label={label}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        {values.map((v) => (
-          <Chip key={v} label={v} selected={selected === v} onPress={() => onPick(selected === v ? null : v)} />
-        ))}
-      </ScrollView>
-    </Field>
-  );
-}
-
-function BrandPicker({ selected, onChange }: { selected: string[]; onChange(brands: string[]): void }) {
-  const [open, setOpen] = useState(false);
-  const toggle = (b: string) =>
-    onChange(selected.includes(b) ? selected.filter((x) => x !== b) : selected.length < MAX_BRANDS ? [...selected, b] : selected);
-  const rest = POPULAR_BRANDS.filter((b) => !selected.includes(b));
-  const shown = open ? [...selected, ...rest] : [...selected, ...rest].slice(0, Math.max(8, selected.length));
-  return (
-    <Field label={`Favourite brands${selected.length ? ` (${selected.length}/${MAX_BRANDS})` : ''}`}>
-      <View style={styles.chips}>
-        {shown.map((b) => (
-          <Chip key={b} label={b} selected={selected.includes(b)} onPress={() => toggle(b)} />
-        ))}
-        <Chip label={open ? 'Fewer' : 'More brands'} onPress={() => setOpen((o) => !o)} />
-      </View>
-    </Field>
   );
 }
 

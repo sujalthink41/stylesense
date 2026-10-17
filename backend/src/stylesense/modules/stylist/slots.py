@@ -16,7 +16,47 @@ CATEGORIES: dict[str, tuple[str, str]] = {  # id → (label, icon)
     "sneakers": ("Sneakers", "👟"),
     "jacket": ("Jackets", "🧥"),
     "hoodie": ("Hoodies", "🧥"),
+    "sweater": ("Sweaters", "🧶"),
+    "blazer": ("Blazers", "🧥"),
+    "suit": ("Suits", "🤵"),
+    "skirt": ("Skirts", "👗"),
+    "jumpsuit": ("Jumpsuits", "👗"),
+    "leggings": ("Leggings", "👖"),
+    "joggers": ("Joggers", "👖"),
+    "saree": ("Sarees", "🥻"),
+    "lehenga": ("Lehengas", "✨"),
+    "sherwani": ("Sherwanis", "🤵"),
+    "innerwear": ("Innerwear", "🩲"),
+    "nightwear": ("Nightwear", "🌙"),
+    "swimwear": ("Swimwear", "🩱"),
+    "socks": ("Socks", "🧦"),
+    "formal_shoes": ("Formal shoes", "👞"),
+    "loafers": ("Loafers", "👞"),
+    "boots": ("Boots", "🥾"),
+    "heels": ("Heels", "👠"),
+    "sandals": ("Sandals", "🩴"),
+    "watch": ("Watches", "⌚"),
+    "sunglasses": ("Sunglasses", "🕶️"),
+    "bag": ("Bags", "👜"),
+    "backpack": ("Backpacks", "🎒"),
+    "wallet": ("Wallets", "👛"),
+    "belt": ("Belts", "🪢"),
+    "cap": ("Caps", "🧢"),
+    "scarf": ("Scarves", "🧣"),
+    "tie": ("Ties", "👔"),
+    "jewellery": ("Jewellery", "💍"),
 }
+# Anything else a shopper names ("lungi", "mojari") is still a category: the AI names it in
+# plain words and the live store search finds it. These ids just get nicer labels and rules.
+MAX_CATEGORY_CHARS = 30
+
+
+def category_label(category: str) -> str:
+    """ "Socks", "Formal shoes", or the shopper's own word for anything we have no label for."""
+    known = CATEGORIES.get(category)
+    return known[0] if known else category.replace("_", " ").capitalize()
+
+
 OCCASIONS = (
     "summer",
     "winter",
@@ -58,7 +98,7 @@ COLOR_WEIGHT, FABRIC_WEIGHT, FIT_WEIGHT, OCCASION_WEIGHT = 1.5, 1.5, 1.0, 0.6
 class Slots(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    category: str | None = None
+    category: str | None = Field(default=None, max_length=MAX_CATEGORY_CHARS)
     gender: Gender | None = None
     budget_min_paise: int | None = Field(default=None, ge=0, le=MAX_BUDGET_PAISE)
     budget_max_paise: int | None = Field(default=None, gt=0, le=MAX_BUDGET_PAISE)
@@ -70,19 +110,14 @@ class Slots(BaseModel):
     # didn't map to a field ("running", "chunky"): they sharpen the store search.
     brand: str | None = Field(default=None, max_length=40)
     keywords: list[str] = Field(default_factory=list, max_length=4)
-    # Shop-from-a-photo shows matches straight away; budget becomes a refinement, not a gate.
+    # Kept for stored sessions; budget is never a gate any more (see `missing`).
     budget_optional: bool = False
 
     def missing(self) -> list[str]:
-        """Required slots still unknown, in the order the stylist asks for them."""
-        needed = []
-        if self.category is None:
-            needed.append("category")
-        if self.gender is None:
-            needed.append("gender")
-        if self.budget_max_paise is None and not self.budget_optional:
-            needed.append("budget")
-        return needed
+        """What we must know before searching: only the item. Who it's for and the budget are
+        refinements the shopper types when they care ("for women", "under 800"): asking first
+        made "I need socks" answer with a questionnaire."""
+        return ["category"] if self.category is None else []
 
     def merged(self, update: "Slots") -> Self:
         """Values present in `update` win; everything else is kept."""
