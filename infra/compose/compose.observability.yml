@@ -106,7 +106,7 @@ services:
     networks: [backend]
 
   glitchtip-migrate:
-    image: glitchtip/glitchtip:v5.1
+    image: glitchtip/glitchtip:6.2
     command: ["./bin/run-migrate.sh"]
     environment: *glitchtip-env
     depends_on:
@@ -116,7 +116,7 @@ services:
     networks: [backend]
 
   glitchtip:
-    image: glitchtip/glitchtip:v5.1
+    image: glitchtip/glitchtip:6.2
     restart: unless-stopped
     environment: *glitchtip-env
     depends_on:
@@ -129,7 +129,7 @@ services:
     networks: [backend]
 
   glitchtip-worker:
-    image: glitchtip/glitchtip:v5.1
+    image: glitchtip/glitchtip:6.2
     restart: unless-stopped
     command: ["./bin/run-celery-with-beat.sh"]
     environment: *glitchtip-env
