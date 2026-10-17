@@ -57,7 +57,12 @@ class Driver:
     """Plays the app: starts a session and sends actions on the current turn."""
 
     def __init__(
-        self, sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID, ai: StubAI | None
+        self,
+        sessions: async_sessionmaker[AsyncSession],
+        user_id: uuid.UUID,
+        ai: StubAI | None,
+        *,
+        ai_reasons: bool = False,
     ) -> None:
         def uow() -> UnitOfWork:
             return UnitOfWork(sessions)
@@ -65,7 +70,7 @@ class Driver:
         catalog = CatalogService(uow, clock=FixedClock(), embedder=HashingEmbedder())
         self.service = StylistService(
             uow,
-            flows={"stylist": StylistFlow(catalog, ai)},
+            flows={"stylist": StylistFlow(catalog, ai, ai_reasons=ai_reasons)},
             default_flow="stylist",
             clock=FixedClock(),
         )
@@ -129,7 +134,7 @@ async def test_summer_tshirt_under_500_needs_one_question(
     assert all(c.reasons for c in cards)
     assert "Within ₹500" in cards[0].reasons
     state = await app.state()
-    assert (state["questions"], state["ai"]) == (1, "degraded")
+    assert (state["questions"], state["ai"]) == (1, "unused")  # rules understood it: no tokens
 
 
 async def test_occasion_tile_asks_at_most_three_questions(
@@ -257,7 +262,7 @@ async def test_ai_never_overrides_what_rules_understood(
     hallucinated = UnderstandOutput(category="jacket", gender="men", budget_max_rupees=90_000)
     app = Driver(catalog_sessions, user_id, ai=StubAI({"stylist.understand": hallucinated}))
 
-    await app.start("search", "jeans under 1000")
+    await app.start("search", "jeans under 1000 for a farewell, something cool")
 
     state = await app.state()
     assert (state["slots"]["category"], state["slots"]["budget_max_paise"]) == ("jeans", 100_000)
@@ -275,7 +280,9 @@ async def test_ai_reasons_replace_rule_reasons_for_known_products_only(
         items.append(ExplainItem(product_id=str(uuid.uuid4()), reasons=["Injected"]))
         return ExplainOutput(items=items[-10:])
 
-    app = Driver(catalog_sessions, user_id, ai=StubAI({"stylist.explain": explain}))
+    app = Driver(
+        catalog_sessions, user_id, ai=StubAI({"stylist.explain": explain}), ai_reasons=True
+    )
     await app.start("search", "men's summer t-shirt under 1500")
 
     reasons = {r for c in app.deck().props.cards for r in c.reasons}
@@ -289,7 +296,26 @@ async def test_ai_outage_degrades_silently(
 ) -> None:
     app = Driver(catalog_sessions, user_id, ai=StubAI(error=AIUnavailableError("down")))
 
-    await app.start("search", "women's kurta under 2000")
+    await app.start("search", "kurta under 2000 that looks royal")
 
-    assert app.deck().props.cards
+    # The AI was needed (who is it for?) and is down: the stylist simply asks instead.
+    assert app.types()[0] == "chip_question"
     assert (await app.state())["ai"] == "degraded"
+
+
+async def test_a_brand_search_spends_no_tokens_and_says_when_the_brand_is_not_stocked(
+    catalog_sessions: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> None:
+    # The mock catalog has no ASICS: say so, then show the closest other brands.
+    app = Driver(
+        catalog_sessions, user_id, ai=StubAI(error=AIUnavailableError("must not be called"))
+    )
+
+    first = await app.start("search", "asics shoes for men under 6000")
+
+    state = await app.state()
+    assert (state["slots"]["brand"], state["slots"]["category"]) == ("ASICS", "sneakers")
+    assert state["ai"] == "unused"  # fully understood by rules
+    banner = next(c for c in first.components if c.id == "brand")
+    assert "No ASICS" in banner.props.text  # type: ignore[union-attr]
+    assert app.deck().props.cards

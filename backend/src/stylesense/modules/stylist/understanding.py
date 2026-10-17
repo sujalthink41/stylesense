@@ -6,6 +6,7 @@ because a model can hallucinate a budget but a regex can't.
 
 import re
 
+from stylesense.modules.stylist.brands import find_brand, strip_brands
 from stylesense.modules.stylist.slots import MAX_BUDGET_PAISE, Slots
 
 _MIN_RUPEES = 50  # smaller numbers are sizes, counts or typos, not prices
@@ -127,7 +128,167 @@ def parse_request(text: str) -> Slots:
         fabric=_first(lowered, _FABRIC_TERMS),
         budget_min_paise=low,
         budget_max_paise=high,
+        brand=find_brand(text),
+        keywords=unknown_words(text)[:4],
     )
+
+
+# Words that carry no shopping meaning on their own.
+MIN_WORD = 3  # shorter tokens are noise ("xl", "rs" and so on)
+_STOPWORDS = frozenset(
+    [
+        "hmm",
+        "hmmm",
+        "sure",
+        "yet",
+        "okay",
+        "maybe",
+        "idk",
+        "dunno",
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "for",
+        "of",
+        "to",
+        "in",
+        "on",
+        "at",
+        "by",
+        "from",
+        "with",
+        "without",
+        "my",
+        "me",
+        "i",
+        "im",
+        "i'm",
+        "we",
+        "our",
+        "you",
+        "your",
+        "want",
+        "wants",
+        "need",
+        "needs",
+        "show",
+        "give",
+        "find",
+        "get",
+        "buy",
+        "looking",
+        "look",
+        "search",
+        "some",
+        "something",
+        "anything",
+        "any",
+        "please",
+        "pls",
+        "good",
+        "best",
+        "nice",
+        "new",
+        "latest",
+        "cheap",
+        "budget",
+        "price",
+        "rupees",
+        "rs",
+        "inr",
+        "under",
+        "below",
+        "above",
+        "upto",
+        "within",
+        "around",
+        "about",
+        "less",
+        "more",
+        "than",
+        "not",
+        "too",
+        "very",
+        "really",
+        "that",
+        "this",
+        "these",
+        "those",
+        "like",
+        "also",
+        "just",
+        "pair",
+        "pairs",
+        "piece",
+        "one",
+        "two",
+        "three",
+        "wear",
+        "wearing",
+        "outfit",
+        "outfits",
+        "clothes",
+        "clothing",
+        "dress",
+        "up",
+        "item",
+        "items",
+        "friend",
+        "friends",
+        "cousin",
+        "brother",
+        "sister",
+        "mom",
+        "dad",
+        "wife",
+        "husband",
+        "girlfriend",
+        "boyfriend",
+        "for",
+        "him",
+        "her",
+        "his",
+        "them",
+        "they",
+        "it",
+        "its",
+        "can",
+        "could",
+        "would",
+        "should",
+        "will",
+        "is",
+        "are",
+        "was",
+        "be",
+        "been",
+        "am",
+        "have",
+        "has",
+        "go",
+        "going",
+    ]
+)
+
+
+def unknown_words(text: str) -> list[str]:
+    """Words the rules couldn't place in any field (in order, deduplicated). Empty means the
+    request is fully understood without AI; otherwise they become search keywords."""
+    rest = strip_brands(text.lower())
+    for pattern in (_RANGE, _AT_MOST, _AROUND, _BARE, _SIZE_CONTEXT):
+        rest = pattern.sub(" ", rest)
+    vocab = (_CATEGORY_TERMS, _GENDER_TERMS, _IMPLIED_GENDER, _OCCASION_TERMS, _COLOR_TERMS)
+    for terms in (*vocab, _FIT_TERMS, _FABRIC_TERMS):
+        for term, _ in terms:
+            rest = re.sub(rf"\b(?:{term})\b", " ", rest)
+    seen: list[str] = []
+    for raw in re.findall(r"[a-z][a-z'-]{2,}", rest):
+        word = raw.strip("'-")
+        if word not in _STOPWORDS and word not in seen and len(word) >= MIN_WORD:
+            seen.append(word)
+    return seen
 
 
 def _first(text: str, terms: list[tuple[str, str]]) -> str | None:

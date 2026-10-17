@@ -103,7 +103,7 @@ from stylesense.modules.stylist.tasks import (
     UnderstandInput,
     UnderstandOutput,
 )
-from stylesense.modules.stylist.understanding import parse_request
+from stylesense.modules.stylist.understanding import parse_request, unknown_words
 from stylesense.modules.uploads.exceptions import (
     DailyLimitError,
     UploadNotFoundError,
@@ -186,9 +186,11 @@ class StylistFlow:
         photos: PhotoSource | None = None,
         *,
         live: LiveCatalog | None = None,
+        ai_reasons: bool = False,
     ) -> None:
         self._catalog = catalog
         self._live = live
+        self._ai_reasons = ai_reasons  # card reasons from the model cost tokens; rules are free
         self._background: set[asyncio.Task[bool]] = set()
         self._ai = ai
         self._taste = taste
@@ -300,10 +302,14 @@ class StylistFlow:
         known = Slots.model_validate(p["slots"])
         from_rules = parse_request(text)
         slots = known.merged(from_rules)
-        if from_ai := await self._ai_understand(s, text, slots):
+        # The AI is asked only when the rules couldn't place some words AND something we
+        # must know (category, who it's for) is still missing: most requests cost no tokens.
+        gaps = [m for m in slots.missing() if m != "budget"]
+        if gaps and unknown_words(text) and (from_ai := await self._ai_understand(s, text, slots)):
             slots = _fill_gaps(slots, from_ai)
         p["query"] = f"{p['query']} {text}".strip()[-500:]
-        if slots == known:
+        if slots.model_copy(update={"keywords": known.keywords}) == known:
+            slots = known  # nothing understood: don't keep noise as keywords
             return {
                 "persisted": p,
                 "notice": "I didn't catch that. Try a category, colour or budget.",
@@ -374,7 +380,7 @@ class StylistFlow:
     async def _explain(self, s: _State) -> _State:
         slots = Slots.model_validate(s["persisted"]["slots"])
         reasons = {str(r.hit.product.id): rule_reasons(r, slots) for r in s["page"]}
-        if s["page"] and (from_ai := await self._ai_explain(s, slots)):
+        if self._ai_reasons and s["page"] and (from_ai := await self._ai_explain(s, slots)):
             for product_id, ai_reasons in from_ai.items():
                 if product_id in reasons and (cleaned := clean(ai_reasons)):
                     reasons[product_id] = cleaned
@@ -412,8 +418,24 @@ class StylistFlow:
                 title=_deck_title(slots), cards=cards, has_more=s["has_more"]
             ),
         )
+        missing = p.get("brand_missing")
+        brand_note: list[Component] = (
+            [
+                InfoBanner(
+                    id="brand",
+                    props=InfoBannerProps(
+                        tone="warning",
+                        text=f"No {missing} matches right now. "
+                        "Here are the closest picks from other brands.",
+                    ),
+                )
+            ]
+            if missing
+            else []
+        )
         components: list[Component] = [
             *_notice(s),
+            *brand_note,
             deck,
             *check_price,
             SuggestionBar(id="next", props=SuggestionBarProps(suggestions=bar_items[:6])),
@@ -528,6 +550,7 @@ class StylistFlow:
             size=size,
             taste=taste.vector if taste else None,
             limit=CANDIDATES,
+            brand=slots.brand,
         )
         hits = await self._catalog.search(query)
         # Every new request searches the stores live (repeats within the cache window reuse the
@@ -537,6 +560,11 @@ class StylistFlow:
                 self._refresh_later(slots)  # a full deck already: show it now, refresh behind
             elif await self._top_up(slots):
                 hits = await self._catalog.search(query)
+        p["brand_missing"] = None
+        if not hits and slots.brand:  # say so, then show the closest other brands
+            p["brand_missing"] = slots.brand
+            query = query.model_copy(update={"brand": None})
+            hits = await self._catalog.search(query)
         if not hits and size:  # nothing left in their size: showing other sizes beats nothing
             hits = await self._catalog.search(query.model_copy(update={"size": None}))
         return hits, taste
@@ -846,7 +874,13 @@ def _notice(s: _State) -> list[Component]:
 
 
 def _lead(slots: Slots, question: str) -> str:
-    known = [slots.occasion, slots.colors[0] if slots.colors else None, slots.fit, slots.fabric]
+    known = [
+        slots.brand,
+        slots.occasion,
+        slots.colors[0] if slots.colors else None,
+        slots.fit,
+        slots.fabric,
+    ]
     category = CATEGORIES[slots.category][0].lower() if slots.category else None
     summary = " ".join(w for w in [*known, category] if w)
     return f"Got it: {summary}. {question}"[:120] if summary else question
@@ -880,11 +914,28 @@ def _budget_slider(slots: Slots) -> BudgetSlider:
     )
 
 
+# How shoppers name a category in a store search ("asics shoes", not "asics sneakers").
+WEB_LABELS = {"sneakers": "shoes", "tshirt": "t-shirt"}
+
+
 def _web_query(slots: Slots) -> str:
     """What a shopper would type into a store: "women black linen wedding kurta"."""
-    label = CATEGORIES[slots.category][0].lower() if slots.category else ""
+    label = WEB_LABELS.get(
+        slots.category or "", CATEGORIES[slots.category][0].lower() if slots.category else ""
+    )
     gender = slots.gender if slots.gender in {"men", "women"} else ""
-    words = [gender, *slots.colors[:1], slots.fit, slots.fabric, slots.occasion, label]
+    # A brand search stays on the brand: an occasion word would pull in other brands.
+    occasion = None if slots.brand else slots.occasion
+    words = [
+        gender,
+        slots.brand,
+        *slots.colors[:1],
+        slots.fit,
+        slots.fabric,
+        *slots.keywords[:2],
+        occasion,
+        label,
+    ]
     return " ".join(w for w in words if w)
 
 
@@ -899,8 +950,10 @@ def _deck_title(slots: Slots) -> str:
     who = {"men": " for men", "women": " for women", "unisex": ", unisex"}.get(
         slots.gender or "", ""
     )
-    occasion = f"{slots.occasion.title()} " if slots.occasion else ""
+    occasion = f"{slots.occasion.title()} " if slots.occasion and not slots.brand else ""
     budget = f" under {rupees(slots.budget_max_paise)}" if slots.budget_max_paise else ""
+    if slots.brand:
+        return f"{slots.brand} {label.lower()}{who}{budget}"[:120]
     return f"{occasion}{label.lower() if occasion else label}{who}{budget}"[:120]
 
 

@@ -23,6 +23,7 @@ from stylesense.integrations.embeddings.gateway import GatewayEmbedder
 from stylesense.integrations.embeddings.hashing import HashingEmbedder
 from stylesense.integrations.google_identity import GoogleIdTokenVerifier, google_signing_keys
 from stylesense.integrations.llm.anthropic_provider import AnthropicProvider
+from stylesense.integrations.llm.groq_provider import GroqProvider
 from stylesense.integrations.llm.openai_provider import OpenAIProvider
 from stylesense.integrations.media.cloudinary import CloudinaryStore
 from stylesense.integrations.sources.web_search import (
@@ -32,7 +33,7 @@ from stylesense.integrations.sources.web_search import (
     fetch_page,
 )
 from stylesense.integrations.tryon.fake import FakeTryOnProvider
-from stylesense.integrations.tryon.openai_images import OpenAIImageTryOn
+from stylesense.integrations.tryon.openai_images import ImagePrices, OpenAIImageTryOn
 from stylesense.modules.auth.ports import IdentityVerifier
 from stylesense.modules.auth.service import AuthService
 from stylesense.modules.auth.tokens import AccessTokenCodec
@@ -62,7 +63,7 @@ from stylesense.platform.slugs import Pseudonymizer
 
 _MICRO_USD_PER_USD = 1_000_000
 # Adapters that exist in code (whether or not a key is configured yet).
-KNOWN_LLM_PROVIDERS = frozenset({"openai", "anthropic"})
+KNOWN_LLM_PROVIDERS = frozenset({"openai", "anthropic", "groq"})
 
 Closer = Callable[[], Awaitable[None]]
 
@@ -253,6 +254,7 @@ def build_container(
                 looks,
                 uploads,
                 live=_live_catalog(settings, catalog),
+                ai_reasons=settings.stylist_ai_reasons,
             ),
             "style_dna": StyleDnaFlow(personalization),
             # Kept so sessions started on it keep working.
@@ -319,6 +321,17 @@ def _live_catalog(settings: Settings, catalog: CatalogService) -> WebCatalog | N
     return WebCatalog(catalog, WebSearchFinder(search=ddg_images, fetch=fetch_page))
 
 
+def _image_prices(settings: Settings) -> ImagePrices | None:
+    image_in, text_in, out = (
+        settings.tryon_price_image_input,
+        settings.tryon_price_text_input,
+        settings.tryon_price_output,
+    )
+    if image_in is None or text_in is None or out is None:
+        return None
+    return ImagePrices(image_input=image_in, text_input=text_in, output=out)
+
+
 def _tryon_provider(settings: Settings) -> TryOnProvider | None:
     if settings.tryon_provider == "fake":
         return FakeTryOnProvider()
@@ -333,6 +346,7 @@ def _tryon_provider(settings: Settings) -> TryOnProvider | None:
             quality=settings.tryon_openai_quality,
             input_fidelity=settings.tryon_openai_input_fidelity,
             cost_micro_usd=settings.tryon_cost_micro_usd,
+            prices=_image_prices(settings),
         )
     return None
 
@@ -351,4 +365,8 @@ def _llm_providers(
         anthropic_provider = AnthropicProvider(settings.anthropic_api_key.get_secret_value())
         chat["anthropic"] = anthropic_provider
         closers.append(anthropic_provider.aclose)
+    if settings.groq_api_key:
+        groq_provider = GroqProvider(settings.groq_api_key.get_secret_value())
+        chat["groq"] = groq_provider
+        closers.append(groq_provider.aclose)
     return chat, embed, closers

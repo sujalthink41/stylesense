@@ -5,7 +5,7 @@ import httpx2 as httpx
 import openai
 import pytest
 
-from stylesense.integrations.tryon.openai_images import OpenAIImageTryOn
+from stylesense.integrations.tryon.openai_images import ImagePrices, OpenAIImageTryOn
 from stylesense.modules.tryon.ports import TryOnRejectedError, TryOnRetryableError
 
 PNG = b"\x89PNG\r\n\x1a\nfake"
@@ -145,3 +145,16 @@ async def test_photo_downloads_are_checked_before_paying(
         await render(provider)
     assert images.calls == []  # nothing sent to the paid API
     await provider.aclose()
+
+
+async def test_cost_comes_from_the_reported_token_usage() -> None:
+    usage = SimpleNamespace(
+        output_tokens=1584, input_tokens_details=SimpleNamespace(image_tokens=2000, text_tokens=120)
+    )
+    provider, _ = _provider(SimpleNamespace(data=[SimpleNamespace(b64_json="QUJD")], usage=usage))
+    provider._prices = ImagePrices(image_input=8, text_input=5, output=30)
+
+    result = await render(provider)
+
+    # 2000·8 + 120·5 + 1584·30 = 64,120 micro-USD ≈ $0.064
+    assert result.cost_micro_usd == 64_120  # type: ignore[attr-defined]

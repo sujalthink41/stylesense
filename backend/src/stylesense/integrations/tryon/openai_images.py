@@ -5,10 +5,12 @@ The model name, quality and per-image cost come from settings (never hard-coded)
 comes back as base64; we hand it on as a data URI, which our storage imports directly.
 """
 
+from dataclasses import dataclass
 from typing import Literal
 
 import httpx2 as httpx
 import openai
+import structlog
 from openai import AsyncOpenAI, omit
 
 from stylesense.modules.tryon.ports import TryOnRejectedError, TryOnResult, TryOnRetryableError
@@ -20,6 +22,19 @@ PROMPT = (
     "keep everything else unchanged. Photorealistic, natural fit and lighting."
 )
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
+logger = structlog.get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ImagePrices:
+    """USD per 1M tokens, from the provider's price list (configured, never guessed)."""
+
+    image_input: float
+    text_input: float
+    output: float
+
+    def micro_usd(self, *, image_in: int, text_in: int, out: int) -> int:
+        return round(image_in * self.image_input + text_in * self.text_input + out * self.output)
 
 
 class OpenAIImageTryOn:
@@ -33,6 +48,7 @@ class OpenAIImageTryOn:
         quality: Literal["low", "medium", "high"],
         input_fidelity: Literal["low", "high"] | None = None,
         cost_micro_usd: int,
+        prices: ImagePrices | None = None,
         timeout_s: float = 150,
         http: httpx.AsyncClient | None = None,
         client: AsyncOpenAI | None = None,
@@ -43,6 +59,7 @@ class OpenAIImageTryOn:
         self._quality = quality
         self._fidelity = input_fidelity
         self._cost = cost_micro_usd
+        self._prices = prices
         self._timeout = timeout_s
 
     async def render(
@@ -80,7 +97,22 @@ class OpenAIImageTryOn:
         data = result.data[0].b64_json if result.data else None
         if not data:
             raise TryOnRetryableError("empty_result")
-        return TryOnResult(image_url=f"data:image/png;base64,{data}", cost_micro_usd=self._cost)
+        return TryOnResult(
+            image_url=f"data:image/png;base64,{data}", cost_micro_usd=self._cost_of(result)
+        )
+
+    def _cost_of(self, result: object) -> int:
+        """Exact cost from the token usage the API reports; the flat setting otherwise."""
+        usage = getattr(result, "usage", None)
+        if self._prices is None or usage is None:
+            return self._cost
+        details = getattr(usage, "input_tokens_details", None)
+        image_in = int(getattr(details, "image_tokens", 0) or 0)
+        text_in = int(getattr(details, "text_tokens", 0) or 0)
+        out = int(getattr(usage, "output_tokens", 0) or 0)
+        cost = self._prices.micro_usd(image_in=image_in, text_in=text_in, out=out)
+        logger.info("tryon_cost", image_in=image_in, text_in=text_in, output=out, micro_usd=cost)
+        return cost
 
     async def _download(self, url: str, name: str) -> tuple[str, bytes, str]:
         try:

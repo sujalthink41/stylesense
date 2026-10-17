@@ -1,7 +1,8 @@
 import uuid
 from collections.abc import Sequence
+from typing import Any
 
-from sqlalchemy import func, literal, select, text
+from sqlalchemy import Select, func, literal, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -85,24 +86,7 @@ class CatalogRepository:
             .options(selectinload(Product.offers).selectinload(Offer.store))
             .limit(q.limit)
         )
-        if q.price_known is True:
-            stmt = stmt.where(Product.min_price_paise.is_not(None))
-        elif q.price_known is False:
-            stmt = stmt.where(Product.min_price_paise.is_(None))
-        if q.category:
-            stmt = stmt.where(Product.category == q.category)
-        if q.gender in {"men", "women"}:
-            stmt = stmt.where(Product.gender.in_({q.gender, "unisex"}))
-        elif q.gender == "unisex":
-            stmt = stmt.where(Product.gender == "unisex")
-        if q.min_price_paise is not None:
-            stmt = stmt.where(Product.min_price_paise >= q.min_price_paise)
-        if q.max_price_paise is not None:
-            stmt = stmt.where(Product.min_price_paise <= q.max_price_paise)
-        if q.exclude_ids:
-            stmt = stmt.where(Product.id.not_in(q.exclude_ids))
-        if q.size:
-            stmt = stmt.where(Product.sizes_available.contains([q.size]))
+        stmt = _search_filters(stmt, q)
         if embedding is not None:
             stmt = stmt.order_by(distance.asc().nulls_last(), Product.id)
         elif q.taste is not None:
@@ -155,3 +139,37 @@ class CatalogRepository:
 
 def _similarity(distance: float | None) -> float | None:
     return None if distance is None else 1.0 - float(distance)
+
+
+def _word_pattern(brand: str) -> str:
+    """A Postgres regex matching the brand as whole words, case-insensitively (with ~*).
+    Every non-alphanumeric character is escaped, so user text can't inject a pattern."""
+    escaped = "".join(c if c.isalnum() or c == " " else "\\" + c for c in brand.strip())
+    return r"(^|[^[:alnum:]])" + escaped.replace(" ", r"\s+") + r"([^[:alnum:]]|$)"
+
+
+def _search_filters[S: Select[Any]](stmt: S, q: SearchQuery) -> S:
+    """The hard filters: what the shopper asked for is never relaxed here."""
+    if q.brand:
+        # Whole words only: "asics" must not match inside "classics".
+        pattern = _word_pattern(q.brand)
+        stmt = stmt.where(or_(Product.brand.op("~*")(pattern), Product.title.op("~*")(pattern)))
+    if q.price_known is True:
+        stmt = stmt.where(Product.min_price_paise.is_not(None))
+    elif q.price_known is False:
+        stmt = stmt.where(Product.min_price_paise.is_(None))
+    if q.category:
+        stmt = stmt.where(Product.category == q.category)
+    if q.gender in {"men", "women"}:
+        stmt = stmt.where(Product.gender.in_({q.gender, "unisex"}))
+    elif q.gender == "unisex":
+        stmt = stmt.where(Product.gender == "unisex")
+    if q.min_price_paise is not None:
+        stmt = stmt.where(Product.min_price_paise >= q.min_price_paise)
+    if q.max_price_paise is not None:
+        stmt = stmt.where(Product.min_price_paise <= q.max_price_paise)
+    if q.exclude_ids:
+        stmt = stmt.where(Product.id.not_in(q.exclude_ids))
+    if q.size:
+        stmt = stmt.where(Product.sizes_available.contains([q.size]))
+    return stmt

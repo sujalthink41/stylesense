@@ -115,7 +115,8 @@ class TryOnService:
     # ---------- requests ----------
 
     async def request(self, user_id: uuid.UUID, body: TryOnCreate) -> tuple[TryOnView, bool]:
-        """Returns (job, created). The same selfie + product while a job is active = that job."""
+        """Returns (job, created). The same selfie + product while a job is active, or already
+        rendered and not expired, returns that job: one paid render per look."""
         if self._provider is None or self._store is None:
             raise TryOnUnavailableError
         await self._uploads.image_url(user_id, body.selfie_upload_id, kind="selfie")  # owned, ready
@@ -133,6 +134,19 @@ class TryOnService:
                     TryOnJob.selfie_upload_id == body.selfie_upload_id,
                     TryOnJob.product_id == body.product_id,
                     TryOnJob.status.in_(_ACTIVE),
+                )
+            )
+            # Same selfie, same product, already rendered and still kept: show it again
+            # instead of paying for an identical image.
+            existing = existing or await s.scalar(
+                select(TryOnJob).where(
+                    TryOnJob.user_id == user_id,
+                    TryOnJob.selfie_upload_id == body.selfie_upload_id,
+                    TryOnJob.product_id == body.product_id,
+                    TryOnJob.status == "done",
+                    TryOnJob.reported_at.is_(None),
+                    TryOnJob.result_deleted_at.is_(None),
+                    TryOnJob.expires_at > now,
                 )
             )
             if existing is not None:

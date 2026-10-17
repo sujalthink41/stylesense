@@ -83,6 +83,8 @@ class SearchQuery(BaseModel):
     # True: only products with a real price (decks, budgets). False: only those whose price we
     # don't know yet ("See price on …"). None: both.
     price_known: bool | None = True
+    # A named brand is a hard filter (matched on the brand or the title, any case).
+    brand: str | None = Field(default=None, max_length=40)
 
 
 @dataclass(frozen=True, slots=True)

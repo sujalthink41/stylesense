@@ -317,6 +317,21 @@ async def test_a_double_tap_creates_one_paid_try_on(world: World, user_id: uuid.
     assert done.result_url is not None
 
 
+async def test_the_same_look_again_reuses_the_result_without_paying_twice(
+    world: World, user_id: uuid.UUID
+) -> None:
+    body = TryOnCreate(
+        selfie_upload_id=await world.ready_photo(user_id), product_id=await _product(world.sessions)
+    )
+    first, _ = await world.tryon.request(user_id, body)
+    await world.run_queue()
+
+    again, created = await world.tryon.request(user_id, body)
+
+    assert (again.id, again.status, created) == (first.id, "done", False)
+    assert len(world.provider.calls) == 1  # one paid render for the look
+
+
 async def test_a_finished_job_records_its_cost_and_stored_result(
     world: World, user_id: uuid.UUID
 ) -> None:

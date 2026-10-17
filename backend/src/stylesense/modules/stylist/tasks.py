@@ -4,9 +4,10 @@ categories or colours; numbers are bounded; everything is validated by the gatew
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from stylesense.ai.gateway.tasks import TaskSpec
+from stylesense.modules.stylist.brands import find_brand
 from stylesense.modules.stylist.slots import Slots
 
 Category = Literal[
@@ -74,6 +75,13 @@ class UnderstandOutput(BaseModel):
     colors: list[Color] = Field(default_factory=list, max_length=3)
     fit: Fit | None = None
     fabric: Fabric | None = None
+    brand: str | None = Field(default=None, max_length=40)
+
+    @field_validator("colors", mode="before")
+    @classmethod
+    def _null_means_none(cls, value: object) -> object:
+        # Open models often send null for "no colours"; one null must not void the whole answer.
+        return [] if value is None else value
 
     def to_slots(self) -> Slots:
         low, high = self.budget_min_rupees, self.budget_max_rupees
@@ -86,6 +94,7 @@ class UnderstandOutput(BaseModel):
             colors=list(self.colors),
             fit=self.fit,
             fabric=self.fabric,
+            brand=(find_brand(self.brand) or self.brand.strip()[:40]) if self.brand else None,
             budget_min_paise=low * 100 if low is not None else None,
             budget_max_paise=high * 100 if high is not None else None,
         )

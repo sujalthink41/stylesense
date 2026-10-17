@@ -66,6 +66,10 @@ class Slots(BaseModel):
     colors: list[str] = Field(default_factory=list)
     fit: str | None = None
     fabric: str | None = None
+    # A named brand is a hard filter ("asics shoes" shows ASICS). Keywords are the words rules
+    # didn't map to a field ("running", "chunky"): they sharpen the store search.
+    brand: str | None = Field(default=None, max_length=40)
+    keywords: list[str] = Field(default_factory=list, max_length=4)
     # Shop-from-a-photo shows matches straight away; budget becomes a refinement, not a gate.
     budget_optional: bool = False
 

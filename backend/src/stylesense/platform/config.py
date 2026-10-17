@@ -93,6 +93,9 @@ class Settings(BaseSettings):
     # AI gateway. A provider is enabled only when its key is set.
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None  # OpenAI-compatible; routes say groq:<model>
+    # Card reasons from the model cost tokens on every deck; rule-based reasons are free.
+    stylist_ai_reasons: bool = False
     llm_daily_budget_usd: Decimal = Field(default=Decimal("2.00"), ge=0, le=10_000)
     llm_budget_alert_ratio: float = Field(default=0.8, gt=0, le=1)
     llm_max_attempts: int = Field(default=3, ge=1, le=5)
@@ -122,7 +125,11 @@ class Settings(BaseSettings):
     tryon_openai_quality: Literal["low", "medium", "high"] = "medium"
     # Only some image models accept input_fidelity; leave unset for those that don't.
     tryon_openai_input_fidelity: Literal["low", "high"] | None = None
-    tryon_cost_micro_usd: int = Field(default=0, ge=0)  # per image, for the spend ledger
+    tryon_cost_micro_usd: int = Field(default=0, ge=0)  # flat fallback per image
+    # USD per 1M tokens from the provider's price list; set all three for exact per-job cost.
+    tryon_price_image_input: float | None = Field(default=None, ge=0)
+    tryon_price_text_input: float | None = Field(default=None, ge=0)
+    tryon_price_output: float | None = Field(default=None, ge=0)
     tryon_daily_limit: int = Field(default=3, ge=0, le=100)  # per user
     tryon_global_daily_limit: int = Field(default=200, ge=0, le=100_000)  # paid: hard cap
 
@@ -136,6 +143,7 @@ class Settings(BaseSettings):
     @field_validator(
         "openai_api_key",
         "anthropic_api_key",
+        "groq_api_key",
         "cloudinary_cloud_name",
         "cloudinary_api_key",
         "cloudinary_api_secret",
