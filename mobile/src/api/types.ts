@@ -13,6 +13,8 @@ export type BoardSummary = S['BoardSummary'];
 export type BoardView = S['BoardView'];
 export type StyleProfileView = S['StyleProfileView'];
 export type StyleOptions = S['StyleOptions'];
+export type TryOnQuota = S['TryOnQuota'];
+export type LegalView = S['LegalView'];
 /** Where a store click came from: the server rejects anything else (422). */
 export type ClickSource = NonNullable<operations['outbound_v1_out__offer_id__get']['parameters']['query']>['src'];
 export type ProductSummary = S['ProductSummary'];

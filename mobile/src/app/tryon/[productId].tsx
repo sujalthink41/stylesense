@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { friendlyMessage } from '@/api/errors';
+import type { TryOnQuota } from '@/api/types';
 import { api } from '@/auth/session';
 import { useTheme } from '@/design/theme';
 import { palette, radius, space } from '@/design/tokens';
@@ -39,6 +41,10 @@ export default function TryOnScreen() {
   const { productId, title } = useLocalSearchParams<{ productId: string; title?: string }>();
   const { colors } = useTheme();
   const [stage, setStage] = useState<Stage>({ kind: 'intro' });
+  const client = useQueryClient();
+  const quota = useQuery({ queryKey: ['tryon-quota'], queryFn: () => api.get<TryOnQuota>('/v1/tryon/quota') });
+  // Unknown yet (loading/offline): let them try; the server has the final word.
+  const canTry = !quota.data || (quota.data.available && quota.data.remaining > 0);
   const alive = useRef(true);
   useEffect(
     () => () => {
@@ -49,6 +55,7 @@ export default function TryOnScreen() {
 
   const follow = async (job: TryOn) => {
     for (let i = 0; i < POLL_LIMIT && alive.current; i++) {
+      if (job.status === 'done' || job.status === 'failed') void client.invalidateQueries({ queryKey: ['tryon-quota'] });
       if (job.status === 'done') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         return setStage({ kind: 'done', job });
@@ -124,8 +131,17 @@ export default function TryOnScreen() {
             </Text>
           </Rise>
           <Rise index={2} style={{ gap: 8 }}>
-            <Button label="Take a selfie" variant="inverse" size="lg" icon="camera" fullWidth onPress={() => void start('camera')} />
-            <Button label="Choose from photos" variant="ghost" fullWidth onPress={() => void start('library')} />
+            <QuotaPill quota={quota.data} />
+            <Button
+              label="Take a selfie"
+              variant="inverse"
+              size="lg"
+              icon="camera"
+              fullWidth
+              disabled={!canTry}
+              onPress={() => void start('camera')}
+            />
+            <Button label="Choose from photos" variant="ghost" fullWidth disabled={!canTry} onPress={() => void start('library')} />
           </Rise>
         </View>
       ) : null}
@@ -150,6 +166,28 @@ export default function TryOnScreen() {
       ) : null}
     </SafeAreaView>
   );
+}
+
+/** "2 of 3 try-ons left today", or why there are none right now. */
+function QuotaPill({ quota }: { quota: TryOnQuota | undefined }) {
+  if (!quota) return null;
+  let text: string;
+  if (!quota.available) text = 'Our try-on studio is busy right now. Please try again in a little while.';
+  else if (quota.remaining === 0) text = `You've used your ${quota.limit} try-ons for today. More from ${resetTime(quota.resets_at)}.`;
+  else text = `${quota.remaining} of ${quota.limit} try-ons left today`;
+  const out = !quota.available || quota.remaining === 0;
+  return (
+    <View style={[styles.pill, out && styles.pillOut]} accessibilityLiveRegion="polite">
+      <Text variant="bodySmall" tone="onShell" align="center">
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function resetTime(iso: string | null | undefined): string {
+  if (!iso) return 'tomorrow';
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 }
 
 /** The result is revealed top to bottom, like a print lifted off the block. */
@@ -220,4 +258,6 @@ const styles = StyleSheet.create({
   mask: { overflow: 'hidden', width: '100%' },
   resultImage: { width: '100%', aspectRatio: 2 / 3 },
   row: { flexDirection: 'row', gap: 10 },
+  pill: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.12)' },
+  pillOut: { backgroundColor: 'rgba(184,50,42,0.55)' },
 });

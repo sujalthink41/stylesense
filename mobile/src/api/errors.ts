@@ -79,7 +79,9 @@ export function friendlyMessage(error: unknown): string {
     case 'photo_rejected':
       return 'That photo didn’t work. Try a clear, well-lit photo.';
     case 'tryon_unavailable':
-      return 'Try-on is resting right now. Try again in a little while.';
+      return 'Our try-on studio is busy right now. Please try again in a little while.';
+    case 'tryon_daily_limit':
+      return error.detail ?? "You've used today's try-ons. Come back tomorrow.";
     case 'app_update_required':
       return 'Please update StyleSense to keep going.';
     default:
