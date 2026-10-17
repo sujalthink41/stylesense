@@ -20,6 +20,7 @@ from stylesense.modules.catalog.service import CatalogService
 from stylesense.modules.tryon.exceptions import (
     TryOnNotFoundError,
     TryOnNotRetryableError,
+    TryOnQuotaError,
     TryOnUnavailableError,
 )
 from stylesense.modules.tryon.models import TryOnJob
@@ -442,11 +443,51 @@ async def test_try_on_quota_is_per_user_and_per_day(world: World, user_id: uuid.
             TryOnCreate(selfie_upload_id=selfie, product_id=await _product(world.sessions, n)),
         )
 
-    with pytest.raises(DailyLimitError):
+    quota = await world.tryon.quota(user_id)
+    assert (quota.limit, quota.used, quota.remaining) == (3, 3, 0)
+    assert quota.resets_at is not None
+
+    with pytest.raises(TryOnQuotaError) as caught:
         await world.tryon.request(
             user_id,
             TryOnCreate(selfie_upload_id=selfie, product_id=await _product(world.sessions, 3)),
         )
+    assert caught.value.extra["limit"] == 3
+    assert "3 try-ons for today" in str(caught.value)
+
+
+async def test_a_fresh_account_has_all_its_try_ons(world: World, user_id: uuid.UUID) -> None:
+    quota = await world.tryon.quota(user_id)
+
+    assert (quota.limit, quota.used, quota.remaining, quota.resets_at, quota.available) == (
+        3,
+        0,
+        3,
+        None,
+        True,
+    )
+
+
+async def test_out_of_credit_fails_at_once_without_retries_or_using_quota(
+    world: World, user_id: uuid.UUID
+) -> None:
+    world.provider.out_of_credit()
+    job, _ = await world.tryon.request(
+        user_id,
+        TryOnCreate(
+            selfie_upload_id=await world.ready_photo(user_id),
+            product_id=await _product(world.sessions),
+        ),
+    )
+
+    await world.run_queue()
+
+    failed = await world.tryon.get(user_id, job.id)
+    assert failed.status == "failed"
+    assert "busy right now" in (failed.error or "")
+    assert failed.retryable  # free retry later
+    assert len(world.provider.calls) == 1  # no retry storm against an empty account
+    assert (await world.tryon.quota(user_id)).remaining == 3  # failures don't count
 
 
 async def test_concurrent_requests_for_different_items_respect_the_quota(
@@ -464,7 +505,7 @@ async def test_concurrent_requests_for_different_items_respect_the_quota(
     )
 
     assert sum(not isinstance(r, Exception) for r in results) == 3
-    assert all(isinstance(r, DailyLimitError) for r in results if isinstance(r, Exception))
+    assert all(isinstance(r, TryOnQuotaError) for r in results if isinstance(r, Exception))
 
 
 async def test_the_global_daily_cap_protects_the_budget(

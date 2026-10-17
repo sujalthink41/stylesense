@@ -6,7 +6,11 @@ import openai
 import pytest
 
 from stylesense.integrations.tryon.openai_images import ImagePrices, OpenAIImageTryOn
-from stylesense.modules.tryon.ports import TryOnRejectedError, TryOnRetryableError
+from stylesense.modules.tryon.ports import (
+    TryOnExhaustedError,
+    TryOnRejectedError,
+    TryOnRetryableError,
+)
 
 PNG = b"\x89PNG\r\n\x1a\nfake"
 
@@ -158,3 +162,18 @@ async def test_cost_comes_from_the_reported_token_usage() -> None:
 
     # 2000·8 + 120·5 + 1584·30 = 64,120 micro-USD ≈ $0.064
     assert result.cost_micro_usd == 64_120  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _status(openai.RateLimitError, 429, "insufficient_quota"),
+        _status(openai.AuthenticationError, 401),
+        _status(openai.PermissionDeniedError, 403),
+    ],
+)
+async def test_an_empty_balance_or_bad_key_is_not_retried(error: Exception) -> None:
+    provider, _ = _provider(error)
+
+    with pytest.raises(TryOnExhaustedError):
+        await render(provider)

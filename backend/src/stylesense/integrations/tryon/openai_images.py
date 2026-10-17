@@ -13,7 +13,12 @@ import openai
 import structlog
 from openai import AsyncOpenAI, omit
 
-from stylesense.modules.tryon.ports import TryOnRejectedError, TryOnResult, TryOnRetryableError
+from stylesense.modules.tryon.ports import (
+    TryOnExhaustedError,
+    TryOnRejectedError,
+    TryOnResult,
+    TryOnRetryableError,
+)
 
 PROMPT = (
     "Virtual try-on. Image 1 is a person; image 2 is a garment. Show the same person, with the "
@@ -80,10 +85,15 @@ class OpenAIImageTryOn:
                 user=idempotency_key,  # lets abuse monitoring group a job's calls
                 timeout=self._timeout,
             )
+        except openai.RateLimitError as e:
+            if _out_of_credit(e):
+                raise TryOnExhaustedError(e.code or "insufficient_quota") from e
+            raise TryOnRetryableError("rate_limited") from e
+        except (openai.AuthenticationError, openai.PermissionDeniedError) as e:
+            raise TryOnExhaustedError(type(e).__name__) from e  # key revoked or blocked
         except (
             openai.APITimeoutError,
             openai.APIConnectionError,
-            openai.RateLimitError,
             openai.InternalServerError,
         ) as e:
             raise TryOnRetryableError(type(e).__name__) from e
@@ -130,3 +140,12 @@ class OpenAIImageTryOn:
 
     async def aclose(self) -> None:
         await self._http.aclose()
+
+
+def _out_of_credit(error: openai.RateLimitError) -> bool:
+    """A 429 for an empty balance or a hit spend cap, not a momentary rate limit."""
+    code = (error.code or "").lower()
+    return (
+        code in {"insufficient_quota", "billing_hard_limit_reached"}
+        or "quota" in str(error).lower()
+    )

@@ -10,6 +10,11 @@ class TryOnRejectedError(Exception):
     """The provider refused these images (no person found, unsafe content): don't retry."""
 
 
+class TryOnExhaustedError(Exception):
+    """Our account can't render now (credit used up, key revoked, spend limit hit).
+    Retrying only wastes requests: fail at once with a "come back later" message."""
+
+
 @dataclass(frozen=True, slots=True)
 class TryOnResult:
     image_url: str  # where to fetch the rendered image (copied into our storage at once)

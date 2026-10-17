@@ -88,13 +88,17 @@ from stylesense.modules.personalization.schemas import SwipeInput, Taste
 from stylesense.modules.personalization.styles import SIZE_KIND
 from stylesense.modules.stylist.explain import clean, rule_reasons, rupees
 from stylesense.modules.stylist.flows.base import DeckPage, Entry, Progress, Rendered, TurnContext
+from stylesense.modules.stylist.guard import OFF_TOPIC_REPLY, UNSAFE_REPLY, screen
 from stylesense.modules.stylist.ports import LiveCatalog, PhotoSource, TasteSource
 from stylesense.modules.stylist.ranking import Ranked, rank
 from stylesense.modules.stylist.slots import CATEGORIES, OCCASIONS, Slots
 from stylesense.modules.stylist.tasks import (
     PHOTO_UNDERSTAND,
+    STYLIST_ADVISE,
     STYLIST_EXPLAIN,
     STYLIST_UNDERSTAND,
+    AdviceInput,
+    AdviceOutput,
     ExplainInput,
     ExplainOutput,
     ExplainProduct,
@@ -300,7 +304,16 @@ class StylistFlow:
             return {}
         p = s["persisted"]
         known = Slots.model_validate(p["slots"])
+        verdict = screen(text, in_conversation=bool(known.category or known.occasion))
+        if verdict in {"unsafe", "off_topic"}:
+            # Nothing is kept or searched; only the verdict is logged, never the text.
+            logger.info("stylist_guard", verdict=verdict)
+            reply = UNSAFE_REPLY if verdict == "unsafe" else OFF_TOPIC_REPLY
+            return {"persisted": p, "notice": reply}
+        advice = await self._ai_advise(s, text, known) if verdict == "question" else None
         from_rules = parse_request(text)
+        if advice is not None and advice.search:
+            from_rules = from_rules.merged(parse_request(advice.search))
         slots = known.merged(from_rules)
         # The AI is asked only when the rules couldn't place some words AND something we
         # must know (category, who it's for) is still missing: most requests cost no tokens.
@@ -310,12 +323,15 @@ class StylistFlow:
         p["query"] = f"{p['query']} {text}".strip()[-500:]
         if slots.model_copy(update={"keywords": known.keywords}) == known:
             slots = known  # nothing understood: don't keep noise as keywords
+            answer = advice.answer if advice is not None else None
             return {
                 "persisted": p,
-                "notice": "I didn't catch that. Try a category, colour or budget.",
+                "notice": answer or "I didn't catch that. Try a category, colour or budget.",
             }
         p["slots"] = slots.model_dump()
         p["page"] = 0
+        if advice is not None:
+            return {"persisted": p, "notice": advice.answer}  # the answer, above the picks
         return {"persisted": p}
 
     def _decide(self, s: _State) -> str:
@@ -650,6 +666,14 @@ class StylistFlow:
             UnderstandInput(text=text, known=known.model_dump(exclude_defaults=True)),
         )
         return result.to_slots() if isinstance(result, UnderstandOutput) else None
+
+    async def _ai_advise(self, s: _State, text: str, known: Slots) -> AdviceOutput | None:
+        result = await self._ask_ai(
+            s,
+            STYLIST_ADVISE,
+            AdviceInput(question=text[:300], known=known.model_dump(exclude_defaults=True)),
+        )
+        return result if isinstance(result, AdviceOutput) else None
 
     async def _ai_explain(self, s: _State, slots: Slots) -> dict[str, list[str]] | None:
         products = [

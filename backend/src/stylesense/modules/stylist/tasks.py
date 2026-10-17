@@ -179,3 +179,45 @@ STYLIST_EXPLAIN = TaskSpec(
     input_type=ExplainInput,
     output_type=ExplainOutput,
 )
+
+
+class AdviceInput(BaseModel):
+    question: str = Field(max_length=300)
+    known: dict[str, Any]
+
+
+ADVICE_MAX_CHARS = 280
+
+
+class AdviceOutput(BaseModel):
+    answer: str
+    search: str | None = None  # a short shopping query for what to show, e.g. "white sneakers men"
+
+    @field_validator("answer", mode="before")
+    @classmethod
+    def _short(cls, value: object) -> object:
+        # A long answer is trimmed, never rejected: one over-long reply must not cost a retry.
+        text = str(value or "").strip()
+        return (
+            text if len(text) <= ADVICE_MAX_CHARS else text[: ADVICE_MAX_CHARS - 1].rstrip() + "…"
+        )
+
+    @field_validator("search", mode="before")
+    @classmethod
+    def _query(cls, value: object) -> object:
+        return str(value).strip()[:80] or None if value else None
+
+
+STYLIST_ADVISE = TaskSpec(
+    name="stylist.advise",
+    prompt_version="2026-10-17",
+    instructions=(
+        "You are a friendly Indian fashion stylist. Answer the shopper's fashion question in at "
+        "most two short sentences (under 40 words): practical, specific, India-aware. If showing "
+        "products would help, set `search` to a short shopping query for the one best item to buy "
+        "(category plus key attributes and gender if known, e.g. 'white leather sneakers men'); "
+        "otherwise null. Never mention prices, stores or links. `known` is what we already know."
+    ),
+    input_type=AdviceInput,
+    output_type=AdviceOutput,
+)
