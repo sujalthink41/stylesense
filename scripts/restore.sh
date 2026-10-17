@@ -14,7 +14,7 @@ POSTGRES_DB="$(env_get POSTGRES_DB)"
 read -r -p "Replace ALL data in '$POSTGRES_DB' with $FILE? Type 'restore' to continue: " answer
 [ "$answer" = "restore" ] || { echo "Cancelled."; exit 1; }
 
-"${COMPOSE[@]}" stop api worker tunnel
+"${COMPOSE[@]}" stop api worker
 "${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 \
   -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\" WITH (FORCE);" \
   -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\";"

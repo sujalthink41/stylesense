@@ -5,6 +5,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 COMPOSE=(docker compose --env-file .env -f infra/compose/compose.yml -f infra/compose/compose.prod.yml)
+# The Cloudflare tunnel container runs only when a token is set (otherwise: Tailscale Funnel).
+if grep -qE '^CLOUDFLARE_TUNNEL_TOKEN=.+' .env && ! grep -qE '^CLOUDFLARE_TUNNEL_TOKEN=(CHANGE-ME)?$' .env; then
+  export COMPOSE_PROFILES=cloudflare
+fi
 cli() { "${COMPOSE[@]}" exec -T api python -m stylesense.cli "$@" >/dev/null; }
 
 GROQ=groq:openai/gpt-oss-20b

@@ -1,6 +1,6 @@
 # Deploying StyleSense on a homelab server
 
-This puts the backend on your own server and the internet reaches it through a **Cloudflare Tunnel**:
+This puts the backend on your own server. The internet reaches it through **Tailscale Funnel** (no domain needed) or a **Cloudflare Tunnel** (with your own domain):
 - no router ports to open and no static IP;
 - free HTTPS;
 - works behind Jio/Airtel CGNAT.
@@ -25,22 +25,39 @@ Nothing on the server listens on a public port. Share links (`/l/…`), poll pag
 |---|---|
 | Server | Linux (Ubuntu 22.04+ or Debian 12), 64-bit, **4 GB RAM**, 20 GB free disk, always on |
 | Docker | Docker Engine with the Compose plugin: `curl -fsSL https://get.docker.com \| sh`, then `sudo usermod -aG docker $USER` and log in again |
-| Domain | Any domain added to Cloudflare (free plan). Buying one through Cloudflare Registrar costs about ₹800 a year. |
+| Public address | Tailscale Funnel (free, no domain), or a domain on Cloudflare (about ₹800 a year) |
 | Keys | The same ones as in your dev `.env`: Groq, OpenAI, Cloudinary, and the Google Web client ID |
 
 Check Docker with `docker run --rm hello-world` and `docker compose version`.
 
-## 2. Create the Cloudflare Tunnel (about 5 minutes)
+## 2. Choose how the internet reaches the server
 
-1. In the Cloudflare dashboard, go to **Zero Trust → Networks → Tunnels → Create a tunnel**.
-2. Choose **Cloudflared** and name it `stylesense`.
-3. On the install screen, copy only the **token**: the long string after `--token` in the command it shows. You don't need to run that command; Docker runs cloudflared for you.
-4. Next, set the **Public hostname**:
-   - Subdomain: `stylesense` (or anything you like). Domain: your domain.
-   - Service: **HTTP**, URL: `api:8000`.
-5. Save. The tunnel shows *Down* until step 3 below starts it.
+### Option A: Tailscale Funnel (no domain needed, free)
 
-Your public URL is now `https://stylesense.yourdomain.com`.
+It gives you a permanent HTTPS address like `https://homelab.tail1234.ts.net`.
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up                # opens a login link: sign in with Google or GitHub
+```
+
+1. In the Tailscale admin console, under **DNS**, turn on **MagicDNS** and **HTTPS Certificates**.
+2. Do the server install in step 3 below.
+3. Then run:
+
+```bash
+sudo tailscale funnel --bg 8000  # the first time, it prints a link to allow Funnel: open it
+tailscale funnel status          # shows your public URL
+```
+
+That URL is your `APP_PUBLIC_WEB_URL`. Leave `CLOUDFLARE_TUNNEL_TOKEN` empty.
+
+### Option B: your own domain with a Cloudflare Tunnel
+
+1. In the Cloudflare dashboard, go to **Zero Trust → Networks → Tunnels → Create a tunnel**, choose **Cloudflared**, and name it `stylesense`.
+2. Copy only the **token** (the long string after `--token`). Docker runs cloudflared for you.
+3. Add a **Public hostname**: `stylesense` on your domain → Service **HTTP**, URL `api:8000`.
+4. Put the token in `CLOUDFLARE_TUNNEL_TOKEN`. `deploy.sh` then starts the tunnel container.
 
 ## 3. Install on the server
 
@@ -56,9 +73,9 @@ What to put in `.env`:
 
 | Setting | Value |
 |---|---|
-| `APP_PUBLIC_WEB_URL` | `https://stylesense.yourdomain.com` (no trailing slash) |
+| `APP_PUBLIC_WEB_URL` | Your Funnel URL or `https://stylesense.yourdomain.com` (no trailing slash) |
 | `APP_SUPPORT_EMAIL` | An inbox you actually read. It appears on the privacy and deletion pages. |
-| `CLOUDFLARE_TUNNEL_TOKEN` | The token from step 2 |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Empty for Tailscale; the token from step 2B for Cloudflare |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` |
 | `APP_JWT_SECRET` | `openssl rand -base64 48`. Make a new one; don't reuse the dev secret. |
 | `APP_GOOGLE_CLIENT_IDS` | `["<your Web client ID>"]`, the same ID as in `mobile/eas.json` |

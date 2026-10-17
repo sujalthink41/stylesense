@@ -9,6 +9,10 @@ COMPOSE=(docker compose --env-file .env -f infra/compose/compose.yml -f infra/co
 [ -f .env ] || { echo "No .env: copy .env.prod.example to .env and fill it in." >&2; exit 1; }
 grep -q '^APP_ENV=production' .env || { echo ".env must have APP_ENV=production" >&2; exit 1; }
 mkdir -p backups
+# The Cloudflare tunnel container runs only when a token is set (otherwise: Tailscale Funnel).
+if grep -qE '^CLOUDFLARE_TUNNEL_TOKEN=.+' .env && ! grep -qE '^CLOUDFLARE_TUNNEL_TOKEN=(CHANGE-ME)?$' .env; then
+  export COMPOSE_PROFILES=cloudflare
+fi
 
 if [ "${1:-}" != "--no-pull" ]; then
   echo "==> Pulling the latest main"
